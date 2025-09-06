@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claims Enrichment Rules Management</title>
+    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .modal { display: none; }
+        .modal.show { display: flex; }
+        .filter-badge {
+            animation: slideIn 0.2s ease-out;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .collapse {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .expand {
+            max-height: 500px;
+            transition: max-height 0.3s ease-in;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto p-6">
+        <!-- Header -->
+        <div class="bg-white rounded-lg border p-6 mb-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">Claims Enrichment Rules</h1>
+                    <p class="text-gray-600 mt-2">Manage your claim enrichment business rules across PBMs</p>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <!-- PBM Selector -->
+                    <select id="pbm-selector" 
+                            hx-get="/api/rules" 
+                            hx-target="#rules-container"
+                            hx-trigger="change"
+                            hx-include="[name*='filter']"
+                            class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="">Select PBM</option>
+                        <option value="CVS">CVS</option>
+                        <option value="WAG">Walgreens</option>
+                        <option value="ESI">Express Scripts</option>
+                        <option value="CAR">Caremark</option>
+                    </select>
+                    
+                    <button hx-get="/api/rules/new" 
+                            hx-target="#modal-content"
+                            hx-trigger="click"
+                            onclick="document.getElementById('rule-modal').classList.add('show')"
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">
+                        + New Rule
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Enhanced Filters Section -->
+        <div class="bg-white rounded-lg border mb-6 shadow-sm">
+            <!-- Filter Header -->
+            <div class="p-4 border-b bg-gray-50 rounded-t-lg">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <h3 class="text-lg font-semibold text-gray-900">Filters</h3>
+                        <span id="filter-count" class="bg-blue-100 text-blue-800 text-sm px-2 py-1 rounded-full">
+                            0 active
+                        </span>
+                    </div>
+                    
+                    <div class="flex items-center gap-3">
+                        <!-- Quick Filters -->
+                        <div class="flex gap-2">
+                            <button onclick="applyQuickFilter('active')" 
+                                    class="text-sm px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors">
+                                Active Only
+                            </button>
+                            <button onclick="applyQuickFilter('complex')" 
+                                    class="text-sm px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200 transition-colors">
+                                Complex Rules
+                            </button>
+                            <button onclick="applyQuickFilter('recent')" 
+                                    class="text-sm px-3 py-1 bg-purple-100 text-purple-800 rounded hover:bg-purple-200 transition-colors">
+                                Recent Changes
+                            </button>
+                        </div>
+                        
+                        <button onclick="toggleFilters()" 
+                                class="text-gray-500 hover:text-gray-700 p-1 rounded">
+                            <svg id="filter-chevron" class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        
+                        <button onclick="clearAllFilters()" 
+                                class="text-red-500 hover:text-red-700 text-sm font-medium">
+                            Clear All
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Collapsible Filter Body -->
+            <div id="filter-body" class="collapse">
+                <div class="p-4" 
+                     hx-post="/api/rules/filter" 
+                     hx-target="#rules-container" 
+                     hx-trigger="change, keyup changed delay:500ms"
+                     hx-include="#pbm-selector">
+                    
+                    <!-- Main Filter Grid -->
+                    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
+                        
+                        <!-- Rule Type Filter -->
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">Rule Type</label>
+                            <select name="rule_type_filter" class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">All Types</option>
+                                <option value="SIMPLE">Simple Rules</option>
+                                <option value="COMPLEX">Complex Rules</option>
+                                <option value="CLIENT">Client Rules</option>
+                            </select>
+                        </div>
+
+                        <!-- Status Filter -->
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">Status</label>
+                            <select name="status_filter" class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">All Statuses</option>
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
+                        </div>
+
+                        <!-- Data Source Filter -->
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">Data Source</label>
+                            <select name="data_source_filter" class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">All Sources</option>
+                                <option value="medispan">Medispan</option>
+                                <option value="datanet">DataNet</option>
+                                <option value="ncpdp">NCPDP</option>
+                            </select>
+                        </div>
+
+                        <!-- Rule Category -->
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">Rule Category</label>
+                            <select name="category_filter" class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">All Categories</option>
+                                <option value="PRODUCTION">Production</option>
+                                <option value="MODELING">Modeling</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Search and Advanced Filters -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+                        
+                        <!-- Rule Name Search -->
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">Search Rule Name</label>
+                            <div class="relative">
+                                <input type="text" 
+                                       name="name_search" 
+                                       placeholder="Search by rule name..." 
+                                       class="w-full border border-gray-300 rounded-md pl-10 pr-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Priority Range -->
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">Priority Range</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="number" 
+                                       name="priority_min" 
+                                       placeholder="Min" 
+                                       class="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <input type="number" 
+                                       name="priority_max" 
+                                       placeholder="Max" 
+                                       class="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                        </div>
+
+                        <!-- Date Range -->
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">Updated Date Range</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="date" 
+                                       name="date_from" 
+                                       class="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <input type="date" 
+                                       name="date_to" 
+                                       class="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Filters Display -->
+            <div id="active-filters" class="border-t bg-gray-50 px-4 py-3 hidden">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-gray-700">Active Filters:</span>
+                        <div id="filter-badges" class="flex flex-wrap gap-2">
+                            <!-- Filter badges will be added here dynamically -->
+                        </div>
+                    </div>
+                    <button onclick="clearAllFilters()" 
+                            class="text-red-500 hover:text-red-700 text-sm font-medium">
+                        Clear All
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rules Container - This gets replaced by HTMX -->
+        <div id="rules-container">
+            <div class="bg-white rounded-lg border p-8">
+                <div class="text-center text-gray-500">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No PBM Selected</h3>
+                    <p class="text-gray-500">Please select a PBM to view and manage enrichment rules</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for New/Edit Rule -->
+    <div id="rule-modal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div id="modal-content">
+                <!-- Modal content will load here via HTMX -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Area -->
+    <div id="notification" class="fixed top-4 right-4 z-50">
+        <!-- Success/error messages will appear here -->
+    </div>
+
+    <script>
+        // Filter management
+        let activeFilters = {};
+        
+        // Toggle filter panel
+        function toggleFilters() {
+            const body = document.getElementById('filter-body');
+            const chevron = document.getElementById('filter-chevron');
+            
+            if (body.classList.contains('collapse')) {
+                body.classList.remove('collapse');
+                body.classList.add('expand');
+                chevron.style.transform = 'rotate(180deg)';
+            } else {
+                body.classList.remove('expand');
+                body.classList.add('collapse');
+                chevron.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        // Quick filter buttons
+        function applyQuickFilter(type) {
+            clearAllFilters();
+            
+            switch(type) {
+                case 'active':
+                    document.querySelector('select[name="status_filter"]').value = 'active';
+                    break;
+                case 'complex':
+                    document.querySelector('select[name="rule_type_filter"]').value = 'COMPLEX';
+                    break;
+                case 'recent':
+                    const oneWeekAgo = new Date();
+                    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+                    document.querySelector('input[name="date_from"]').value = oneWeekAgo.toISOString().split('T')[0];
+                    break;
+            }
+            
+            // Trigger HTMX update
+            htmx.trigger('#filter-body', 'change');
+        }
+
+        // Clear all filters
+        function clearAllFilters() {
+            document.querySelectorAll('#filter-body select, #filter-body input').forEach(input => {
+                if (input.type === 'checkbox') {
+                    input.checked = false;
+                } else {
+                    input.value = '';
+                }
+            });
+            
+            // Trigger HTMX update
+            htmx.trigger('#filter-body', 'change');
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('rule-modal').classList.remove('show');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('rule-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        // Initialize - start with filters collapsed
+        document.addEventListener('DOMContentLoaded', function() {
+            const body = document.getElementById('filter-body');
+            body.classList.add('collapse');
+        });
+
+        // HTMX event handlers
+        document.body.addEventListener('htmx:responseError', function(evt) {
+            document.getElementById('notification').innerHTML = `
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                    Error loading data. Please try again.
+                </div>
+            `;
+        });
+
+        document.body.addEventListener('htmx:afterRequest', function(evt) {
+            // Hide loading indicators, update UI state, etc.
+            if (evt.detail.successful) {
+                // Success handling
+            }
+        });
+    </script>
+</body>
+</html>
