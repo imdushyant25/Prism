@@ -40,7 +40,7 @@
                 <div class="flex items-center gap-4">
                     <!-- PBM Selector -->
                     <select id="pbm-selector" 
-                            hx-get="/api/rules" 
+                            hx-get="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules" 
                             hx-target="#rules-container"
                             hx-trigger="change"
                             hx-include="[name*='filter']"
@@ -110,7 +110,7 @@
             <!-- Collapsible Filter Body -->
             <div id="filter-body" class="collapse">
                 <div class="p-4" 
-                     hx-post="/api/rules/filter" 
+                     hx-post="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules" 
                      hx-target="#rules-container" 
                      hx-trigger="change, keyup changed delay:500ms"
                      hx-include="#pbm-selector">
