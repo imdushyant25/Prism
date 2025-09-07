@@ -1,0 +1,300 @@
+<!-- Simplified Filters Section - PBM moved here, NO priority range -->
+<div class="bg-white rounded-lg border mb-6 shadow-sm">
+    <!-- Filter Header -->
+    <div class="p-4 border-b bg-gray-50 rounded-t-lg">
+        <div class="flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <h3 class="text-lg font-semibold text-gray-900">Filters</h3>
+                <span id="filter-count" class="bg-blue-100 text-blue-800 text-sm px-2 py-1 rounded-full">
+                    0 active
+                </span>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <!-- Quick Filter Buttons -->
+                <div class="flex gap-2">
+                    <button onclick="applyQuickFilter('active')" 
+                            class="text-sm px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors">
+                        Active Only
+                    </button>
+                    <button onclick="applyQuickFilter('complex')" 
+                            class="text-sm px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200 transition-colors">
+                        Complex Rules
+                    </button>
+                    <button onclick="applyQuickFilter('recent')" 
+                            class="text-sm px-3 py-1 bg-purple-100 text-purple-800 rounded hover:bg-purple-200 transition-colors">
+                        Recent Changes
+                    </button>
+                </div>
+                
+                <button onclick="toggleFilters()" 
+                        class="text-gray-500 hover:text-gray-700 p-1 rounded">
+                    <svg id="filter-chevron" class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                
+                <button onclick="clearAllFilters()" 
+                        class="text-red-500 hover:text-red-700 text-sm font-medium">
+                    Clear All
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Collapsible Filter Body -->
+    <div id="filter-body" class="collapse">
+        <div class="p-4">
+            
+            <!-- Top Row: PBM first, then Search, Rule Type, Status -->
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
+                
+                <!-- PBM Filter - MOVED HERE FROM HEADER -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">PBM</label>
+                    <select name="pbm_filter" class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Select PBM</option>
+                        {{PBM_OPTIONS}}
+                    </select>
+                </div>
+
+                <!-- Rule Name Search -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Search Rule Names</label>
+                    <div class="relative">
+                        <input type="text" 
+                               name="name_search" 
+                               placeholder="e.g., HIV_Claims, VA_Claims..." 
+                               class="w-full border border-gray-300 rounded-md pl-10 pr-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rule Type Filter -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Rule Type</label>
+                    <select name="rule_type_filter" class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">All Types</option>
+                        {{RULE_TYPE_OPTIONS}}
+                    </select>
+                </div>
+
+                <!-- Status Filter -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Status</label>
+                    <select name="status_filter" class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">All Statuses</option>
+                        {{STATUS_OPTIONS}}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Bottom Row: Category, Data Source, Apply/Reset buttons -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                
+                <!-- Rule Category -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Rule Category</label>
+                    <select name="category_filter" class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">All Categories</option>
+                        {{CATEGORY_OPTIONS}}
+                    </select>
+                </div>
+
+                <!-- Data Source Filter -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Data Source</label>
+                    <select name="data_source_filter" class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">All Sources</option>
+                        {{DATA_SOURCE_OPTIONS}}
+                    </select>
+                </div>
+
+                <!-- Filter Actions -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">&nbsp;</label>
+                    <div class="flex gap-2">
+                        <button type="button" 
+                                onclick="applyFilters()" 
+                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium">
+                            Apply Filters
+                        </button>
+                        <button type="button" 
+                                onclick="clearAllFilters()" 
+                                class="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50">
+                            Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Filters Display -->
+    <div id="active-filters" class="border-t bg-gray-50 px-4 py-3 hidden">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="text-sm font-medium text-gray-700">Active Filters:</span>
+                <div id="filter-badges" class="flex flex-wrap gap-2">
+                    <!-- Filter badges will be added here dynamically -->
+                </div>
+            </div>
+            <button onclick="clearAllFilters()" 
+                    class="text-red-500 hover:text-red-700 text-sm font-medium">
+                Clear All
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Filter management functions
+function updateFilterBadges() {
+    const badges = document.getElementById('filter-badges');
+    const activeFiltersDiv = document.getElementById('active-filters');
+    const filterCount = document.getElementById('filter-count');
+    
+    if (!badges || !activeFiltersDiv || !filterCount) return;
+    
+    // Clear existing badges
+    badges.innerHTML = '';
+    let count = 0;
+    
+    // Get all filter inputs with values
+    document.querySelectorAll('#filter-body select, #filter-body input').forEach(input => {
+        if (input.value && input.value.trim() !== '') {
+            count++;
+            const label = input.previousElementSibling?.textContent?.replace(':', '') || input.name;
+            const badge = document.createElement('span');
+            badge.className = 'bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full filter-badge';
+            badge.innerHTML = `${label}: ${input.value} <button onclick="clearFilter('${input.name}')" class="ml-1 text-blue-600 hover:text-blue-800">×</button>`;
+            badges.appendChild(badge);
+        }
+    });
+    
+    // Update filter count
+    filterCount.textContent = `${count} active`;
+    
+    // Show/hide active filters section
+    if (count > 0) {
+        activeFiltersDiv.classList.remove('hidden');
+    } else {
+        activeFiltersDiv.classList.add('hidden');
+    }
+}
+
+function clearFilter(filterName) {
+    const input = document.querySelector(`[name="${filterName}"]`);
+    if (input) {
+        input.value = '';
+        updateFilterBadges();
+        applyFilters();
+    }
+}
+
+function clearAllFilters() {
+    document.querySelectorAll('#filter-body select, #filter-body input').forEach(input => {
+        if (input.type === 'checkbox') {
+            input.checked = false;
+        } else {
+            input.value = '';
+        }
+    });
+    updateFilterBadges();
+    
+    // Make a clean request with no filters (will default to CVS + active + production)
+    htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules', {
+        target: '#rules-container'
+    });
+}
+
+function applyFilters() {
+    updateFilterBadges();
+    
+    // Build clean query string - only include non-empty values
+    const formData = new FormData();
+    let hasFilters = false;
+    
+    document.querySelectorAll('#filter-body select, #filter-body input').forEach(input => {
+        if (input.value && input.value.trim() !== '') {
+            formData.append(input.name, input.value.trim());
+            hasFilters = true;
+        }
+    });
+    
+    // Use POST to send clean data
+    htmx.ajax('POST', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules', {
+        target: '#rules-container',
+        values: Object.fromEntries(formData)
+    });
+}
+
+function toggleFilters() {
+    const body = document.getElementById('filter-body');
+    const chevron = document.getElementById('filter-chevron');
+    
+    if (!body || !chevron) return;
+    
+    if (body.classList.contains('collapse')) {
+        body.classList.remove('collapse');
+        body.classList.add('expand');
+        chevron.style.transform = 'rotate(180deg)';
+    } else {
+        body.classList.remove('expand');
+        body.classList.add('collapse');
+        chevron.style.transform = 'rotate(0deg)';
+    }
+}
+
+function applyQuickFilter(type) {
+    clearAllFilters();
+    
+    switch(type) {
+        case 'active':
+            document.querySelector('select[name="status_filter"]').value = 'active';
+            break;
+        case 'complex':
+            document.querySelector('select[name="rule_type_filter"]').value = 'COMPLEX';
+            break;
+        case 'recent':
+            // For recent changes, we'd need to add a date filter back
+            // For now, just show all rules
+            break;
+    }
+    
+    applyFilters();
+}
+
+// Initialize filter event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Add change listeners for real-time badge updates and auto-apply
+    document.querySelectorAll('#filter-body select, #filter-body input').forEach(input => {
+        input.addEventListener('change', function() {
+            updateFilterBadges();
+            // Auto-apply filters on change (but with clean data)
+            applyFilters();
+        });
+        
+        input.addEventListener('keyup', function() {
+            updateFilterBadges();
+            // Debounced auto-apply for text inputs
+            if (input.type === 'text' || input.type === 'search') {
+                clearTimeout(input.debounceTimer);
+                input.debounceTimer = setTimeout(() => {
+                    applyFilters();
+                }, 500);
+            }
+        });
+    });
+    
+    // Start with filters collapsed
+    const body = document.getElementById('filter-body');
+    if (body) {
+        body.classList.add('collapse');
+    }
+});
+</script>
