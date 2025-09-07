@@ -104,6 +104,51 @@
                 // Success handling
             }
         });
+
+        function toggleDropdown(dropdownId) {
+    // Close all other dropdowns first
+    document.querySelectorAll('[id^="dropdown-"]').forEach(dropdown => {
+        if (dropdown.id !== dropdownId) {
+            dropdown.classList.add('hidden');
+        }
+    });
+    
+    // Toggle the clicked dropdown
+    const dropdown = document.getElementById(dropdownId);
+    dropdown.classList.toggle('hidden');
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('[onclick*="toggleDropdown"]') && !event.target.closest('[id^="dropdown-"]')) {
+        document.querySelectorAll('[id^="dropdown-"]').forEach(dropdown => {
+            dropdown.classList.add('hidden');
+        });
+    }
+});
+
+// Action handlers (stubs for now)
+function editRule(ruleId) {
+    console.log('Edit rule:', ruleId);
+    // TODO: Open edit modal
+}
+
+function cloneRule(ruleId) {
+    console.log('Clone rule:', ruleId);
+    // TODO: Open clone modal
+}
+
+function modelRule(ruleId) {
+    console.log('Create model from rule:', ruleId);
+    // TODO: Create modeling version
+}
+
+function deleteRule(ruleId) {
+    if (confirm('Are you sure you want to delete this rule?')) {
+        console.log('Delete rule:', ruleId);
+        // TODO: Delete via API
+    }
+}
     </script>
 </body>
 </html>
