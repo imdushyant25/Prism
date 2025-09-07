@@ -1,2 +1,4 @@
 *.zip
 pg-lambda-layer/*.zip
+node_modules/
+pg-lambda-layer/nodejs/node_modules/
