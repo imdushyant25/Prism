@@ -306,7 +306,9 @@ function addCondition() {
     
     let newCondition = `${field} ${operator} `;
     if (operator.includes('IN')) {
-        newCondition += `(${value})`;
+        // For IN clauses, wrap in parentheses and handle comma-separated values
+        const values = value.split(',').map(v => `'${v.trim()}'`).join(', ');
+        newCondition += `(${values})`;
     } else if (operator.includes('LIKE')) {
         newCondition += `'%${value}%'`;
     } else {
