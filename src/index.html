@@ -127,22 +127,114 @@ document.addEventListener('click', function(event) {
     }
 });
 
+function showNotification(message, type = 'info') {
+    const notification = document.getElementById('notification');
+    if (!notification) {
+        console.warn('Notification div not found');
+        return;
+    }
+    
+    const bgColor = {
+        'success': 'bg-green-100 border-green-400 text-green-700',
+        'error': 'bg-red-100 border-red-400 text-red-700',
+        'info': 'bg-blue-100 border-blue-400 text-blue-700',
+        'warning': 'bg-yellow-100 border-yellow-400 text-yellow-700'
+    }[type] || 'bg-blue-100 border-blue-400 text-blue-700';
+    
+    notification.innerHTML = `
+        <div class="${bgColor} px-4 py-3 rounded border mb-4 shadow-lg">
+            <div class="flex items-center justify-between">
+                <span>${message}</span>
+                <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-lg font-bold">×</button>
+            </div>
+        </div>
+    `;
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.firstElementChild) {
+            notification.firstElementChild.remove();
+        }
+    }, 5000);
+}
+
+
 // Action handlers
 function editRule(ruleId) {
     console.log('Edit rule:', ruleId);
+    
+    // Close any open dropdowns first
+    document.querySelectorAll('[id^="dropdown-"]').forEach(dropdown => {
+        dropdown.classList.add('hidden');
+    });
+    
+    // Show loading state
+    const modal = document.getElementById('rule-modal');
+    const modalContent = document.getElementById('modal-content');
+    
+    modalContent.innerHTML = `
+        <div class="p-8 text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p class="text-gray-600">Loading rule editor...</p>
+        </div>
+    `;
+    modal.classList.add('show');
     
     // Load the edit modal
     htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/edit/${ruleId}`, {
         target: '#modal-content',
         swap: 'innerHTML'
     }).then(() => {
-        // Show the modal
-        document.getElementById('rule-modal').classList.add('show');
+        console.log('Edit modal loaded successfully');
     }).catch(error => {
         console.error('Failed to load edit modal:', error);
-        showNotification('Failed to load edit form', 'error');
+        showNotification('Failed to load edit form. Please try again.', 'error');
+        closeModal();
     });
 }
+
+function closeModal() {
+    const modal = document.getElementById('rule-modal');
+    if (modal) {
+        modal.classList.remove('show');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('rule-modal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+    }
+});
+
+function toggleDropdown(dropdownId) {
+    // Close all other dropdowns first
+    document.querySelectorAll('[id^="dropdown-"]').forEach(dropdown => {
+        if (dropdown.id !== dropdownId) {
+            dropdown.classList.add('hidden');
+        }
+    });
+    
+    // Toggle the clicked dropdown
+    const dropdown = document.getElementById(dropdownId);
+    if (dropdown) {
+        dropdown.classList.toggle('hidden');
+    }
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('[onclick*="toggleDropdown"]') && !event.target.closest('[id^="dropdown-"]')) {
+        document.querySelectorAll('[id^="dropdown-"]').forEach(dropdown => {
+            dropdown.classList.add('hidden');
+        });
+    }
+});
+
 
 function cloneRule(ruleId) {
     console.log('Clone rule:', ruleId);
