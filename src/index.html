@@ -123,9 +123,13 @@ body.modal-open {
     <script>
         // Close modal
         function closeModal() {
-            document.getElementById('rule-modal').classList.remove('show');
+            const modal = document.getElementById('rule-modal');
+            if (modal) {
+                modal.classList.remove('show');
+                // Re-enable body scroll
+                document.body.classList.remove('modal-open');
+            }
         }
-
         // Close modal when clicking outside
         document.getElementById('rule-modal').addEventListener('click', function(e) {
             if (e.target === this) {
@@ -210,7 +214,6 @@ function editRule(ruleId) {
         dropdown.classList.add('hidden');
     });
     
-    // Show loading state
     const modal = document.getElementById('rule-modal');
     const modalContent = document.getElementById('modal-content');
     
@@ -221,10 +224,10 @@ function editRule(ruleId) {
         </div>
     `;
     modal.classList.add('show');
-    // Prevent body scroll while modal is open
+    // Enable body scroll lock (but don't stack it)
     document.body.classList.add('modal-open');
     
-    // Load the edit modal using the working rules route
+    // Load the edit modal
     htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?edit=${ruleId}`, {
         target: '#modal-content',
         swap: 'innerHTML'
@@ -237,12 +240,6 @@ function editRule(ruleId) {
     });
 }
 
-function closeModal() {
-    const modal = document.getElementById('rule-modal');
-    if (modal) {
-        modal.classList.remove('show');
-    }
-}
 
 document.addEventListener('DOMContentLoaded', function() {
     const modal = document.getElementById('rule-modal');
