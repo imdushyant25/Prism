@@ -90,196 +90,151 @@
             </div>
 
             <!-- Conditions Section -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Conditions *</label>
-                
-                <!-- Complex Rule Notice -->
-                <div id="complex-rule-notice" class="hidden bg-blue-50 border border-blue-200 rounded-md p-3 mb-3">
-                    <div class="flex items-start">
-                        <svg class="w-5 h-5 text-blue-400 mt-0.5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-                        </svg>
-                        <div>
-                            <h4 class="text-sm font-medium text-blue-800">Complex Rule</h4>
-                            <p class="text-sm text-blue-700 mt-1">
-                                Complex rules combine flag names from other rules using logical operators (AND, OR, NOT). 
-                                Example: <code class="bg-blue-100 px-1 rounded">PCSK9 AND NOT GPI4_INSULIN_FLAG</code>
-                            </p>
-                        </div>
+<!-- Replace the entire Conditions section in your edit-rule-modal.html with this -->
+<div>
+    <label class="block text-sm font-medium text-gray-700 mb-2">Conditions *</label>
+    
+    <!-- Complex Rule Section -->
+    <div id="complex-rule-section" class="hidden">
+        
+        <!-- Current Rule Display -->
+        <div class="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
+            <h4 class="text-sm font-medium text-blue-800 mb-2">Current Rule Logic</h4>
+            <div class="bg-white p-3 rounded border font-mono text-sm" id="current-logic-display">
+                {{CONDITIONS}}
+            </div>
+        </div>
+
+        <!-- Rule Builder -->
+        <div class="bg-gray-50 border border-gray-200 rounded-md p-4 mb-4">
+            <h4 class="text-sm font-medium text-gray-700 mb-3">Build New Logic</h4>
+            
+            <!-- Step 1: Add Flags -->
+            <div class="space-y-3">
+                <div class="grid grid-cols-12 gap-3 items-end">
+                    <div class="col-span-6">
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Select Flag</label>
+                        <select id="flag-select" class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+                            <option value="">Choose a flag...</option>
+                            {{AVAILABLE_FLAGS}}
+                        </select>
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Operator</label>
+                        <select id="logic-operator" class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+                            <option value="AND">AND</option>
+                            <option value="OR">OR</option>
+                            <option value="NOT">NOT</option>
+                        </select>
+                    </div>
+                    <div class="col-span-2">
+                        <button type="button" 
+                                onclick="addFlagToBuilder()"
+                                class="w-full bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700">
+                            Add
+                        </button>
+                    </div>
+                    <div class="col-span-2">
+                        <button type="button" 
+                                onclick="addParentheses()"
+                                class="w-full bg-purple-600 text-white px-3 py-2 rounded text-sm hover:bg-purple-700">
+                            ( )
+                        </button>
                     </div>
                 </div>
                 
-                <!-- Flag Builder for Complex Rules -->
-                <div id="flag-builder" class="hidden bg-gray-50 border border-gray-200 rounded-md p-4 mb-3">
-                    <div class="space-y-3">
-                        <div class="flex items-center space-x-3">
-                            <!-- Use AVAILABLE_FLAGS instead of hardcoded options -->
-                            <select id="flag-select" class="border border-gray-300 rounded px-3 py-2 flex-1">
-                                <option value="">Select Flag</option>
-                                {{AVAILABLE_FLAGS}}
-                            </select>
-                            <select id="logic-operator" class="border border-gray-300 rounded px-3 py-2">
-                                <option value="AND">AND</option>
-                                <option value="OR">OR</option>
-                                <option value="NOT">NOT</option>
-                            </select>
-                            <button type="button" 
-                                    onclick="addFlag()"
-                                    class="bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700">
-                                Add Flag
-                            </button>
-                            <button type="button" 
-                                    onclick="addParentheses()"
-                                    class="bg-purple-600 text-white px-3 py-2 rounded hover:bg-purple-700">
-                                ( )
-                            </button>
-                        </div>
-                        <div id="flag-preview" class="text-sm text-gray-600 bg-white p-2 rounded border">
-                            Preview will appear here...
-                        </div>
-                        
-                        <!-- Quick reference for available flags -->
-                        <div class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
-                            <h5 class="text-sm font-medium text-blue-800 mb-2">💡 Available Flags:</h5>
-                            <div class="text-xs text-blue-700 space-y-1">
-                                <p><strong>Examples:</strong> PCSK9, VA_Claims, GPI4_INSULIN_FLAG, Non_Diabetic_OTC</p>
-                                <p><strong>Syntax:</strong> Use logical operators: <code>PCSK9 AND NOT VA_Claims</code></p>
-                                <p><strong>Grouping:</strong> Use parentheses: <code>(PCSK9 OR INSULIN) AND NOT VA_Claims</code></p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Visual Builder Toggle -->
-                <div class="flex items-center mb-3">
-                    <button type="button" 
-                            id="builder-toggle"
-                            onclick="toggleConditionBuilder()"
-                            class="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded hover:bg-blue-200">
-                        🔧 Visual Builder
+                <!-- Quick Actions -->
+                <div class="flex gap-2">
+                    <button type="button" onclick="clearBuilder()" class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200">
+                        Clear All
                     </button>
-                    <span class="text-xs text-gray-500 ml-3">Switch between visual builder and direct SQL</span>
+                    <button type="button" onclick="validateLogic()" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200">
+                        Validate
+                    </button>
                 </div>
-
-                <!-- Visual Builder (initially hidden) -->
-                <div id="visual-builder" class="hidden bg-gray-50 border border-gray-200 rounded-md p-4 mb-3">
-                    <div class="space-y-3">
-                        <div class="flex items-center space-x-3">
-                            <select id="field-select" class="border border-gray-300 rounded px-3 py-2">
-                                <option value="">Select Field</option>
-                                {{FIELD_OPTIONS}}
-                            </select>
-                            <select id="operator-select" class="border border-gray-300 rounded px-3 py-2">
-                                <option value="=">=</option>
-                                <option value="!=">!=</option>
-                                <option value="IN">IN</option>
-                                <option value="NOT IN">NOT IN</option>
-                                <option value="LIKE">LIKE</option>
-                                <option value="NOT LIKE">NOT LIKE</option>
-                            </select>
-                            <input type="text" 
-                                   id="value-input" 
-                                   class="border border-gray-300 rounded px-3 py-2 flex-1"
-                                   placeholder="Value">
-                            <button type="button" 
-                                    onclick="addCondition()"
-                                    class="bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700">
-                                Add
-                            </button>
-                        </div>
-                        <div id="condition-preview" class="text-sm text-gray-600 bg-white p-2 rounded border">
-                            Preview will appear here...
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Direct SQL Input -->
-                <textarea name="conditions" 
-                          id="conditions-textarea"
-                          class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                          rows="4"
-                          placeholder="e.g., GPI6 = '393500' OR client_id IN ('1214', '1215')"
-                          required>{{CONDITIONS}}</textarea>
-                <p id="conditions-help" class="text-xs text-gray-500 mt-1">SQL WHERE clause conditions (without WHERE keyword). Use parentheses for complex logic: GPI6 IN ('393500', '393600')</p>
             </div>
+        </div>
 
-            <!-- Settings Row -->
-            <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
-                
-                <!-- Priority -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
-                    <input type="number" 
-                           name="priority" 
-                           value="{{PRIORITY}}"
-                           min="1" 
-                           max="1000"
-                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <p class="text-xs text-gray-500 mt-1">Lower = higher priority</p>
+        <!-- Live Preview -->
+        <div class="bg-white border border-gray-300 rounded-md p-3 mb-4">
+            <div class="flex justify-between items-center mb-2">
+                <h5 class="text-sm font-medium text-gray-700">Live Preview</h5>
+                <span id="validation-status" class="text-xs px-2 py-1 rounded">Not validated</span>
+            </div>
+            <div id="logic-preview" class="font-mono text-sm text-gray-600 min-h-8">
+                Start building your rule logic above...
+            </div>
+        </div>
+
+        <!-- Available Flags Reference -->
+        <div class="bg-blue-50 border border-blue-200 rounded p-3">
+            <details class="cursor-pointer">
+                <summary class="text-sm font-medium text-blue-800">Available Flags Reference</summary>
+                <div class="mt-2 text-xs text-blue-700 space-y-1">
+                    <p><strong>Examples:</strong> PCSK9, VA_Claims, GPI4_INSULIN_FLAG, Non_Diabetic_OTC</p>
+                    <p><strong>Syntax:</strong> Use logical operators: <code>PCSK9 AND NOT VA_Claims</code></p>
+                    <p><strong>Grouping:</strong> Use parentheses: <code>(PCSK9 OR INSULIN) AND NOT VA_Claims</code></p>
+                    <div id="available-flags-list" class="mt-2 max-h-20 overflow-y-auto text-xs"></div>
                 </div>
+            </details>
+        </div>
+    </div>
 
-                <!-- Category -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                    <select name="rule_category" 
-                            class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        <option value="PRODUCTION" {{PRODUCTION_SELECTED}}>Production</option>
-                        <option value="MODELING" {{MODELING_SELECTED}}>Modeling</option>
+    <!-- Simple Rule Section -->
+    <div id="simple-rule-section">
+        <!-- Visual Builder Toggle -->
+        <div class="flex items-center mb-3">
+            <button type="button" 
+                    id="builder-toggle"
+                    onclick="toggleConditionBuilder()"
+                    class="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded hover:bg-blue-200">
+                🔧 Visual Builder
+            </button>
+            <span class="text-xs text-gray-500 ml-3">Switch between visual builder and direct SQL</span>
+        </div>
+
+        <!-- Visual Builder (initially hidden) -->
+        <div id="visual-builder" class="hidden bg-gray-50 border border-gray-200 rounded-md p-4 mb-3">
+            <div class="space-y-3">
+                <div class="flex items-center space-x-3">
+                    <select id="field-select" class="border border-gray-300 rounded px-3 py-2">
+                        <option value="">Select Field</option>
+                        {{FIELD_OPTIONS}}
                     </select>
+                    <select id="operator-select" class="border border-gray-300 rounded px-3 py-2">
+                        <option value="=">=</option>
+                        <option value="!=">!=</option>
+                        <option value="IN">IN</option>
+                        <option value="NOT IN">NOT IN</option>
+                        <option value="LIKE">LIKE</option>
+                        <option value="NOT LIKE">NOT LIKE</option>
+                    </select>
+                    <input type="text" 
+                           id="value-input" 
+                           class="border border-gray-300 rounded px-3 py-2 flex-1"
+                           placeholder="Value">
+                    <button type="button" 
+                            onclick="addCondition()"
+                            class="bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700">
+                        Add
+                    </button>
                 </div>
-
-                <!-- Standalone Executable -->
-                <div class="flex items-center space-x-2 pt-6">
-                    <input type="checkbox" 
-                           name="is_standalone_executable" 
-                           id="is_standalone_executable"
-                           {{STANDALONE_CHECKED}}
-                           class="rounded border-gray-300 focus:ring-2 focus:ring-blue-500">
-                    <label for="is_standalone_executable" class="text-sm text-gray-700">Standalone</label>
-                </div>
-
-                <!-- Active Status -->
-                <div class="flex items-center space-x-2 pt-6">
-                    <input type="checkbox" 
-                           name="is_active" 
-                           id="is_active"
-                           {{ACTIVE_CHECKED}}
-                           class="rounded border-gray-300 focus:ring-2 focus:ring-blue-500">
-                    <label for="is_active" class="text-sm text-gray-700">Active</label>
-                </div>
-            </div>
-
-            <!-- Eligibility Types -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Eligibility Types</label>
-                <div class="flex flex-wrap gap-3">
-                    <label class="flex items-center space-x-2">
-                        <input type="checkbox" 
-                               name="eligibility_types[]" 
-                               value="REBATES"
-                               {{REBATES_CHECKED}}
-                               class="rounded border-gray-300 focus:ring-2 focus:ring-blue-500">
-                        <span class="text-sm text-gray-700">Rebates</span>
-                    </label>
-                    <label class="flex items-center space-x-2">
-                        <input type="checkbox" 
-                               name="eligibility_types[]" 
-                               value="PRIOR_AUTH"
-                               {{PRIOR_AUTH_CHECKED}}
-                               class="rounded border-gray-300 focus:ring-2 focus:ring-blue-500">
-                        <span class="text-sm text-gray-700">Prior Auth</span>
-                    </label>
-                    <label class="flex items-center space-x-2">
-                        <input type="checkbox" 
-                               name="eligibility_types[]" 
-                               value="COPAY"
-                               {{COPAY_CHECKED}}
-                               class="rounded border-gray-300 focus:ring-2 focus:ring-blue-500">
-                        <span class="text-sm text-gray-700">Copay</span>
-                    </label>
+                <div id="condition-preview" class="text-sm text-gray-600 bg-white p-2 rounded border">
+                    Preview will appear here...
                 </div>
             </div>
+        </div>
+    </div>
 
+    <!-- Final SQL Input (for both rule types) -->
+    <textarea name="conditions" 
+              id="conditions-textarea"
+              class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+              rows="3"
+              placeholder="Rule conditions will appear here..."
+              required>{{CONDITIONS}}</textarea>
+    <p id="conditions-help" class="text-xs text-gray-500 mt-1">SQL WHERE clause conditions (without WHERE keyword)</p>
+</div>
             <!-- Version Notice -->
             <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4">
                 <div class="flex items-start">
