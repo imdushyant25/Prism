@@ -127,10 +127,21 @@ document.addEventListener('click', function(event) {
     }
 });
 
-// Action handlers (stubs for now)
+// Action handlers
 function editRule(ruleId) {
     console.log('Edit rule:', ruleId);
-    // TODO: Open edit modal
+    
+    // Load the edit modal
+    htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/edit/${ruleId}`, {
+        target: '#modal-content',
+        swap: 'innerHTML'
+    }).then(() => {
+        // Show the modal
+        document.getElementById('rule-modal').classList.add('show');
+    }).catch(error => {
+        console.error('Failed to load edit modal:', error);
+        showNotification('Failed to load edit form', 'error');
+    });
 }
 
 function cloneRule(ruleId) {

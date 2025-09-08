@@ -1,0 +1,399 @@
+<!-- edit-rule-modal.html -->
+<div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <!-- Modal Header -->
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+        <div class="flex justify-between items-center">
+            <div>
+                <h2 class="text-xl font-semibold text-gray-900">Edit Rule</h2>
+                <p class="text-sm text-gray-600 mt-1">{{RULE_NAME}} • Version {{VERSION}}</p>
+            </div>
+            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal Content -->
+    <form id="edit-rule-form" 
+          hx-put="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules/{{RULE_ID}}"
+          hx-target="#rules-container"
+          hx-trigger="submit"
+          hx-on::after-request="handleEditResponse(event)">
+        
+        <div class="px-6 py-6 space-y-6">
+            
+            <!-- Basic Info Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                
+                <!-- Rule Name -->
+                <div class="lg:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Rule Name *</label>
+                    <input type="text" 
+                           name="name" 
+                           value="{{RULE_NAME}}"
+                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           required>
+                    <p class="text-xs text-gray-500 mt-1">Descriptive name for this rule</p>
+                </div>
+
+                <!-- Rule Type -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Rule Type *</label>
+                    <select name="rule_type" 
+                            class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            onchange="toggleDataSourceField(this.value)"
+                            required>
+                        <option value="SIMPLE" {{SIMPLE_SELECTED}}>Simple</option>
+                        <option value="COMPLEX" {{COMPLEX_SELECTED}}>Complex</option>
+                        <option value="CLIENT" {{CLIENT_SELECTED}}>Client</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- PBM and Data Source Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                
+                <!-- PBM Code -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">PBM Code *</label>
+                    <select name="pbm_code" 
+                            class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            required>
+                        {{PBM_OPTIONS}}
+                    </select>
+                </div>
+
+                <!-- Data Source -->
+                <div id="data-source-field">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Data Source</label>
+                    <select name="data_source" 
+                            class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Select Source</option>
+                        {{DATA_SOURCE_OPTIONS}}
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Required for SIMPLE rules</p>
+                </div>
+
+                <!-- Flag Name -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Flag Name *</label>
+                    <input type="text" 
+                           name="flag_name" 
+                           value="{{FLAG_NAME}}"
+                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="e.g., PCSK9, VA_Claims"
+                           required>
+                </div>
+            </div>
+
+            <!-- Conditions Section -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Conditions *</label>
+                
+                <!-- Visual Builder Toggle -->
+                <div class="flex items-center mb-3">
+                    <button type="button" 
+                            onclick="toggleConditionBuilder()"
+                            class="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded hover:bg-blue-200">
+                        🔧 Visual Builder
+                    </button>
+                    <span class="text-xs text-gray-500 ml-3">Switch between visual builder and direct SQL</span>
+                </div>
+
+                <!-- Visual Builder (initially hidden) -->
+                <div id="visual-builder" class="hidden bg-gray-50 border border-gray-200 rounded-md p-4 mb-3">
+                    <div class="space-y-3">
+                        <div class="flex items-center space-x-3">
+                            <select id="field-select" class="border border-gray-300 rounded px-3 py-2">
+                                <option value="">Select Field</option>
+                                {{FIELD_OPTIONS}}
+                            </select>
+                            <select id="operator-select" class="border border-gray-300 rounded px-3 py-2">
+                                <option value="=">=</option>
+                                <option value="!=">!=</option>
+                                <option value="IN">IN</option>
+                                <option value="NOT IN">NOT IN</option>
+                                <option value="LIKE">LIKE</option>
+                                <option value="NOT LIKE">NOT LIKE</option>
+                            </select>
+                            <input type="text" 
+                                   id="value-input" 
+                                   class="border border-gray-300 rounded px-3 py-2 flex-1"
+                                   placeholder="Value">
+                            <button type="button" 
+                                    onclick="addCondition()"
+                                    class="bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700">
+                                Add
+                            </button>
+                        </div>
+                        <div id="condition-preview" class="text-sm text-gray-600 bg-white p-2 rounded border">
+                            Preview will appear here...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Direct SQL Input -->
+                <textarea name="conditions" 
+                          id="conditions-textarea"
+                          class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                          rows="4"
+                          placeholder="e.g., GPI6 = '393500' OR client_id = '1214'"
+                          required>{{CONDITIONS}}</textarea>
+                <p class="text-xs text-gray-500 mt-1">SQL WHERE clause conditions (without WHERE keyword)</p>
+            </div>
+
+            <!-- Settings Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                
+                <!-- Priority -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+                    <input type="number" 
+                           name="priority" 
+                           value="{{PRIORITY}}"
+                           min="1" 
+                           max="1000"
+                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Lower = higher priority</p>
+                </div>
+
+                <!-- Category -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                    <select name="rule_category" 
+                            class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="PRODUCTION" {{PRODUCTION_SELECTED}}>Production</option>
+                        <option value="MODELING" {{MODELING_SELECTED}}>Modeling</option>
+                    </select>
+                </div>
+
+                <!-- Standalone Executable -->
+                <div class="flex items-center space-x-2 pt-6">
+                    <input type="checkbox" 
+                           name="is_standalone_executable" 
+                           id="is_standalone_executable"
+                           {{STANDALONE_CHECKED}}
+                           class="rounded border-gray-300 focus:ring-2 focus:ring-blue-500">
+                    <label for="is_standalone_executable" class="text-sm text-gray-700">Standalone</label>
+                </div>
+
+                <!-- Active Status -->
+                <div class="flex items-center space-x-2 pt-6">
+                    <input type="checkbox" 
+                           name="is_active" 
+                           id="is_active"
+                           {{ACTIVE_CHECKED}}
+                           class="rounded border-gray-300 focus:ring-2 focus:ring-blue-500">
+                    <label for="is_active" class="text-sm text-gray-700">Active</label>
+                </div>
+            </div>
+
+            <!-- Eligibility Types -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Eligibility Types</label>
+                <div class="flex flex-wrap gap-3">
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" 
+                               name="eligibility_types[]" 
+                               value="REBATES"
+                               {{REBATES_CHECKED}}
+                               class="rounded border-gray-300 focus:ring-2 focus:ring-blue-500">
+                        <span class="text-sm text-gray-700">Rebates</span>
+                    </label>
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" 
+                               name="eligibility_types[]" 
+                               value="PRIOR_AUTH"
+                               {{PRIOR_AUTH_CHECKED}}
+                               class="rounded border-gray-300 focus:ring-2 focus:ring-blue-500">
+                        <span class="text-sm text-gray-700">Prior Auth</span>
+                    </label>
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" 
+                               name="eligibility_types[]" 
+                               value="COPAY"
+                               {{COPAY_CHECKED}}
+                               class="rounded border-gray-300 focus:ring-2 focus:ring-blue-500">
+                        <span class="text-sm text-gray-700">Copay</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Version Notice -->
+            <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                <div class="flex items-start">
+                    <svg class="w-5 h-5 text-yellow-400 mt-0.5 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                    <div>
+                        <h4 class="text-sm font-medium text-yellow-800">Versioning Notice</h4>
+                        <p class="text-sm text-yellow-700 mt-1">
+                            Editing this rule will create a new version (v{{NEXT_VERSION}}) and deactivate the current version. 
+                            The original rule will be preserved for audit purposes.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+            <div class="flex justify-between items-center">
+                <div class="flex space-x-3">
+                    <button type="button" 
+                            onclick="previewRule()"
+                            class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md font-medium">
+                        Preview Changes
+                    </button>
+                    <button type="button" 
+                            onclick="validateRule()"
+                            class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md font-medium">
+                        Validate SQL
+                    </button>
+                </div>
+                
+                <div class="flex space-x-3">
+                    <button type="button" 
+                            onclick="closeModal()"
+                            class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md font-medium">
+                        Cancel
+                    </button>
+                    <button type="submit" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium">
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+// Modal functionality
+function toggleDataSourceField(ruleType) {
+    const dataSourceField = document.getElementById('data-source-field');
+    const dataSourceSelect = dataSourceField.querySelector('select');
+    
+    if (ruleType === 'COMPLEX') {
+        dataSourceField.style.opacity = '0.5';
+        dataSourceSelect.disabled = true;
+        dataSourceSelect.value = '';
+    } else {
+        dataSourceField.style.opacity = '1';
+        dataSourceSelect.disabled = false;
+    }
+}
+
+function toggleConditionBuilder() {
+    const builder = document.getElementById('visual-builder');
+    builder.classList.toggle('hidden');
+}
+
+function addCondition() {
+    const field = document.getElementById('field-select').value;
+    const operator = document.getElementById('operator-select').value;
+    const value = document.getElementById('value-input').value;
+    
+    if (!field || !operator || !value) {
+        alert('Please select field, operator, and enter a value');
+        return;
+    }
+    
+    const textarea = document.getElementById('conditions-textarea');
+    const existing = textarea.value.trim();
+    
+    let newCondition = `${field} ${operator} `;
+    if (operator.includes('IN')) {
+        newCondition += `(${value})`;
+    } else if (operator.includes('LIKE')) {
+        newCondition += `'%${value}%'`;
+    } else {
+        newCondition += `'${value}'`;
+    }
+    
+    if (existing) {
+        textarea.value = `${existing} AND ${newCondition}`;
+    } else {
+        textarea.value = newCondition;
+    }
+    
+    // Clear inputs
+    document.getElementById('field-select').value = '';
+    document.getElementById('operator-select').value = '=';
+    document.getElementById('value-input').value = '';
+    
+    updateConditionPreview();
+}
+
+function updateConditionPreview() {
+    const textarea = document.getElementById('conditions-textarea');
+    const preview = document.getElementById('condition-preview');
+    
+    if (textarea.value.trim()) {
+        preview.textContent = `WHERE ${textarea.value}`;
+        preview.className = 'text-sm text-green-600 bg-green-50 p-2 rounded border border-green-200';
+    } else {
+        preview.textContent = 'Preview will appear here...';
+        preview.className = 'text-sm text-gray-600 bg-white p-2 rounded border';
+    }
+}
+
+function previewRule() {
+    const formData = new FormData(document.getElementById('edit-rule-form'));
+    console.log('Preview rule changes:', Object.fromEntries(formData));
+    // TODO: Implement preview functionality
+    alert('Preview functionality coming soon!');
+}
+
+function validateRule() {
+    const conditions = document.getElementById('conditions-textarea').value;
+    if (!conditions.trim()) {
+        alert('Please enter conditions to validate');
+        return;
+    }
+    
+    // TODO: Call validation API
+    console.log('Validating conditions:', conditions);
+    alert('SQL validation functionality coming soon!');
+}
+
+function handleEditResponse(event) {
+    if (event.detail.successful) {
+        closeModal();
+        showNotification('Rule updated successfully!', 'success');
+        // Refresh the rules table
+        htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules', {
+            target: '#rules-container'
+        });
+    } else {
+        showNotification('Failed to update rule. Please try again.', 'error');
+    }
+}
+
+function showNotification(message, type) {
+    const notification = document.getElementById('notification');
+    const bgColor = type === 'success' ? 'bg-green-100 border-green-400 text-green-700' : 'bg-red-100 border-red-400 text-red-700';
+    
+    notification.innerHTML = `
+        <div class="${bgColor} px-4 py-3 rounded border mb-4">
+            ${message}
+        </div>
+    `;
+    
+    setTimeout(() => {
+        notification.innerHTML = '';
+    }, 5000);
+}
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', function() {
+    const ruleType = document.querySelector('select[name="rule_type"]').value;
+    toggleDataSourceField(ruleType);
+    
+    const textarea = document.getElementById('conditions-textarea');
+    textarea.addEventListener('input', updateConditionPreview);
+    updateConditionPreview();
+});
+</script>
