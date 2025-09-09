@@ -550,12 +550,16 @@ window.removeToken = ClaimsApp.ruleBuilder.removeToken.bind(ClaimsApp.ruleBuilde
 
 // Initialize modal when script loads (delayed to ensure DOM is ready)
 function initializeRuleBuilderIfNeeded() {
+    console.log('🎯 initializeRuleBuilderIfNeeded called');
     const editForm = document.getElementById('edit-rule-form');
+    console.log('🎯 edit-rule-form element:', editForm);
+    
     if (editForm) {
-        console.log('Found edit-rule-form, initializing rule builder...');
+        console.log('✅ Found edit-rule-form, initializing rule builder...');
         ClaimsApp.ruleBuilder.initializeModal();
     } else {
-        console.log('edit-rule-form not found, skipping rule builder initialization');
+        console.log('❌ edit-rule-form not found, skipping rule builder initialization');
+        console.log('🔍 Available form elements:', document.querySelectorAll('form'));
     }
 }
 
@@ -563,12 +567,32 @@ function initializeRuleBuilderIfNeeded() {
 setTimeout(initializeRuleBuilderIfNeeded, 100);
 
 // CRITICAL: Re-initialize when modal content is loaded via HTMX
-document.body.addEventListener('htmx:afterRequest', function(evt) {
-    // Check if this was a modal content load
-    if (evt.detail.target && evt.detail.target.id === 'modal-content') {
-        console.log('Modal content loaded via HTMX, reinitializing rule builder...');
-        setTimeout(initializeRuleBuilderIfNeeded, 50);
+function setupHTMXListener() {
+    if (!document.body) {
+        console.warn('Document body not ready for HTMX listener, retrying...');
+        setTimeout(setupHTMXListener, 100);
+        return;
     }
-});
+    
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        console.log('🎯 HTMX afterRequest in rule-builder:', evt.detail);
+        
+        // Check if this was a modal content load
+        if (evt.detail.target && evt.detail.target.id === 'modal-content') {
+            console.log('🎯 Modal content loaded via HTMX, reinitializing rule builder...');
+            setTimeout(() => {
+                console.log('🎯 Attempting to reinitialize rule builder...');
+                initializeRuleBuilderIfNeeded();
+            }, 50);
+        } else {
+            console.log('🎯 HTMX request was not for modal-content, target:', evt.detail.target?.id);
+        }
+    });
+    
+    console.log('✅ HTMX listener for rule builder initialized');
+}
+
+// Set up the HTMX listener
+setupHTMXListener();
 
 console.log('🚀 Rule builder loaded');
