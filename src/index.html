@@ -122,14 +122,15 @@ body.modal-open {
 
     <script>
         // Close modal
-        function closeModal() {
-            const modal = document.getElementById('rule-modal');
-            if (modal) {
-                modal.classList.remove('show');
-                // Re-enable body scroll
-                document.body.classList.remove('modal-open');
-            }
-        }
+    function closeModal() {
+    const modal = document.getElementById('rule-modal');
+    if (modal) {
+        modal.classList.remove('show');
+        // Re-enable body scroll
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = 'auto';
+    }
+    }
         // Close modal when clicking outside
         document.getElementById('rule-modal').addEventListener('click', function(e) {
             if (e.target === this) {
@@ -217,18 +218,21 @@ function editRule(ruleId) {
     const modal = document.getElementById('rule-modal');
     const modalContent = document.getElementById('modal-content');
     
+    // Clear any previous modal content to prevent state issues
     modalContent.innerHTML = `
         <div class="p-8 text-center">
             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p class="text-gray-600">Loading rule editor...</p>
         </div>
     `;
-    modal.classList.add('show');
-    // Enable body scroll lock (but don't stack it)
-    document.body.classList.add('modal-open');
     
-    // Load the edit modal
-    htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?edit=${ruleId}`, {
+    modal.classList.add('show');
+    // Prevent background scroll
+    document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
+    
+    // Load the edit modal with cache busting
+    htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?edit=${ruleId}&t=${Date.now()}`, {
         target: '#modal-content',
         swap: 'innerHTML'
     }).then(() => {
@@ -239,7 +243,6 @@ function editRule(ruleId) {
         closeModal();
     });
 }
-
 
 document.addEventListener('DOMContentLoaded', function() {
     const modal = document.getElementById('rule-modal');
