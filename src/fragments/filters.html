@@ -11,32 +11,11 @@
             </div>
             
             <div class="flex items-center gap-3">
-                <!-- Quick Filter Buttons -->
-                <div class="flex gap-2">
-                    <button onclick="applyQuickFilter('active')" 
-                            class="text-sm px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors">
-                        Active Only
-                    </button>
-                    <button onclick="applyQuickFilter('complex')" 
-                            class="text-sm px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200 transition-colors">
-                        Complex Rules
-                    </button>
-                    <button onclick="applyQuickFilter('recent')" 
-                            class="text-sm px-3 py-1 bg-purple-100 text-purple-800 rounded hover:bg-purple-200 transition-colors">
-                        Recent Changes
-                    </button>
-                </div>
-                
                 <button onclick="toggleFilters()" 
                         class="text-gray-500 hover:text-gray-700 p-1 rounded">
                     <svg id="filter-chevron" class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                     </svg>
-                </button>
-                
-                <button onclick="clearAllFilters()" 
-                        class="text-red-500 hover:text-red-700 text-sm font-medium">
-                    Clear All
                 </button>
             </div>
         </div>
@@ -93,8 +72,8 @@
                 </div>
             </div>
 
-            <!-- Bottom Row: Category, Data Source, Apply/Reset buttons -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <!-- Bottom Row: Category and Data Source -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 
                 <!-- Rule Category -->
                 <div class="space-y-2">
@@ -114,39 +93,17 @@
                     </select>
                 </div>
 
-                <!-- Filter Actions -->
-                <div class="space-y-2">
-                    <label class="block text-sm font-medium text-gray-700">&nbsp;</label>
-                    <div class="flex gap-2">
-                        <button type="button" 
-                                onclick="applyFilters()" 
-                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium">
-                            Apply Filters
-                        </button>
-                        <button type="button" 
-                                onclick="clearAllFilters()" 
-                                class="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50">
-                            Reset
-                        </button>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
 
     <!-- Active Filters Display -->
     <div id="active-filters" class="border-t bg-gray-50 px-4 py-3 hidden">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <span class="text-sm font-medium text-gray-700">Active Filters:</span>
-                <div id="filter-badges" class="flex flex-wrap gap-2">
-                    <!-- Filter badges will be added here dynamically -->
-                </div>
+        <div class="flex items-center gap-2">
+            <span class="text-sm font-medium text-gray-700">Active Filters:</span>
+            <div id="filter-badges" class="flex flex-wrap gap-2">
+                <!-- Filter badges will be added here dynamically -->
             </div>
-            <button onclick="clearAllFilters()" 
-                    class="text-red-500 hover:text-red-700 text-sm font-medium">
-                Clear All
-            </button>
         </div>
     </div>
 </div>
