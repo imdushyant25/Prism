@@ -50,19 +50,72 @@ ClaimsApp.ruleBuilder = {
             if (simpleSection) simpleSection.classList.add('hidden');
             if (dataSourceField) dataSourceField.style.display = 'none';
             
-            // Clear simple rule artifacts
+            // Clear simple rule artifacts completely
             this.clearAllConditions();
+            this.resetSimpleRuleUI();
+            
             this.loadExistingExpression();
         } else {
             if (complexSection) complexSection.classList.add('hidden');
             if (simpleSection) simpleSection.classList.remove('hidden');
             if (dataSourceField) dataSourceField.style.display = 'block';
             
-            // Clear complex rule artifacts
+            // Clear complex rule artifacts completely
             this.clearExpression();
+            this.resetComplexRuleUI();
         }
         
         this.updateState();
+    },
+
+    /**
+     * Reset simple rule UI to clean state
+     */
+    resetSimpleRuleUI() {
+        // Reset data source dropdown
+        const dataSourceSelect = document.querySelector('select[name="data_source"]');
+        if (dataSourceSelect) dataSourceSelect.value = '';
+        
+        // Reset field select
+        const fieldSelect = document.getElementById('field-select');
+        if (fieldSelect) fieldSelect.innerHTML = '<option value="">Select Data Source First</option>';
+        
+        // Clear built conditions display
+        const builtConditions = document.getElementById('built-conditions');
+        if (builtConditions) builtConditions.innerHTML = '<span class="text-gray-500 text-sm">No conditions added yet...</span>';
+        
+        // Reset condition count
+        const conditionCount = document.getElementById('condition-count');
+        if (conditionCount) conditionCount.textContent = '0 conditions';
+        
+        // Clear final SQL preview
+        this.updateFinalSQLPreview('');
+    },
+
+    /**
+     * Reset complex rule UI to clean state
+     */
+    resetComplexRuleUI() {
+        // Reset flag selector
+        const flagSelector = document.getElementById('flag-selector');
+        if (flagSelector) flagSelector.value = '';
+        
+        // Clear expression builder
+        const expressionBuilder = document.getElementById('expression-builder');
+        if (expressionBuilder) {
+            expressionBuilder.innerHTML = '<span id="empty-hint" class="text-blue-500 text-sm">Add flags below to build your expression...</span>';
+        }
+        
+        // Clear SQL preview
+        const sqlPreview = document.getElementById('sql-preview');
+        if (sqlPreview) sqlPreview.textContent = 'No conditions yet...';
+        
+        // Reset status indicator
+        const statusIndicator = document.getElementById('status-indicator');
+        if (statusIndicator) {
+            statusIndicator.textContent = 'Valid';
+            statusIndicator.className = 'text-xs px-2 py-1 rounded bg-green-100 text-green-700';
+        }
     },
 
     /**
@@ -452,10 +505,26 @@ window.clearExpression = ClaimsApp.ruleBuilder.clearExpression.bind(ClaimsApp.ru
 window.removeToken = ClaimsApp.ruleBuilder.removeToken.bind(ClaimsApp.ruleBuilder);
 
 // Initialize modal when script loads (delayed to ensure DOM is ready)
-setTimeout(() => {
-    if (document.getElementById('edit-rule-form')) {
+function initializeRuleBuilderIfNeeded() {
+    const editForm = document.getElementById('edit-rule-form');
+    if (editForm) {
+        console.log('Found edit-rule-form, initializing rule builder...');
         ClaimsApp.ruleBuilder.initializeModal();
+    } else {
+        console.log('edit-rule-form not found, skipping rule builder initialization');
     }
-}, 100);
+}
+
+// Initialize on script load
+setTimeout(initializeRuleBuilderIfNeeded, 100);
+
+// CRITICAL: Re-initialize when modal content is loaded via HTMX
+document.body.addEventListener('htmx:afterRequest', function(evt) {
+    // Check if this was a modal content load
+    if (evt.detail.target && evt.detail.target.id === 'modal-content') {
+        console.log('Modal content loaded via HTMX, reinitializing rule builder...');
+        setTimeout(initializeRuleBuilderIfNeeded, 50);
+    }
+});
 
 console.log('🚀 Rule builder loaded');
