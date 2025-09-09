@@ -27,23 +27,26 @@
                 
                 <div class="px-6 py-6 space-y-6 overflow-y-auto flex-1">
                     
-                    <!-- Basic Info -->
+                    <!-- Basic Info - READ ONLY FIELDS -->
                     <div class="grid grid-cols-4 gap-4">
                         <div class="col-span-2">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Rule Name</label>
-                            <input type="text" name="name" value="{{RULE_NAME}}" class="w-full border rounded px-3 py-2" required>
+                            <input type="text" name="name" value="{{RULE_NAME}}" 
+                                   class="w-full border rounded px-3 py-2 bg-gray-100 text-gray-600" 
+                                   readonly>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Rule Type</label>
-                            <select name="rule_type" onchange="toggleRuleType(this.value)" class="w-full border rounded px-3 py-2" required>
-                                <option value="SIMPLE" {{SIMPLE_SELECTED}}>Simple</option>
-                                <option value="COMPLEX" {{COMPLEX_SELECTED}}>Complex</option>
-                                <option value="CLIENT" {{CLIENT_SELECTED}}>Client</option>
-                            </select>
+                            <input type="text" value="{{RULE_TYPE}}" 
+                                   class="w-full border rounded px-3 py-2 bg-gray-100 text-gray-600" 
+                                   readonly>
+                            <input type="hidden" name="rule_type" value="{{RULE_TYPE}}">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Flag Name</label>
-                            <input type="text" name="flag_name" value="{{FLAG_NAME}}" class="w-full border rounded px-3 py-2" required>
+                            <input type="text" name="flag_name" value="{{FLAG_NAME}}" 
+                                   class="w-full border rounded px-3 py-2 bg-gray-100 text-gray-600" 
+                                   readonly>
                         </div>
                     </div>
 
@@ -114,23 +117,98 @@
                         </div>
                     </div>
 
-                    <!-- SIMPLE RULE BUILDER -->
+                    <!-- SIMPLE RULE BUILDER - ENHANCED -->
                     <div id="simple-section">
                         <div class="space-y-4">
-                            <!-- Data Source (only for simple rules) -->
+                            <!-- Data Source (read-only for simple rules) -->
                             <div id="data-source-field">
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Data Source</label>
-                                <select name="data_source" class="w-full border rounded px-3 py-2">
-                                    <option value="">Select Source</option>
-                                    {{DATA_SOURCE_OPTIONS}}
-                                </select>
+                                <input type="text" value="{{DATA_SOURCE}}" 
+                                       class="w-full border rounded px-3 py-2 bg-gray-100 text-gray-600" 
+                                       readonly>
+                                <input type="hidden" name="data_source" value="{{DATA_SOURCE}}">
                             </div>
 
-                            <!-- Simple SQL Input -->
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Conditions</label>
-                                <textarea id="simple-conditions" class="w-full border rounded px-3 py-2 font-mono" rows="3" 
-                                          placeholder="e.g., GPI6 = '393500'">{{CONDITIONS}}</textarea>
+                            <!-- Visual Builder for Simple Rules - ONLY OPTION NOW -->
+                            <div class="bg-gray-50 border border-gray-200 rounded-md p-4 mb-3">
+                                <div class="flex justify-between items-center mb-3">
+                                    <h4 class="text-md font-medium text-gray-800">🔧 Visual Condition Builder</h4>
+                                    <button type="button" 
+                                            onclick="clearAllConditions()"
+                                            class="text-sm bg-red-100 text-red-700 px-3 py-1 rounded hover:bg-red-200">
+                                        Clear All
+                                    </button>
+                                </div>
+                                
+                                <div class="space-y-3">
+                                    <!-- Add Condition Row -->
+                                    <div class="flex items-center space-x-3">
+                                        <select id="field-select" 
+                                                onchange="updateFieldOptions(this.value)"
+                                                class="border border-gray-300 rounded px-3 py-2 min-w-[150px]">
+                                            <option value="">Select Field</option>
+                                            {{DATASOURCE_FIELDS}}
+                                        </select>
+                                        <select id="operator-select" class="border border-gray-300 rounded px-3 py-2">
+                                            <option value="=">=</option>
+                                            <option value="!=">!=</option>
+                                            <option value="IN">IN</option>
+                                            <option value="NOT IN">NOT IN</option>
+                                            <option value="LIKE">LIKE</option>
+                                            <option value="NOT LIKE">NOT LIKE</option>
+                                            <option value=">">&gt;</option>
+                                            <option value="<">&lt;</option>
+                                            <option value=">=">&gt;=</option>
+                                            <option value="<=">&lt;=</option>
+                                        </select>
+                                        <input type="text" 
+                                               id="value-input" 
+                                               class="border border-gray-300 rounded px-3 py-2 flex-1"
+                                               placeholder="Enter value(s)">
+                                        <button type="button" 
+                                                onclick="addSimpleCondition()"
+                                                class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 whitespace-nowrap">
+                                            Add Condition
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Logical Operators for Multiple Conditions -->
+                                    <div class="flex gap-2 text-sm">
+                                        <span class="text-gray-600 py-1">Connect with:</span>
+                                        <button type="button" 
+                                                onclick="addLogicalOperator('AND')"
+                                                class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">
+                                            AND
+                                        </button>
+                                        <button type="button" 
+                                                onclick="addLogicalOperator('OR')"
+                                                class="bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700">
+                                            OR
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Built Conditions Display -->
+                                    <div class="bg-white border rounded p-3 min-h-[60px]">
+                                        <div class="flex justify-between items-center mb-2">
+                                            <span class="text-sm font-medium text-gray-700">Built Conditions:</span>
+                                            <span id="condition-count" class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">0 conditions</span>
+                                        </div>
+                                        <div id="built-conditions" class="space-y-2">
+                                            <span class="text-gray-500 text-sm">No conditions added yet...</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Final SQL Preview -->
+                                    <div class="bg-gray-50 border rounded p-3">
+                                        <div class="flex justify-between items-center mb-2">
+                                            <span class="text-sm font-medium">Final SQL Preview:</span>
+                                            <span id="sql-status" class="text-xs px-2 py-1 rounded bg-green-100 text-green-700">Ready</span>
+                                        </div>
+                                        <div id="final-sql-preview" class="font-mono text-sm bg-white p-2 rounded border min-h-[30px] text-gray-600">
+                                            {{CONDITIONS}}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -165,9 +243,14 @@
                             <input type="checkbox" name="is_active" {{ACTIVE_CHECKED}} class="mr-2">
                             <span class="text-xs">Active</span>
                         </div>
-                        <div class="flex items-center pt-5">
-                            <input type="checkbox" name="eligibility_types[]" value="REBATES" {{REBATES_CHECKED}} class="mr-2">
-                            <span class="text-xs">Rebates</span>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Eligibility Type</label>
+                            <select name="eligibility_types" class="w-full border rounded px-2 py-1 text-sm">
+                                <option value="REBATES" {{REBATES_SELECTED}}>Rebates</option>
+                                <option value="REBATE_ELIGIBLE" {{REBATE_ELIGIBLE_SELECTED}}>Rebate Eligible</option>
+                                <option value="DISCOUNT" {{DISCOUNT_SELECTED}}>Discount</option>
+                                <option value="DISCOUNT_ELIGIBLE" {{DISCOUNT_ELIGIBLE_SELECTED}}>Discount Eligible</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -187,19 +270,21 @@
 </div>
 
 <script>
-console.log('Fixed modal script loading...');
+console.log('Enhanced modal script loading...');
 
 let expressionParts = [];
+let builtConditions = [];
 let isInitialized = false;
 
 function initializeModal() {
     if (isInitialized) return;
     
     console.log('Initializing modal...');
-    const ruleType = document.querySelector('select[name="rule_type"]')?.value;
+    const ruleType = document.querySelector('input[name="rule_type"]')?.value;
     if (ruleType) {
         toggleRuleType(ruleType);
     }
+    loadExistingConditions();
     isInitialized = true;
 }
 
@@ -219,26 +304,26 @@ function toggleRuleType(type) {
         if (complexSection) complexSection.classList.add('hidden');
         if (simpleSection) simpleSection.classList.remove('hidden');
         if (dataSourceField) dataSourceField.style.display = 'block';
+    }
+}
+
+function loadExistingConditions() {
+    const textarea = document.getElementById('conditions-textarea');
+    if (textarea && textarea.value.trim()) {
+        const existingCondition = textarea.value.trim();
+        console.log('Loading existing conditions:', existingCondition);
         
-        // For simple rules, sync the simple textarea with the hidden one
-        const simpleTextarea = document.getElementById('simple-conditions');
-        const hiddenTextarea = document.getElementById('conditions-textarea');
-        if (simpleTextarea && hiddenTextarea) {
-            simpleTextarea.addEventListener('input', function() {
-                hiddenTextarea.value = this.value;
-            });
-        }
+        // Parse existing conditions and display them
+        updateFinalSQLPreview(existingCondition);
     }
 }
 
 function loadExistingExpression() {
     const textarea = document.getElementById('conditions-textarea');
     if (textarea && textarea.value.trim()) {
-        // Parse the existing expression more carefully
         const existingCondition = textarea.value.trim();
         console.log('Loading existing expression:', existingCondition);
         
-        // Split on spaces but preserve logical structure
         const parts = existingCondition.split(/\s+/);
         expressionParts = parts;
         updateExpressionDisplay();
@@ -246,12 +331,158 @@ function loadExistingExpression() {
     }
 }
 
+// Simple Rule Builder Functions
+function addSimpleCondition() {
+    const field = document.getElementById('field-select')?.value;
+    const operator = document.getElementById('operator-select')?.value;
+    const value = document.getElementById('value-input')?.value;
+    
+    if (!field || !operator || !value) {
+        alert('Yo, you gotta fill in all fields first!');
+        return;
+    }
+    
+    let newCondition = `${field} ${operator} `;
+    if (operator.includes('IN')) {
+        const values = value.split(',').map(v => `'${v.trim()}'`).join(', ');
+        newCondition += `(${values})`;
+    } else if (operator.includes('LIKE')) {
+        newCondition += `'%${value}%'`;
+    } else {
+        newCondition += `'${value}'`;
+    }
+    
+    builtConditions.push({
+        field: field,
+        operator: operator,
+        value: value,
+        condition: newCondition
+    });
+    
+    updateBuiltConditionsDisplay();
+    clearConditionInputs();
+}
+
+function addLogicalOperator(operator) {
+    if (builtConditions.length === 0) {
+        alert('Add at least one condition first, buddy!');
+        return;
+    }
+    
+    builtConditions.push({
+        type: 'operator',
+        operator: operator,
+        condition: operator
+    });
+    
+    updateBuiltConditionsDisplay();
+}
+
+function removeCondition(index) {
+    builtConditions.splice(index, 1);
+    updateBuiltConditionsDisplay();
+}
+
+function clearAllConditions() {
+    builtConditions = [];
+    updateBuiltConditionsDisplay();
+    clearConditionInputs();
+}
+
+function clearConditionInputs() {
+    const fieldSelect = document.getElementById('field-select');
+    const operatorSelect = document.getElementById('operator-select');
+    const valueInput = document.getElementById('value-input');
+    
+    if (fieldSelect) fieldSelect.value = '';
+    if (operatorSelect) operatorSelect.value = '=';
+    if (valueInput) valueInput.value = '';
+}
+
+function updateBuiltConditionsDisplay() {
+    const container = document.getElementById('built-conditions');
+    const countSpan = document.getElementById('condition-count');
+    
+    if (!container) return;
+    
+    const conditionCount = builtConditions.filter(c => c.type !== 'operator').length;
+    if (countSpan) {
+        countSpan.textContent = `${conditionCount} condition${conditionCount !== 1 ? 's' : ''}`;
+    }
+    
+    if (builtConditions.length === 0) {
+        container.innerHTML = '<span class="text-gray-500 text-sm">No conditions added yet...</span>';
+        updateFinalSQLPreview('');
+        return;
+    }
+    
+    const conditionsHTML = builtConditions.map((condition, index) => {
+        if (condition.type === 'operator') {
+            return `
+                <span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-blue-100 text-blue-800 text-sm font-medium">
+                    ${condition.operator}
+                    <button type="button" onclick="removeCondition(${index})" class="ml-1 text-blue-600 hover:text-blue-800 text-xs">×</button>
+                </span>
+            `;
+        } else {
+            return `
+                <span class="inline-flex items-center gap-1 px-3 py-1 rounded bg-green-100 text-green-800 text-sm">
+                    ${condition.field} ${condition.operator} ${condition.value}
+                    <button type="button" onclick="removeCondition(${index})" class="ml-1 text-green-600 hover:text-green-800 text-xs">×</button>
+                </span>
+            `;
+        }
+    }).join(' ');
+    
+    container.innerHTML = conditionsHTML;
+    
+    // Build final SQL
+    const finalSQL = builtConditions.map(c => c.condition).join(' ');
+    updateFinalSQLPreview(finalSQL);
+}
+
+function updateFinalSQLPreview(sql) {
+    const preview = document.getElementById('final-sql-preview');
+    const textarea = document.getElementById('conditions-textarea');
+    const status = document.getElementById('sql-status');
+    
+    if (!preview || !textarea) return;
+    
+    if (sql.trim()) {
+        preview.textContent = sql;
+        preview.className = 'font-mono text-sm bg-white p-2 rounded border min-h-[30px] text-gray-900';
+        textarea.value = sql;
+        
+        if (status) {
+            status.textContent = 'Valid';
+            status.className = 'text-xs px-2 py-1 rounded bg-green-100 text-green-700';
+        }
+    } else {
+        preview.textContent = 'No conditions set...';
+        preview.className = 'font-mono text-sm bg-white p-2 rounded border min-h-[30px] text-gray-500';
+        textarea.value = '';
+        
+        if (status) {
+            status.textContent = 'Empty';
+            status.className = 'text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-700';
+        }
+    }
+}
+
+function updateFieldOptions(dataSource) {
+    // This function would be called to filter fields based on the selected data source
+    // **DEPRECATED: Now using filterFieldsByDataSource() for better filtering**
+    console.log('Field selected (deprecated function):', dataSource);
+    handleFieldSelection(dataSource);
+}
+
+// Complex Rule Builder Functions (keeping existing functionality)
 function addFlag() {
     const selector = document.getElementById('flag-selector');
     const flag = selector.value;
     
     if (!flag) {
-        alert('Please select a flag first');
+        alert('Pick a flag first, dude!');
         return;
     }
     
@@ -263,7 +494,7 @@ function addFlag() {
 
 function addOperator(op) {
     if (expressionParts.length === 0 && op !== 'NOT') {
-        alert('Add a flag first');
+        alert('Add a flag first, mate!');
         return;
     }
     
@@ -292,7 +523,6 @@ function removeToken(index) {
 
 function updateExpressionDisplay() {
     const container = document.getElementById('expression-builder');
-    const emptyHint = document.getElementById('empty-hint');
     
     if (!container) return;
     
@@ -361,18 +591,16 @@ function validateExpression(expr) {
 function handleEditResponse(event) {
     if (event.detail.successful) {
         closeModal();
-        showNotification('Rule updated successfully!', 'success');
-        // Refresh the rules table
+        showNotification('Rule updated successfully! 🎉', 'success');
         htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules', {
             target: '#rules-container'
         });
     } else {
-        showNotification('Failed to update rule. Please try again.', 'error');
+        showNotification('Oof, failed to update rule. Try again, maybe? 😅', 'error');
     }
 }
 
 function showNotification(message, type) {
-    // Simple notification - you can enhance this
     alert(message);
 }
 
