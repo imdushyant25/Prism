@@ -38,6 +38,11 @@ ClaimsApp.ruleBuilder = {
         this.state.isInitialized = true;
         this.updateState();
         
+        // Initialize eligibility dropdown
+        if (ClaimsApp.eligibilityDropdown) {
+            ClaimsApp.eligibilityDropdown.initialize();
+        }
+        
         console.log('✅ Modal initialization complete');
     },
 
@@ -534,6 +539,92 @@ ClaimsApp.ruleBuilder = {
     }
 };
 
+// Eligibility Types Multi-Select Dropdown Functions
+ClaimsApp.eligibilityDropdown = {
+    selectedValues: new Set(),
+    
+    toggle() {
+        const dropdown = document.getElementById('eligibility-dropdown');
+        const chevron = document.getElementById('eligibility-chevron');
+        
+        if (!dropdown || !chevron) return;
+        
+        if (dropdown.classList.contains('hidden')) {
+            dropdown.classList.remove('hidden');
+            chevron.style.transform = 'rotate(180deg)';
+        } else {
+            dropdown.classList.add('hidden');
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    },
+    
+    toggleOption(value, label, checkbox) {
+        if (checkbox.checked) {
+            this.selectedValues.add(value);
+        } else {
+            this.selectedValues.delete(value);
+        }
+        
+        this.updateDisplay();
+        this.updateHiddenSelect();
+    },
+    
+    updateDisplay() {
+        const display = document.getElementById('eligibility-display');
+        if (!display) return;
+        
+        if (this.selectedValues.size === 0) {
+            display.innerHTML = '<span class="text-gray-500 text-sm">Select eligibility types...</span>';
+        } else {
+            const badges = Array.from(this.selectedValues).map(value => {
+                return `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    ${value}
+                    <button type="button" onclick="ClaimsApp.eligibilityDropdown.removeValue('${value}')" class="ml-1 text-blue-600 hover:text-blue-800">×</button>
+                </span>`;
+            }).join('');
+            display.innerHTML = badges;
+        }
+    },
+    
+    removeValue(value) {
+        this.selectedValues.delete(value);
+        
+        // Uncheck the corresponding checkbox
+        const checkbox = document.querySelector(`input[value="${value}"][data-eligibility-option]`);
+        if (checkbox) checkbox.checked = false;
+        
+        this.updateDisplay();
+        this.updateHiddenSelect();
+    },
+    
+    updateHiddenSelect() {
+        const hiddenSelect = document.getElementById('eligibility-hidden-select');
+        if (!hiddenSelect) return;
+        
+        // Clear all selections
+        Array.from(hiddenSelect.options).forEach(option => option.selected = false);
+        
+        // Select the chosen values
+        this.selectedValues.forEach(value => {
+            const option = hiddenSelect.querySelector(`option[value="${value}"]`);
+            if (option) option.selected = true;
+        });
+    },
+    
+    initialize() {
+        // Initialize from existing selected values in hidden select
+        const hiddenSelect = document.getElementById('eligibility-hidden-select');
+        if (!hiddenSelect) return;
+        
+        this.selectedValues.clear();
+        Array.from(hiddenSelect.selectedOptions).forEach(option => {
+            this.selectedValues.add(option.value);
+        });
+        
+        this.updateDisplay();
+    }
+};
+
 // Make functions globally available for onclick handlers
 window.buildCondition = ClaimsApp.ruleBuilder.buildCondition.bind(ClaimsApp.ruleBuilder);
 window.removeCondition = ClaimsApp.ruleBuilder.removeCondition.bind(ClaimsApp.ruleBuilder);
@@ -547,6 +638,10 @@ window.addOperator = ClaimsApp.ruleBuilder.addOperator.bind(ClaimsApp.ruleBuilde
 window.addParenthesis = ClaimsApp.ruleBuilder.addParenthesis.bind(ClaimsApp.ruleBuilder);
 window.clearExpression = ClaimsApp.ruleBuilder.clearExpression.bind(ClaimsApp.ruleBuilder);
 window.removeToken = ClaimsApp.ruleBuilder.removeToken.bind(ClaimsApp.ruleBuilder);
+
+// Eligibility dropdown functions
+window.toggleEligibilityDropdown = ClaimsApp.eligibilityDropdown.toggle.bind(ClaimsApp.eligibilityDropdown);
+window.toggleEligibilityOption = ClaimsApp.eligibilityDropdown.toggleOption.bind(ClaimsApp.eligibilityDropdown);
 
 // Initialize modal when script loads (delayed to ensure DOM is ready)
 function initializeRuleBuilderIfNeeded() {

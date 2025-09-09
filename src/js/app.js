@@ -129,6 +129,17 @@ function initializeHTMXEventHandlers() {
                 dropdown.classList.add('hidden');
             });
         }
+        
+        // Close eligibility dropdown when clicking outside
+        if (!event.target.closest('#eligibility-dropdown') && 
+            !event.target.closest('[onclick*="toggleEligibilityDropdown"]')) {
+            const eligibilityDropdown = document.getElementById('eligibility-dropdown');
+            const eligibilityChevron = document.getElementById('eligibility-chevron');
+            if (eligibilityDropdown && !eligibilityDropdown.classList.contains('hidden')) {
+                eligibilityDropdown.classList.add('hidden');
+                if (eligibilityChevron) eligibilityChevron.style.transform = 'rotate(0deg)';
+            }
+        }
     });
 
     console.log('✅ HTMX event handlers initialized');

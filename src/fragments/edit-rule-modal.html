@@ -196,51 +196,77 @@
                                     </h3>
 
                                         <!-- PBM Selection -->
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">PBM</label>
-                                            <select name="pbm_code" class="w-full border rounded px-3 py-2" required>
+                                        <div class="flex items-center gap-3">
+                                            <label class="text-sm font-medium text-gray-700 w-20 flex-shrink-0">PBM:</label>
+                                            <select name="pbm_code" class="flex-1 border rounded px-3 py-2" required>
                                                 {{PBM_OPTIONS}}
                                             </select>
                                         </div>
 
                                         <!-- Priority -->
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+                                        <div class="flex items-center gap-3">
+                                            <label class="text-sm font-medium text-gray-700 w-20 flex-shrink-0">Priority:</label>
                                             <input type="number" name="priority" value="{{PRIORITY}}" 
-                                                   class="w-full border rounded px-3 py-2" placeholder="e.g., 100">
+                                                   class="flex-1 border rounded px-3 py-2" placeholder="e.g., 100">
                                         </div>
 
                                         <!-- Category -->
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                                            <select name="rule_category" class="w-full border rounded px-3 py-2">
+                                        <div class="flex items-center gap-3">
+                                            <label class="text-sm font-medium text-gray-700 w-20 flex-shrink-0">Category:</label>
+                                            <select name="rule_category" class="flex-1 border rounded px-3 py-2">
                                                 <option value="PRODUCTION" {{PRODUCTION_SELECTED}}>Production</option>
                                                 <option value="MODELING" {{MODELING_SELECTED}}>Modeling</option>
                                             </select>
                                         </div>
 
-                                        <!-- Checkboxes -->
-                                        <div class="space-y-3">
+                                        <!-- Checkboxes in same row -->
+                                        <div class="flex items-center gap-6">
                                             <div class="flex items-center">
                                                 <input type="checkbox" name="is_standalone_executable" {{STANDALONE_CHECKED}} 
                                                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                                <label class="ml-3 text-sm font-medium text-gray-700">Standalone Executable</label>
+                                                <label class="ml-2 text-sm font-medium text-gray-700">Standalone</label>
                                             </div>
                                             <div class="flex items-center">
                                                 <input type="checkbox" name="is_active" {{ACTIVE_CHECKED}} 
                                                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                                <label class="ml-3 text-sm font-medium text-gray-700">Active</label>
+                                                <label class="ml-2 text-sm font-medium text-gray-700">Active</label>
                                             </div>
                                         </div>
 
-                                        <!-- Eligibility Types -->
-                                        <div>
+                                        <!-- Eligibility Types - Custom Multi-Select Dropdown -->
+                                        <div class="relative">
                                             <label class="block text-sm font-medium text-gray-700 mb-2">Eligibility Types</label>
-                                            <select name="eligibility_types" multiple 
-                                                    class="w-full border rounded px-3 py-2 h-32">
+                                            
+                                            <!-- Dropdown Trigger -->
+                                            <div class="relative">
+                                                <button type="button" 
+                                                        onclick="toggleEligibilityDropdown()" 
+                                                        class="w-full border border-gray-300 rounded px-3 py-2 text-left bg-white flex items-center justify-between focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                                    <div class="flex-1">
+                                                        <div id="eligibility-display" class="flex flex-wrap gap-1">
+                                                            <span class="text-gray-500 text-sm">Select eligibility types...</span>
+                                                        </div>
+                                                    </div>
+                                                    <svg id="eligibility-chevron" class="w-4 h-4 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                                    </svg>
+                                                </button>
+                                                
+                                                <!-- Dropdown Menu -->
+                                                <div id="eligibility-dropdown" class="hidden absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                                    <div class="p-2">
+                                                        <!-- Options will be populated here -->
+                                                        <div class="space-y-1" id="eligibility-options">
+                                                            {{ELIGIBILITY_CHECKBOXES}}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Hidden select for form submission -->
+                                            <select name="eligibility_types" multiple class="hidden" id="eligibility-hidden-select">
                                                 {{ELIGIBILITY_OPTIONS}}
                                             </select>
-                                            <p class="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
                                         </div>
                                     </div>
                                 </div>
