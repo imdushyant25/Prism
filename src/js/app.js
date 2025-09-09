@@ -61,68 +61,78 @@ ClaimsApp.utils = {
     }
 };
 
-// HTMX Event Handlers
-document.body.addEventListener('htmx:responseError', function(evt) {
-    console.error('HTMX Response Error:', evt.detail);
-    ClaimsApp.utils.showNotification('Error loading data. Please try again.', 'error');
-});
+// Initialize HTMX Event Handlers when DOM is ready
+function initializeHTMXEventHandlers() {
+    if (!document.body) {
+        console.warn('Document body not ready, deferring HTMX handlers');
+        return;
+    }
 
-document.body.addEventListener('htmx:sendError', function(evt) {
-    console.error('HTMX Send Error:', evt.detail);
-    ClaimsApp.utils.showNotification('Network error. Please check your connection.', 'error');
-});
+    // HTMX Event Handlers
+    document.body.addEventListener('htmx:responseError', function(evt) {
+        console.error('HTMX Response Error:', evt.detail);
+        ClaimsApp.utils.showNotification('Error loading data. Please try again.', 'error');
+    });
 
-document.body.addEventListener('htmx:afterRequest', function(evt) {
-    if (evt.detail.successful) {
-        console.log('HTMX request successful');
-        
-        // Re-initialize filters if they were loaded via HTMX
-        if (evt.detail.target && evt.detail.target.id === 'filters-container') {
-            console.log('Filters loaded via HTMX, reinitializing...');
-            ClaimsApp.filters.initializeFilters();
-        }
-        
-        // Re-enable field select after HTMX loads new options (for rule modal)
-        const fieldSelect = document.getElementById('field-select');
-        if (fieldSelect && evt.detail.target === fieldSelect) {
-            fieldSelect.disabled = false;
-            console.log('Field dropdown re-enabled with new options');
+    document.body.addEventListener('htmx:sendError', function(evt) {
+        console.error('HTMX Send Error:', evt.detail);
+        ClaimsApp.utils.showNotification('Network error. Please check your connection.', 'error');
+    });
+
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.successful) {
+            console.log('HTMX request successful');
             
-            // Check if we got fields or an error
-            if (fieldSelect.options.length <= 1) {
-                console.warn('No fields loaded for selected data source');
-                ClaimsApp.utils.showNotification('No fields found for this data source', 'warning');
-            } else {
-                console.log('Successfully loaded', fieldSelect.options.length - 1, 'fields');
-                ClaimsApp.utils.showNotification('Fields loaded successfully!', 'success');
+            // Re-initialize filters if they were loaded via HTMX
+            if (evt.detail.target && evt.detail.target.id === 'filters-container') {
+                console.log('Filters loaded via HTMX, reinitializing...');
+                ClaimsApp.filters.initializeFilters();
             }
+            
+            // Re-enable field select after HTMX loads new options (for rule modal)
+            const fieldSelect = document.getElementById('field-select');
+            if (fieldSelect && evt.detail.target === fieldSelect) {
+                fieldSelect.disabled = false;
+                console.log('Field dropdown re-enabled with new options');
+                
+                // Check if we got fields or an error
+                if (fieldSelect.options.length <= 1) {
+                    console.warn('No fields loaded for selected data source');
+                    ClaimsApp.utils.showNotification('No fields found for this data source', 'warning');
+                } else {
+                    console.log('Successfully loaded', fieldSelect.options.length - 1, 'fields');
+                    ClaimsApp.utils.showNotification('Fields loaded successfully!', 'success');
+                }
+            }
+        } else {
+            console.error('HTMX request failed:', evt.detail);
         }
-    } else {
-        console.error('HTMX request failed:', evt.detail);
-    }
-});
+    });
 
-// Enhanced HTMX error handling for field loading
-document.body.addEventListener('htmx:responseError', function(event) {
-    console.error('HTMX error:', event.detail);
-    
-    const fieldSelect = document.getElementById('field-select');
-    if (fieldSelect && event.detail.target === fieldSelect) {
-        fieldSelect.innerHTML = '<option value="">Error loading fields</option>';
-        fieldSelect.disabled = false;
-        ClaimsApp.utils.showNotification('Failed to load fields. Please try again.', 'error');
-    }
-});
+    // Enhanced HTMX error handling for field loading
+    document.body.addEventListener('htmx:responseError', function(event) {
+        console.error('HTMX error:', event.detail);
+        
+        const fieldSelect = document.getElementById('field-select');
+        if (fieldSelect && event.detail.target === fieldSelect) {
+            fieldSelect.innerHTML = '<option value="">Error loading fields</option>';
+            fieldSelect.disabled = false;
+            ClaimsApp.utils.showNotification('Failed to load fields. Please try again.', 'error');
+        }
+    });
 
-// Close dropdowns when clicking outside
-document.addEventListener('click', function(event) {
-    if (!event.target.closest('[onclick*="toggleDropdown"]') && 
-        !event.target.closest('[id^="dropdown-"]')) {
-        document.querySelectorAll('[id^="dropdown-"]').forEach(dropdown => {
-            dropdown.classList.add('hidden');
-        });
-    }
-});
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('[onclick*="toggleDropdown"]') && 
+            !event.target.closest('[id^="dropdown-"]')) {
+            document.querySelectorAll('[id^="dropdown-"]').forEach(dropdown => {
+                dropdown.classList.add('hidden');
+            });
+        }
+    });
+
+    console.log('✅ HTMX event handlers initialized');
+}
 
 // Action handlers for rules
 ClaimsApp.actions = {
@@ -341,15 +351,7 @@ ClaimsApp.filters = {
     }
 };
 
-// Initialize filters when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize filters if they exist
-    if (document.getElementById('filter-body')) {
-        ClaimsApp.filters.initializeFilters();
-    }
-});
-
-// Make functions globally available for onclick handlers
+// Make functions globally available for onclick handlers IMMEDIATELY
 window.showNotification = ClaimsApp.utils.showNotification;
 window.toggleDropdown = ClaimsApp.utils.toggleDropdown;
 window.editRule = ClaimsApp.actions.editRule;
@@ -371,10 +373,41 @@ window.applyFilters = function() {
     if (ClaimsApp.filters) ClaimsApp.filters.applyFilters(); 
 };
 window.toggleFilters = function() { 
-    if (ClaimsApp.filters) ClaimsApp.filters.toggleFilters(); 
+    console.log('toggleFilters called');
+    if (ClaimsApp.filters) {
+        ClaimsApp.filters.toggleFilters();
+    } else {
+        console.error('ClaimsApp.filters not available');
+    }
 };
 window.applyQuickFilter = function(type) { 
     if (ClaimsApp.filters) ClaimsApp.filters.applyQuickFilter(type); 
 };
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM ready, initializing ClaimsApp...');
+    
+    // Initialize HTMX event handlers
+    initializeHTMXEventHandlers();
+    
+    // Initialize filters if they exist
+    if (document.getElementById('filter-body')) {
+        ClaimsApp.filters.initializeFilters();
+    }
+});
+
+// Also try to initialize immediately if DOM is already loaded
+if (document.readyState === 'loading') {
+    // DOM is still loading, wait for DOMContentLoaded
+    console.log('DOM still loading, waiting for DOMContentLoaded...');
+} else {
+    // DOM is already loaded
+    console.log('DOM already loaded, initializing immediately...');
+    initializeHTMXEventHandlers();
+    if (document.getElementById('filter-body')) {
+        ClaimsApp.filters.initializeFilters();
+    }
+}
 
 console.log('🚀 ClaimsApp utilities loaded');
