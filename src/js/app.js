@@ -76,6 +76,12 @@ document.body.addEventListener('htmx:afterRequest', function(evt) {
     if (evt.detail.successful) {
         console.log('HTMX request successful');
         
+        // Re-initialize filters if they were loaded via HTMX
+        if (evt.detail.target && evt.detail.target.id === 'filters-container') {
+            console.log('Filters loaded via HTMX, reinitializing...');
+            ClaimsApp.filters.initializeFilters();
+        }
+        
         // Re-enable field select after HTMX loads new options (for rule modal)
         const fieldSelect = document.getElementById('field-select');
         if (fieldSelect && evt.detail.target === fieldSelect) {
@@ -283,30 +289,54 @@ ClaimsApp.filters = {
      * Initialize filter event listeners
      */
     initializeFilters() {
+        console.log('Initializing filters...');
+        
+        // Check if filter elements exist
+        const filterBody = document.getElementById('filter-body');
+        if (!filterBody) {
+            console.warn('Filter body not found, skipping filter initialization');
+            return;
+        }
+        
         // Add change listeners for real-time badge updates and auto-apply
-        document.querySelectorAll('#filter-body select, #filter-body input').forEach(input => {
-            input.addEventListener('change', () => {
-                this.updateFilterBadges();
-                // Auto-apply filters on change (but with clean data)
-                this.applyFilters();
-            });
+        const filterInputs = filterBody.querySelectorAll('select, input');
+        console.log(`Found ${filterInputs.length} filter inputs`);
+        
+        filterInputs.forEach(input => {
+            // Remove existing listeners to avoid duplicates
+            input.removeEventListener('change', this.handleFilterChange);
+            input.removeEventListener('keyup', this.handleFilterKeyup);
             
-            input.addEventListener('keyup', () => {
-                this.updateFilterBadges();
-                // Debounced auto-apply for text inputs
-                if (input.type === 'text' || input.type === 'search') {
-                    clearTimeout(input.debounceTimer);
-                    input.debounceTimer = setTimeout(() => {
-                        this.applyFilters();
-                    }, 500);
-                }
-            });
+            // Add new listeners
+            input.addEventListener('change', this.handleFilterChange.bind(this));
+            input.addEventListener('keyup', this.handleFilterKeyup.bind(this));
         });
         
         // Start with filters collapsed
-        const body = document.getElementById('filter-body');
-        if (body) {
-            body.classList.add('collapse');
+        if (filterBody) {
+            filterBody.classList.add('collapse');
+        }
+    },
+
+    /**
+     * Handle filter change events
+     */
+    handleFilterChange() {
+        this.updateFilterBadges();
+        this.applyFilters();
+    },
+
+    /**
+     * Handle filter keyup events
+     */
+    handleFilterKeyup(event) {
+        this.updateFilterBadges();
+        // Debounced auto-apply for text inputs
+        if (event.target.type === 'text' || event.target.type === 'search') {
+            clearTimeout(event.target.debounceTimer);
+            event.target.debounceTimer = setTimeout(() => {
+                this.applyFilters();
+            }, 500);
         }
     }
 };
@@ -327,12 +357,24 @@ window.cloneRule = ClaimsApp.actions.cloneRule;
 window.modelRule = ClaimsApp.actions.modelRule;
 window.deleteRule = ClaimsApp.actions.deleteRule;
 
-// Filter functions
-window.updateFilterBadges = ClaimsApp.filters.updateFilterBadges.bind(ClaimsApp.filters);
-window.clearFilter = ClaimsApp.filters.clearFilter.bind(ClaimsApp.filters);
-window.clearAllFilters = ClaimsApp.filters.clearAllFilters.bind(ClaimsApp.filters);
-window.applyFilters = ClaimsApp.filters.applyFilters.bind(ClaimsApp.filters);
-window.toggleFilters = ClaimsApp.filters.toggleFilters.bind(ClaimsApp.filters);
-window.applyQuickFilter = ClaimsApp.filters.applyQuickFilter.bind(ClaimsApp.filters);
+// Filter functions - must be available immediately for onclick handlers
+window.updateFilterBadges = function() { 
+    if (ClaimsApp.filters) ClaimsApp.filters.updateFilterBadges(); 
+};
+window.clearFilter = function(filterName) { 
+    if (ClaimsApp.filters) ClaimsApp.filters.clearFilter(filterName); 
+};
+window.clearAllFilters = function() { 
+    if (ClaimsApp.filters) ClaimsApp.filters.clearAllFilters(); 
+};
+window.applyFilters = function() { 
+    if (ClaimsApp.filters) ClaimsApp.filters.applyFilters(); 
+};
+window.toggleFilters = function() { 
+    if (ClaimsApp.filters) ClaimsApp.filters.toggleFilters(); 
+};
+window.applyQuickFilter = function(type) { 
+    if (ClaimsApp.filters) ClaimsApp.filters.applyQuickFilter(type); 
+};
 
 console.log('🚀 ClaimsApp utilities loaded');
