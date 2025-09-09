@@ -15,27 +15,37 @@ ClaimsApp.ruleBuilder = {
      * Initialize the rule builder modal
      */
     initializeModal() {
-        console.log('Initializing modal...');
+        console.log('🔄 Initializing modal...');
         
         // Always reset state when initializing a new modal
         this.state.expressionParts = [];
         this.state.builtConditions = [];
         this.state.isInitialized = false;
         
-        const ruleType = document.querySelector('input[name="rule_type"]')?.value;
+        const ruleTypeInput = document.querySelector('input[name="rule_type"]');
+        console.log('🔍 Rule type input element:', ruleTypeInput);
+        console.log('🔍 Rule type value:', ruleTypeInput?.value);
+        
+        const ruleType = ruleTypeInput?.value;
         if (ruleType) {
+            console.log(`✅ Found rule type: ${ruleType}, toggling UI...`);
             this.toggleRuleType(ruleType);
+        } else {
+            console.warn('❌ No rule type found, defaulting to SIMPLE');
+            this.toggleRuleType('SIMPLE');
         }
         this.loadExistingConditions();
         this.state.isInitialized = true;
         this.updateState();
+        
+        console.log('✅ Modal initialization complete');
     },
 
     /**
      * Toggle between Simple and Complex rule types
      */
     toggleRuleType(type) {
-        console.log('Toggling rule type to:', type);
+        console.log(`🔄 Toggling rule type to: ${type}`);
         
         // Reset all state when switching rule types
         this.state.expressionParts = [];
@@ -45,10 +55,29 @@ ClaimsApp.ruleBuilder = {
         const simpleSection = document.getElementById('simple-section');
         const dataSourceField = document.getElementById('data-source-field');
         
+        console.log('🔍 DOM Elements found:');
+        console.log('  - complexSection:', complexSection);
+        console.log('  - simpleSection:', simpleSection);
+        console.log('  - dataSourceField:', dataSourceField);
+        
         if (type === 'COMPLEX') {
-            if (complexSection) complexSection.classList.remove('hidden');
-            if (simpleSection) simpleSection.classList.add('hidden');
-            if (dataSourceField) dataSourceField.style.display = 'none';
+            console.log('📱 Setting up COMPLEX rule UI...');
+            if (complexSection) {
+                complexSection.classList.remove('hidden');
+                console.log('  ✅ Complex section shown');
+            } else {
+                console.error('  ❌ Complex section not found!');
+            }
+            if (simpleSection) {
+                simpleSection.classList.add('hidden');
+                console.log('  ✅ Simple section hidden');
+            } else {
+                console.error('  ❌ Simple section not found!');
+            }
+            if (dataSourceField) {
+                dataSourceField.style.display = 'none';
+                console.log('  ✅ Data source field hidden');
+            }
             
             // Clear simple rule artifacts completely
             this.clearAllConditions();
@@ -56,9 +85,23 @@ ClaimsApp.ruleBuilder = {
             
             this.loadExistingExpression();
         } else {
-            if (complexSection) complexSection.classList.add('hidden');
-            if (simpleSection) simpleSection.classList.remove('hidden');
-            if (dataSourceField) dataSourceField.style.display = 'block';
+            console.log('📝 Setting up SIMPLE rule UI...');
+            if (complexSection) {
+                complexSection.classList.add('hidden');
+                console.log('  ✅ Complex section hidden');
+            } else {
+                console.error('  ❌ Complex section not found!');
+            }
+            if (simpleSection) {
+                simpleSection.classList.remove('hidden');
+                console.log('  ✅ Simple section shown');
+            } else {
+                console.error('  ❌ Simple section not found!');
+            }
+            if (dataSourceField) {
+                dataSourceField.style.display = 'block';
+                console.log('  ✅ Data source field shown');
+            }
             
             // Clear complex rule artifacts completely
             this.clearExpression();
@@ -66,6 +109,7 @@ ClaimsApp.ruleBuilder = {
         }
         
         this.updateState();
+        console.log(`✅ Rule type toggle to ${type} complete`);
     },
 
     /**
