@@ -614,13 +614,33 @@ ClaimsApp.eligibilityDropdown = {
     initialize() {
         // Initialize from existing selected values in hidden select
         const hiddenSelect = document.getElementById('eligibility-hidden-select');
-        if (!hiddenSelect) return;
+        const optionsContainer = document.getElementById('eligibility-options');
         
-        this.selectedValues.clear();
-        Array.from(hiddenSelect.selectedOptions).forEach(option => {
-            this.selectedValues.add(option.value);
-        });
+        if (!hiddenSelect || !optionsContainer) return;
         
+        // Generate checkboxes from select options
+        const checkboxes = Array.from(hiddenSelect.options).map(option => {
+            if (!option.value) return ''; // Skip empty options
+            
+            const isSelected = option.selected;
+            if (isSelected) {
+                this.selectedValues.add(option.value);
+            }
+            
+            return `
+                <label class="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer">
+                    <input type="checkbox" 
+                           value="${option.value}" 
+                           ${isSelected ? 'checked' : ''}
+                           data-eligibility-option
+                           onchange="toggleEligibilityOption('${option.value}', '${option.textContent}', this)"
+                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                    <span class="ml-3 text-sm font-medium text-gray-700">${option.textContent}</span>
+                </label>
+            `;
+        }).filter(html => html).join('');
+        
+        optionsContainer.innerHTML = checkboxes;
         this.updateDisplay();
     }
 };
