@@ -5,7 +5,7 @@
     
     <!-- Modal Container -->
     <div class="relative min-h-screen flex items-center justify-center p-4">
-        <div class="relative bg-white rounded-lg shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col">
+        <div class="relative bg-white rounded-lg shadow-2xl w-full max-w-[95vw] h-screen flex flex-col">
             
             <!-- Header -->
             <div class="px-6 py-4 border-b bg-gray-50 rounded-t-lg flex-shrink-0">
@@ -117,19 +117,21 @@
                         </div>
                     </div>
 
-                    <!-- SIMPLE RULE BUILDER - ENHANCED -->
+                    <!-- SIMPLE RULE BUILDER - FIXED VERSION -->
                     <div id="simple-section">
                         <div class="space-y-4">
-                            <!-- Data Source (read-only for simple rules) -->
+                            <!-- FIXED: Data Source dropdown with HTMX field loading -->
                             <div id="data-source-field">
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Data Source</label>
-                                <input type="text" value="{{DATA_SOURCE}}" 
-                                       class="w-full border rounded px-3 py-2 bg-gray-100 text-gray-600" 
-                                       readonly>
-                                <input type="hidden" name="data_source" value="{{DATA_SOURCE}}">
+                                <select name="data_source" 
+                                        onchange="handleDataSourceChange(this.value)"
+                                        class="w-full border rounded px-3 py-2">
+                                    <option value="">Select Data Source</option>
+                                    {{DATA_SOURCE_OPTIONS}}
+                                </select>
                             </div>
 
-                            <!-- Visual Builder for Simple Rules - ONLY OPTION NOW -->
+                            <!-- FIXED: Visual Builder with HTMX-powered field dropdown -->
                             <div class="bg-gray-50 border border-gray-200 rounded-md p-4 mb-3">
                                 <div class="flex justify-between items-center mb-3">
                                     <h4 class="text-md font-medium text-gray-800">🔧 Visual Condition Builder</h4>
@@ -141,12 +143,12 @@
                                 </div>
                                 
                                 <div class="space-y-3">
-                                    <!-- Add Condition Row -->
+                                    <!-- FIXED: Add Condition Row with dynamic field loading -->
                                     <div class="flex items-center space-x-3">
                                         <select id="field-select" 
-                                                onchange="updateFieldOptions(this.value)"
-                                                class="border border-gray-300 rounded px-3 py-2 min-w-[150px]">
-                                            <option value="">Select Field</option>
+                                                onchange="handleFieldSelection(this.value)"
+                                                class="border border-gray-300 rounded px-3 py-2 min-w-[200px]">
+                                            <option value="">Select Data Source First</option>
                                             {{DATASOURCE_FIELDS}}
                                         </select>
                                         <select id="operator-select" class="border border-gray-300 rounded px-3 py-2">
@@ -166,24 +168,9 @@
                                                class="border border-gray-300 rounded px-3 py-2 flex-1"
                                                placeholder="Enter value(s)">
                                         <button type="button" 
-                                                onclick="addSimpleCondition()"
+                                                onclick="buildCondition()"
                                                 class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 whitespace-nowrap">
-                                            Add Condition
-                                        </button>
-                                    </div>
-                                    
-                                    <!-- Logical Operators for Multiple Conditions -->
-                                    <div class="flex gap-2 text-sm">
-                                        <span class="text-gray-600 py-1">Connect with:</span>
-                                        <button type="button" 
-                                                onclick="addLogicalOperator('AND')"
-                                                class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">
-                                            AND
-                                        </button>
-                                        <button type="button" 
-                                                onclick="addLogicalOperator('OR')"
-                                                class="bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700">
-                                            OR
+                                            Build Condition
                                         </button>
                                     </div>
                                     
@@ -243,14 +230,15 @@
                             <input type="checkbox" name="is_active" {{ACTIVE_CHECKED}} class="mr-2">
                             <span class="text-xs">Active</span>
                         </div>
+                        <!-- FIXED: Multi-select Eligibility Type -->
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Eligibility Type</label>
-                            <select name="eligibility_types" class="w-full border rounded px-2 py-1 text-sm">
-                                <option value="REBATES" {{REBATES_SELECTED}}>Rebates</option>
-                                <option value="REBATE_ELIGIBLE" {{REBATE_ELIGIBLE_SELECTED}}>Rebate Eligible</option>
-                                <option value="DISCOUNT" {{DISCOUNT_SELECTED}}>Discount</option>
-                                <option value="DISCOUNT_ELIGIBLE" {{DISCOUNT_ELIGIBLE_SELECTED}}>Discount Eligible</option>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Eligibility Types</label>
+                            <select name="eligibility_types" multiple 
+                                    class="w-full border rounded px-2 py-1 text-sm h-20" 
+                                    style="min-height: 60px;">
+                                {{ELIGIBILITY_OPTIONS}}
                             </select>
+                            <div class="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</div>
                         </div>
                     </div>
                 </div>
@@ -270,322 +258,468 @@
 </div>
 
 <script>
-console.log('Enhanced modal script loading...');
+console.log('Fixed modal script loading...');
 
-let expressionParts = [];
-let builtConditions = [];
-let isInitialized = false;
-
-function initializeModal() {
-    if (isInitialized) return;
+// FIXED: Wrap in IIFE to avoid variable conflicts but keep ALL functionality
+(function() {
+    // Clear any existing modal state
+    window.modalState = window.modalState || {};
     
-    console.log('Initializing modal...');
-    const ruleType = document.querySelector('input[name="rule_type"]')?.value;
-    if (ruleType) {
-        toggleRuleType(ruleType);
+    let expressionParts = window.modalState.expressionParts || [];
+    let builtConditions = window.modalState.builtConditions || [];
+    let isInitialized = window.modalState.isInitialized || false;
+    
+    // Store state globally so HTMX updates don't lose it
+    function updateState() {
+        window.modalState.expressionParts = expressionParts;
+        window.modalState.builtConditions = builtConditions;
+        window.modalState.isInitialized = isInitialized;
     }
-    loadExistingConditions();
-    isInitialized = true;
-}
 
-function toggleRuleType(type) {
-    console.log('Toggling rule type to:', type);
-    
-    const complexSection = document.getElementById('complex-section');
-    const simpleSection = document.getElementById('simple-section');
-    const dataSourceField = document.getElementById('data-source-field');
-    
-    if (type === 'COMPLEX') {
-        if (complexSection) complexSection.classList.remove('hidden');
-        if (simpleSection) simpleSection.classList.add('hidden');
-        if (dataSourceField) dataSourceField.style.display = 'none';
-        loadExistingExpression();
-    } else {
-        if (complexSection) complexSection.classList.add('hidden');
-        if (simpleSection) simpleSection.classList.remove('hidden');
-        if (dataSourceField) dataSourceField.style.display = 'block';
-    }
-}
-
-function loadExistingConditions() {
-    const textarea = document.getElementById('conditions-textarea');
-    if (textarea && textarea.value.trim()) {
-        const existingCondition = textarea.value.trim();
-        console.log('Loading existing conditions:', existingCondition);
+    function initializeModal() {
+        console.log('Initializing modal...');
         
-        // Parse existing conditions and display them
-        updateFinalSQLPreview(existingCondition);
-    }
-}
-
-function loadExistingExpression() {
-    const textarea = document.getElementById('conditions-textarea');
-    if (textarea && textarea.value.trim()) {
-        const existingCondition = textarea.value.trim();
-        console.log('Loading existing expression:', existingCondition);
+        // FIXED: Always reset state when initializing a new modal
+        expressionParts = [];
+        builtConditions = [];
+        isInitialized = false;
         
-        const parts = existingCondition.split(/\s+/);
-        expressionParts = parts;
-        updateExpressionDisplay();
-        updateSQLPreview();
+        const ruleType = document.querySelector('input[name="rule_type"]')?.value;
+        if (ruleType) {
+            toggleRuleType(ruleType);
+        }
+        loadExistingConditions();
+        isInitialized = true;
+        updateState();
     }
-}
 
-// Simple Rule Builder Functions
-function addSimpleCondition() {
-    const field = document.getElementById('field-select')?.value;
-    const operator = document.getElementById('operator-select')?.value;
-    const value = document.getElementById('value-input')?.value;
-    
-    if (!field || !operator || !value) {
-        alert('Yo, you gotta fill in all fields first!');
-        return;
-    }
-    
-    let newCondition = `${field} ${operator} `;
-    if (operator.includes('IN')) {
-        const values = value.split(',').map(v => `'${v.trim()}'`).join(', ');
-        newCondition += `(${values})`;
-    } else if (operator.includes('LIKE')) {
-        newCondition += `'%${value}%'`;
-    } else {
-        newCondition += `'${value}'`;
-    }
-    
-    builtConditions.push({
-        field: field,
-        operator: operator,
-        value: value,
-        condition: newCondition
-    });
-    
-    updateBuiltConditionsDisplay();
-    clearConditionInputs();
-}
-
-function addLogicalOperator(operator) {
-    if (builtConditions.length === 0) {
-        alert('Add at least one condition first, buddy!');
-        return;
-    }
-    
-    builtConditions.push({
-        type: 'operator',
-        operator: operator,
-        condition: operator
-    });
-    
-    updateBuiltConditionsDisplay();
-}
-
-function removeCondition(index) {
-    builtConditions.splice(index, 1);
-    updateBuiltConditionsDisplay();
-}
-
-function clearAllConditions() {
-    builtConditions = [];
-    updateBuiltConditionsDisplay();
-    clearConditionInputs();
-}
-
-function clearConditionInputs() {
-    const fieldSelect = document.getElementById('field-select');
-    const operatorSelect = document.getElementById('operator-select');
-    const valueInput = document.getElementById('value-input');
-    
-    if (fieldSelect) fieldSelect.value = '';
-    if (operatorSelect) operatorSelect.value = '=';
-    if (valueInput) valueInput.value = '';
-}
-
-function updateBuiltConditionsDisplay() {
-    const container = document.getElementById('built-conditions');
-    const countSpan = document.getElementById('condition-count');
-    
-    if (!container) return;
-    
-    const conditionCount = builtConditions.filter(c => c.type !== 'operator').length;
-    if (countSpan) {
-        countSpan.textContent = `${conditionCount} condition${conditionCount !== 1 ? 's' : ''}`;
-    }
-    
-    if (builtConditions.length === 0) {
-        container.innerHTML = '<span class="text-gray-500 text-sm">No conditions added yet...</span>';
-        updateFinalSQLPreview('');
-        return;
-    }
-    
-    const conditionsHTML = builtConditions.map((condition, index) => {
-        if (condition.type === 'operator') {
-            return `
-                <span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-blue-100 text-blue-800 text-sm font-medium">
-                    ${condition.operator}
-                    <button type="button" onclick="removeCondition(${index})" class="ml-1 text-blue-600 hover:text-blue-800 text-xs">×</button>
-                </span>
-            `;
+    function toggleRuleType(type) {
+        console.log('Toggling rule type to:', type);
+        
+        // FIXED: Reset all state when switching rule types
+        expressionParts = [];
+        builtConditions = [];
+        
+        const complexSection = document.getElementById('complex-section');
+        const simpleSection = document.getElementById('simple-section');
+        const dataSourceField = document.getElementById('data-source-field');
+        
+        if (type === 'COMPLEX') {
+            if (complexSection) complexSection.classList.remove('hidden');
+            if (simpleSection) simpleSection.classList.add('hidden');
+            if (dataSourceField) dataSourceField.style.display = 'none';
+            
+            // Clear simple rule artifacts
+            clearAllConditions();
+            
+            loadExistingExpression();
         } else {
+            if (complexSection) complexSection.classList.add('hidden');
+            if (simpleSection) simpleSection.classList.remove('hidden');
+            if (dataSourceField) dataSourceField.style.display = 'block';
+            
+            // Clear complex rule artifacts
+            clearExpression();
+        }
+        
+        updateState();
+    }
+
+    function loadExistingConditions() {
+        const textarea = document.getElementById('conditions-textarea');
+        if (textarea && textarea.value.trim()) {
+            const existingCondition = textarea.value.trim();
+            console.log('Loading existing conditions:', existingCondition);
+            
+            // Parse existing conditions and display them
+            updateFinalSQLPreview(existingCondition);
+        }
+    }
+
+    function loadExistingExpression() {
+        const textarea = document.getElementById('conditions-textarea');
+        if (textarea && textarea.value.trim()) {
+            const existingCondition = textarea.value.trim();
+            console.log('Loading existing expression:', existingCondition);
+            
+            const parts = existingCondition.split(/\s+/);
+            expressionParts = parts;
+            updateExpressionDisplay();
+            updateSQLPreview();
+            updateState();
+        }
+    }
+
+    // FIXED: Simple Rule Builder Functions - Simplified without AND/OR
+    function buildCondition() {
+        const field = document.getElementById('field-select')?.value;
+        const operator = document.getElementById('operator-select')?.value;
+        const value = document.getElementById('value-input')?.value;
+        
+        if (!field || !operator || !value) {
+            alert('Please fill in all fields first!');
+            return;
+        }
+        
+        let newCondition = `${field} ${operator} `;
+        if (operator.includes('IN')) {
+            const values = value.split(',').map(v => `'${v.trim()}'`).join(', ');
+            newCondition += `(${values})`;
+        } else if (operator.includes('LIKE')) {
+            newCondition += `'%${value}%'`;
+        } else {
+            newCondition += `'${value}'`;
+        }
+        
+        // FIXED: Only store one condition for simple rules
+        builtConditions = [{
+            field: field,
+            operator: operator,
+            value: value,
+            condition: newCondition
+        }];
+        
+        updateBuiltConditionsDisplay();
+        clearConditionInputs();
+        updateState();
+    }
+
+    function removeCondition(index) {
+        builtConditions.splice(index, 1);
+        updateBuiltConditionsDisplay();
+        updateState();
+    }
+
+    function clearAllConditions() {
+        builtConditions = [];
+        updateBuiltConditionsDisplay();
+        clearConditionInputs();
+        updateState();
+    }
+
+    function clearConditionInputs() {
+        const fieldSelect = document.getElementById('field-select');
+        const operatorSelect = document.getElementById('operator-select');
+        const valueInput = document.getElementById('value-input');
+        
+        if (fieldSelect) fieldSelect.value = '';
+        if (operatorSelect) operatorSelect.value = '=';
+        if (valueInput) valueInput.value = '';
+    }
+
+    function updateBuiltConditionsDisplay() {
+        const container = document.getElementById('built-conditions');
+        const countSpan = document.getElementById('condition-count');
+        
+        if (!container) return;
+        
+        const conditionCount = builtConditions.length;
+        if (countSpan) {
+            countSpan.textContent = `${conditionCount} condition${conditionCount !== 1 ? 's' : ''}`;
+        }
+        
+        if (builtConditions.length === 0) {
+            container.innerHTML = '<span class="text-gray-500 text-sm">No conditions added yet...</span>';
+            updateFinalSQLPreview('');
+            return;
+        }
+        
+        // FIXED: Simple display without operators
+        const conditionsHTML = builtConditions.map((condition, index) => {
             return `
                 <span class="inline-flex items-center gap-1 px-3 py-1 rounded bg-green-100 text-green-800 text-sm">
                     ${condition.field} ${condition.operator} ${condition.value}
-                    <button type="button" onclick="removeCondition(${index})" class="ml-1 text-green-600 hover:text-green-800 text-xs">×</button>
+                    <button type="button" onclick="window.removeCondition(${index})" class="ml-1 text-green-600 hover:text-green-800 text-xs">×</button>
                 </span>
             `;
+        }).join(' ');
+        
+        container.innerHTML = conditionsHTML;
+        
+        // Build final SQL (just the single condition)
+        const finalSQL = builtConditions.map(c => c.condition).join('');
+        updateFinalSQLPreview(finalSQL);
+    }
+
+    function updateFinalSQLPreview(sql) {
+        const preview = document.getElementById('final-sql-preview');
+        const textarea = document.getElementById('conditions-textarea');
+        const status = document.getElementById('sql-status');
+        
+        if (!preview || !textarea) return;
+        
+        if (sql.trim()) {
+            preview.textContent = sql;
+            preview.className = 'font-mono text-sm bg-white p-2 rounded border min-h-[30px] text-gray-900';
+            textarea.value = sql;
+            
+            if (status) {
+                status.textContent = 'Valid';
+                status.className = 'text-xs px-2 py-1 rounded bg-green-100 text-green-700';
+            }
+        } else {
+            preview.textContent = 'No conditions set...';
+            preview.className = 'font-mono text-sm bg-white p-2 rounded border min-h-[30px] text-gray-500';
+            textarea.value = '';
+            
+            if (status) {
+                status.textContent = 'Empty';
+                status.className = 'text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-700';
+            }
         }
-    }).join(' ');
+    }
+
+    // FIXED: Handle field selection - no longer needs data source filtering since it's already filtered
+    function handleFieldSelection(fieldValue) {
+        console.log('Field selected:', fieldValue);
+        // Just log it for now - field is already filtered by data source in backend
+    }
+
+    // FIXED: Handle data source change - now with proper HTMX integration
+    function handleDataSourceChange(dataSource) {
+    console.log('Data source changed to:', dataSource);
     
-    container.innerHTML = conditionsHTML;
+    const fieldSelect = document.getElementById('field-select');
     
-    // Build final SQL
-    const finalSQL = builtConditions.map(c => c.condition).join(' ');
-    updateFinalSQLPreview(finalSQL);
+    if (!dataSource) {
+        // No data source selected
+        if (fieldSelect) {
+            fieldSelect.innerHTML = '<option value="">Select Data Source First</option>';
+        }
+        clearAllConditions();
+        return;
+    }
+    
+    // Clear existing conditions since we're changing data source
+    clearAllConditions();
+    
+    // Show loading state
+    if (fieldSelect) {
+        fieldSelect.innerHTML = '<option value="">Loading fields...</option>';
+        fieldSelect.disabled = true;
+    }
+    
+    // THIS IS THE MISSING PART - Make simple HTMX GET request
+    const url = `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?get_fields=true&data_source=${encodeURIComponent(dataSource)}`;
+    
+    console.log('Making HTMX request to:', url);
+    
+    htmx.ajax('GET', url, {
+        target: '#field-select',
+        swap: 'innerHTML'
+    }).then(() => {
+        console.log('Fields loaded successfully!');
+        if (fieldSelect) {
+            fieldSelect.disabled = false;
+        }
+        showNotification('Fields loaded successfully!', 'success');
+    }).catch((error) => {
+        console.error('Failed to load fields:', error);
+        if (fieldSelect) {
+            fieldSelect.innerHTML = '<option value="">Error loading fields</option>';
+            fieldSelect.disabled = false;
+        }
+        showNotification('Failed to load fields. Please try again.', 'error');
+    });
 }
 
-function updateFinalSQLPreview(sql) {
-    const preview = document.getElementById('final-sql-preview');
-    const textarea = document.getElementById('conditions-textarea');
-    const status = document.getElementById('sql-status');
-    
-    if (!preview || !textarea) return;
-    
-    if (sql.trim()) {
-        preview.textContent = sql;
-        preview.className = 'font-mono text-sm bg-white p-2 rounded border min-h-[30px] text-gray-900';
+    // Complex Rule Builder Functions (keeping ALL existing functionality)
+    function addFlag() {
+        const selector = document.getElementById('flag-selector');
+        const flag = selector.value;
+        
+        if (!flag) {
+            alert('Pick a flag first!');
+            return;
+        }
+        
+        expressionParts.push(flag);
+        selector.value = '';
+        updateExpressionDisplay();
+        updateSQLPreview();
+        updateState();
+    }
+
+    function addOperator(op) {
+        if (expressionParts.length === 0 && op !== 'NOT') {
+            alert('Add a flag first!');
+            return;
+        }
+        
+        expressionParts.push(op);
+        updateExpressionDisplay();
+        updateSQLPreview();
+        updateState();
+    }
+
+    function addParenthesis(paren) {
+        expressionParts.push(paren);
+        updateExpressionDisplay();
+        updateSQLPreview();
+        updateState();
+    }
+
+    function clearExpression() {
+        expressionParts = [];
+        updateExpressionDisplay();
+        updateSQLPreview();
+        updateState();
+    }
+
+    function removeToken(index) {
+        expressionParts.splice(index, 1);
+        updateExpressionDisplay();
+        updateSQLPreview();
+        updateState();
+    }
+
+    function updateExpressionDisplay() {
+        const container = document.getElementById('expression-builder');
+        
+        if (!container) return;
+        
+        if (expressionParts.length === 0) {
+            container.innerHTML = '<span id="empty-hint" class="text-blue-500 text-sm">Add flags below to build your expression...</span>';
+            return;
+        }
+        
+        const tokensHTML = expressionParts.map((part, index) => {
+            let colorClass = 'bg-gray-200 text-gray-800';
+            
+            if (['AND', 'OR'].includes(part)) {
+                colorClass = 'bg-blue-100 text-blue-800';
+            } else if (part === 'NOT') {
+                colorClass = 'bg-red-100 text-red-800';
+            } else if (['(', ')'].includes(part)) {
+                colorClass = 'bg-purple-100 text-purple-800';
+            } else {
+                colorClass = 'bg-green-100 text-green-800';
+            }
+            
+            return `
+                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${colorClass}">
+                    ${part}
+                    <button type="button" onclick="window.removeToken(${index})" class="ml-1 text-current hover:bg-black hover:bg-opacity-20 rounded-full w-4 h-4 flex items-center justify-center text-xs">
+                        ×
+                    </button>
+                </span>
+            `;
+        }).join('');
+        
+        container.innerHTML = tokensHTML;
+    }
+
+    function updateSQLPreview() {
+        const preview = document.getElementById('sql-preview');
+        const textarea = document.getElementById('conditions-textarea');
+        const status = document.getElementById('status-indicator');
+        
+        if (!preview || !textarea) return;
+        
+        const sql = expressionParts.join(' ');
+        preview.textContent = sql || 'No conditions yet...';
         textarea.value = sql;
         
-        if (status) {
-            status.textContent = 'Valid';
-            status.className = 'text-xs px-2 py-1 rounded bg-green-100 text-green-700';
-        }
-    } else {
-        preview.textContent = 'No conditions set...';
-        preview.className = 'font-mono text-sm bg-white p-2 rounded border min-h-[30px] text-gray-500';
-        textarea.value = '';
-        
-        if (status) {
-            status.textContent = 'Empty';
-            status.className = 'text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-700';
+        if (sql.trim() && status) {
+            const isValid = validateExpression(sql);
+            status.textContent = isValid ? 'Valid' : 'Check syntax';
+            status.className = `text-xs px-2 py-1 rounded ${isValid ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`;
         }
     }
-}
 
-function updateFieldOptions(dataSource) {
-    // This function would be called to filter fields based on the selected data source
-    // **DEPRECATED: Now using filterFieldsByDataSource() for better filtering**
-    console.log('Field selected (deprecated function):', dataSource);
-    handleFieldSelection(dataSource);
-}
-
-// Complex Rule Builder Functions (keeping existing functionality)
-function addFlag() {
-    const selector = document.getElementById('flag-selector');
-    const flag = selector.value;
-    
-    if (!flag) {
-        alert('Pick a flag first, dude!');
-        return;
-    }
-    
-    expressionParts.push(flag);
-    selector.value = '';
-    updateExpressionDisplay();
-    updateSQLPreview();
-}
-
-function addOperator(op) {
-    if (expressionParts.length === 0 && op !== 'NOT') {
-        alert('Add a flag first, mate!');
-        return;
-    }
-    
-    expressionParts.push(op);
-    updateExpressionDisplay();
-    updateSQLPreview();
-}
-
-function addParenthesis(paren) {
-    expressionParts.push(paren);
-    updateExpressionDisplay();
-    updateSQLPreview();
-}
-
-function clearExpression() {
-    expressionParts = [];
-    updateExpressionDisplay();
-    updateSQLPreview();
-}
-
-function removeToken(index) {
-    expressionParts.splice(index, 1);
-    updateExpressionDisplay();
-    updateSQLPreview();
-}
-
-function updateExpressionDisplay() {
-    const container = document.getElementById('expression-builder');
-    
-    if (!container) return;
-    
-    if (expressionParts.length === 0) {
-        container.innerHTML = '<span id="empty-hint" class="text-blue-500 text-sm">Add flags below to build your expression...</span>';
-        return;
-    }
-    
-    const tokensHTML = expressionParts.map((part, index) => {
-        let colorClass = 'bg-gray-200 text-gray-800';
+    function validateExpression(expr) {
+        let parenCount = 0;
+        const tokens = expr.split(/\s+/);
         
-        if (['AND', 'OR'].includes(part)) {
-            colorClass = 'bg-blue-100 text-blue-800';
-        } else if (part === 'NOT') {
-            colorClass = 'bg-red-100 text-red-800';
-        } else if (['(', ')'].includes(part)) {
-            colorClass = 'bg-purple-100 text-purple-800';
+        for (const token of tokens) {
+            if (token === '(') parenCount++;
+            if (token === ')') parenCount--;
+            if (parenCount < 0) return false;
+        }
+        
+        return parenCount === 0 && tokens.length > 0;
+    }
+
+    // Make functions globally available for onclick handlers
+    window.buildCondition = buildCondition;
+    window.removeCondition = removeCondition;
+    window.clearAllConditions = clearAllConditions;
+    window.handleFieldSelection = handleFieldSelection;
+    window.handleDataSourceChange = handleDataSourceChange;
+    //window.loadFieldsForDataSource = loadFieldsForDataSource;  // Add this too
+    
+    // Complex rule functions
+    window.addFlag = addFlag;
+    window.addOperator = addOperator;
+    window.addParenthesis = addParenthesis;
+    window.clearExpression = clearExpression;
+    window.removeToken = removeToken;
+
+    // Initialize when the script loads
+    setTimeout(initializeModal, 100);
+
+})(); // End IIFE
+
+// ENHANCED: Handle HTMX after request to re-enable dropdown
+document.body.addEventListener('htmx:afterRequest', function(event) {
+    console.log('HTMX request completed:', event.detail);
+    
+    // Re-enable field select after HTMX loads new options
+    const fieldSelect = document.getElementById('field-select');
+    if (fieldSelect && event.detail.target === fieldSelect) {
+        fieldSelect.disabled = false;
+        console.log('Field dropdown re-enabled with new options');
+        
+        // Check if we got fields or an error
+        if (fieldSelect.options.length <= 1) {
+            console.warn('No fields loaded for selected data source');
+            showNotification('No fields found for this data source', 'warning');
         } else {
-            colorClass = 'bg-green-100 text-green-800';
+            console.log('Successfully loaded', fieldSelect.options.length - 1, 'fields');
+            showNotification('Fields loaded successfully!', 'success');
         }
-        
-        return `
-            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${colorClass}">
-                ${part}
-                <button type="button" onclick="removeToken(${index})" class="ml-1 text-current hover:bg-black hover:bg-opacity-20 rounded-full w-4 h-4 flex items-center justify-center text-xs">
-                    ×
-                </button>
-            </span>
-        `;
-    }).join('');
+    }
+});
+
+// ENHANCED: Handle HTMX errors gracefully
+document.body.addEventListener('htmx:responseError', function(event) {
+    console.error('HTMX error:', event.detail);
     
-    container.innerHTML = tokensHTML;
+    const fieldSelect = document.getElementById('field-select');
+    if (fieldSelect && event.detail.target === fieldSelect) {
+        fieldSelect.innerHTML = '<option value="">Error loading fields</option>';
+        fieldSelect.disabled = false;
+        showNotification('Failed to load fields. Please try again.', 'error');
+    }
+});
+
+// Helper function for notifications
+function showNotification(message, type = 'info') {
+    console.log(`[${type.toUpperCase()}] ${message}`);
+    
+    // Create a simple toast notification
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 px-4 py-2 rounded shadow-lg z-50 ${getNotificationClass(type)}`;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 3000);
 }
 
-function updateSQLPreview() {
-    const preview = document.getElementById('sql-preview');
-    const textarea = document.getElementById('conditions-textarea');
-    const status = document.getElementById('status-indicator');
-    
-    if (!preview || !textarea) return;
-    
-    const sql = expressionParts.join(' ');
-    preview.textContent = sql || 'No conditions yet...';
-    textarea.value = sql;
-    
-    if (sql.trim() && status) {
-        const isValid = validateExpression(sql);
-        status.textContent = isValid ? 'Valid' : 'Check syntax';
-        status.className = `text-xs px-2 py-1 rounded ${isValid ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`;
-    }
-}
-
-function validateExpression(expr) {
-    let parenCount = 0;
-    const tokens = expr.split(/\s+/);
-    
-    for (const token of tokens) {
-        if (token === '(') parenCount++;
-        if (token === ')') parenCount--;
-        if (parenCount < 0) return false;
-    }
-    
-    return parenCount === 0 && tokens.length > 0;
+function getNotificationClass(type) {
+    const classes = {
+        'success': 'bg-green-100 text-green-800 border border-green-200',
+        'error': 'bg-red-100 text-red-800 border border-red-200',
+        'warning': 'bg-yellow-100 text-yellow-800 border border-yellow-200',
+        'info': 'bg-blue-100 text-blue-800 border border-blue-200'
+    };
+    return classes[type] || classes['info'];
 }
 
 function handleEditResponse(event) {
@@ -596,15 +730,8 @@ function handleEditResponse(event) {
             target: '#rules-container'
         });
     } else {
-        showNotification('Oof, failed to update rule. Try again, maybe? 😅', 'error');
+        showNotification('Failed to update rule. Try again!', 'error');
     }
 }
-
-function showNotification(message, type) {
-    alert(message);
-}
-
-// Initialize when the script loads
-setTimeout(initializeModal, 100);
 
 </script>

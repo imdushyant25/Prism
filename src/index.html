@@ -108,7 +108,7 @@ body.modal-open {
 
     <!-- Modal for New/Edit Rule -->
     <div id="rule-modal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center">
-        <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="bg-white rounded-lg shadow-xl max-w-[95vw] w-full mx-4 h-screen overflow-y-auto">
             <div id="modal-content">
                 <!-- Modal content will load here via HTMX -->
             </div>
@@ -123,15 +123,34 @@ body.modal-open {
     <script>
         // Close modal
     function closeModal() {
-    const modal = document.getElementById('rule-modal');
-    if (modal) {
-        modal.classList.remove('show');
-        // Re-enable body scroll
-        document.body.classList.remove('modal-open');
-        document.body.style.overflow = 'auto';
+            const modal = document.getElementById('rule-modal');
+            const modalContent = document.getElementById('modal-content');
+            
+            if (modal) {
+                modal.classList.remove('show');
+                // Re-enable body scroll
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = 'auto';
+                
+                // CRITICAL: Clear modal content to prevent caching issues
+                if (modalContent) {
+                    console.log('🧹 Clearing modal content to prevent cache issues');
+                    modalContent.innerHTML = `
+                        <div class="p-8 text-center">
+                            <div class="text-gray-500">Modal closed</div>
+                        </div>
+                    `;
+                }
+                
+                // Clear any global modal state
+                if (window.modalState) {
+                    console.log('🧹 Clearing modal state');
+                    window.modalState = {};
+                }
+            }
     }
-    }
-        // Close modal when clicking outside
+ 
+    // Close modal when clicking outside
         document.getElementById('rule-modal').addEventListener('click', function(e) {
             if (e.target === this) {
                 closeModal();
@@ -218,27 +237,43 @@ function editRule(ruleId) {
     const modal = document.getElementById('rule-modal');
     const modalContent = document.getElementById('modal-content');
     
-    // Clear any previous modal content to prevent state issues
-    modalContent.innerHTML = `
-        <div class="p-8 text-center">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p class="text-gray-600">Loading rule editor...</p>
-        </div>
-    `;
+    // CRITICAL: Always clear previous content first
+    if (modalContent) {
+        console.log('🧹 Clearing previous modal content');
+        modalContent.innerHTML = `
+            <div class="p-8 text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p class="text-gray-600">Loading rule editor...</p>
+            </div>
+        `;
+    }
     
-    modal.classList.add('show');
-    // Prevent background scroll
-    document.body.classList.add('modal-open');
-    document.body.style.overflow = 'hidden';
+    if (modal) {
+        modal.classList.add('show');
+        // Prevent background scroll
+        document.body.classList.add('modal-open');
+        document.body.style.overflow = 'hidden';
+    }
     
-    // Load the edit modal with cache busting
-    htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?edit=${ruleId}&t=${Date.now()}`, {
+    // Clear any existing modal state
+    if (window.modalState) {
+        console.log('🧹 Clearing previous modal state');
+        window.modalState = {};
+    }
+    
+    // ENHANCED: Load the edit modal with aggressive cache busting
+    const timestamp = Date.now();
+    const url = `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?edit=${ruleId}&t=${timestamp}&nocache=${Math.random()}`;
+    
+    console.log('🔄 Loading fresh modal content from:', url);
+    
+    htmx.ajax('GET', url, {
         target: '#modal-content',
         swap: 'innerHTML'
     }).then(() => {
-        console.log('Edit modal loaded successfully');
+        console.log('✅ Edit modal loaded successfully');
     }).catch(error => {
-        console.error('Failed to load edit modal:', error);
+        console.error('❌ Failed to load edit modal:', error);
         showNotification('Failed to load edit form. Please try again.', 'error');
         closeModal();
     });
