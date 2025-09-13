@@ -671,8 +671,13 @@ const handler = async (event) => {
             console.log('Clone form data:', formData);
             
             const ruleIds = formData.rule_ids ? formData.rule_ids.split(',').map(id => id.trim()).filter(id => id) : [];
-            const targetCategory = formData.target_category || 'MODELING';
+            const targetCategory = 'MODELING'; // Always create modeling rules
             const overwriteExisting = formData.overwrite_existing === 'on' || formData.overwrite_existing === 'true';
+            
+            console.log('🎯 Parsed clone parameters:');
+            console.log('  - Rule IDs:', ruleIds);
+            console.log('  - Target Category: MODELING (hardcoded)');
+            console.log('  - Overwrite Existing:', overwriteExisting);
             
             if (ruleIds.length === 0) {
                 return {
@@ -690,13 +695,13 @@ const handler = async (event) => {
                     return {
                         statusCode: 200,
                         headers: { ...headers, 'HX-Trigger': 'rulesCloned' },
-                        body: `<div class="text-green-600">Successfully cloned ${result.successCount} rules to ${targetCategory}! Refreshing...</div>`
+                        body: `<div class="text-green-600">Successfully created ${result.successCount} modeling rules! Refreshing...</div>`
                     };
                 } else {
                     return {
                         statusCode: 200,
                         headers: { ...headers, 'HX-Trigger': 'rulesCloned' },
-                        body: `<div class="text-yellow-600">Cloned ${result.successCount} rules, ${result.errorCount} failed. Refreshing...</div>`
+                        body: `<div class="text-yellow-600">Created ${result.successCount} modeling rules, ${result.errorCount} failed. Refreshing...</div>`
                     };
                 }
                 

@@ -39,15 +39,6 @@
                     
                     <!-- Clone Settings -->
                     <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Target Category</label>
-                            <select name="target_category" class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
-                                <option value="MODELING" selected>Modeling</option>
-                                <option value="TESTING">Testing</option>
-                            </select>
-                            <p class="text-xs text-gray-500 mt-1">Rules will be cloned with this category instead of Production</p>
-                        </div>
-                        
                         <div class="flex items-center">
                             <input type="checkbox" name="overwrite_existing" id="overwrite_existing" 
                                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" checked>
@@ -69,10 +60,11 @@
                                     </h3>
                                     <div class="mt-2 text-sm text-yellow-700">
                                         <ul class="list-disc pl-5 space-y-1">
-                                            <li>Rule names will remain unchanged</li>
-                                            <li>Category will be changed to selected target</li>
-                                            <li>Creation dates will be updated to now</li>
-                                            <li>Version system will be maintained</li>
+                                            <li>Creates new MODELING rules (always)</li>
+                                            <li>Rule names remain unchanged</li>
+                                            <li>New rule IDs generated, start at version 1</li>
+                                            <li>Creation dates set to now</li>
+                                            <li>Overwrites existing models with same flag_name</li>
                                         </ul>
                                     </div>
                                 </div>
