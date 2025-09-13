@@ -154,12 +154,15 @@ ClaimsApp.actions = {
 
     cloneRule(ruleId) {
         console.log('Clone rule:', ruleId);
-        ClaimsApp.utils.showNotification('Clone functionality coming soon!', 'info');
+        // Select this rule and show clone modal
+        ClaimsApp.bulkActions.selectSingleRule(ruleId);
+        ClaimsApp.bulkActions.showCloneModal();
     },
 
     modelRule(ruleId) {
         console.log('Create model from rule:', ruleId);
-        ClaimsApp.utils.showNotification('Model creation functionality coming soon!', 'info');
+        // Alias for cloneRule - same functionality
+        this.cloneRule(ruleId);
     },
 
     deleteRule(ruleId) {
@@ -358,6 +361,151 @@ ClaimsApp.filters = {
             event.target.debounceTimer = setTimeout(() => {
                 this.applyFilters();
             }, 500);
+        }
+    }
+};
+
+// Bulk Actions functionality
+ClaimsApp.bulkActions = {
+    selectedRules: new Set(),
+    
+    /**
+     * Toggle select all checkbox
+     */
+    toggleSelectAll(masterCheckbox) {
+        const checkboxes = document.querySelectorAll('.rule-checkbox');
+        const isChecked = masterCheckbox.checked;
+        
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = isChecked;
+            const ruleId = checkbox.dataset.ruleId;
+            if (isChecked) {
+                this.selectedRules.add(ruleId);
+            } else {
+                this.selectedRules.delete(ruleId);
+            }
+        });
+        
+        this.updateSelectionUI();
+    },
+    
+    /**
+     * Update selection when individual checkbox changes
+     */
+    updateSelection() {
+        const checkboxes = document.querySelectorAll('.rule-checkbox');
+        const masterCheckbox = document.getElementById('select-all-rules');
+        
+        // Update selectedRules set
+        this.selectedRules.clear();
+        checkboxes.forEach(checkbox => {
+            if (checkbox.checked) {
+                this.selectedRules.add(checkbox.dataset.ruleId);
+            }
+        });
+        
+        // Update master checkbox state
+        if (masterCheckbox) {
+            const totalCheckboxes = checkboxes.length;
+            const checkedCheckboxes = this.selectedRules.size;
+            
+            if (checkedCheckboxes === 0) {
+                masterCheckbox.checked = false;
+                masterCheckbox.indeterminate = false;
+            } else if (checkedCheckboxes === totalCheckboxes) {
+                masterCheckbox.checked = true;
+                masterCheckbox.indeterminate = false;
+            } else {
+                masterCheckbox.checked = false;
+                masterCheckbox.indeterminate = true;
+            }
+        }
+        
+        this.updateSelectionUI();
+    },
+    
+    /**
+     * Update the bulk actions UI based on selection
+     */
+    updateSelectionUI() {
+        const bulkActionsBar = document.getElementById('bulk-actions-bar');
+        const selectedCount = document.getElementById('selected-count');
+        
+        if (!bulkActionsBar || !selectedCount) return;
+        
+        const count = this.selectedRules.size;
+        
+        if (count > 0) {
+            bulkActionsBar.classList.remove('hidden');
+            selectedCount.textContent = `${count} rule${count !== 1 ? 's' : ''} selected`;
+        } else {
+            bulkActionsBar.classList.add('hidden');
+        }
+    },
+    
+    /**
+     * Clear all selections
+     */
+    clearSelection() {
+        this.selectedRules.clear();
+        const checkboxes = document.querySelectorAll('.rule-checkbox, #select-all-rules');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+            checkbox.indeterminate = false;
+        });
+        this.updateSelectionUI();
+    },
+    
+    /**
+     * Select a single rule (for individual clone)
+     */
+    selectSingleRule(ruleId) {
+        this.clearSelection();
+        this.selectedRules.add(ruleId);
+        
+        // Check the corresponding checkbox
+        const checkbox = document.querySelector(`[data-rule-id="${ruleId}"]`);
+        if (checkbox) {
+            checkbox.checked = true;
+        }
+        
+        this.updateSelectionUI();
+    },
+    
+    /**
+     * Show clone confirmation modal
+     */
+    showCloneModal() {
+        if (this.selectedRules.size === 0) {
+            ClaimsApp.utils.showNotification('Please select at least one rule to clone', 'warning');
+            return;
+        }
+        
+        console.log('Opening clone modal for rules:', Array.from(this.selectedRules));
+        ClaimsApp.modal.openCloneModal(Array.from(this.selectedRules));
+    },
+    
+    /**
+     * Process clone operation
+     */
+    async cloneSelectedRules(formData) {
+        const ruleIds = Array.from(this.selectedRules);
+        
+        if (ruleIds.length === 0) {
+            ClaimsApp.utils.showNotification('No rules selected for cloning', 'error');
+            return;
+        }
+        
+        try {
+            console.log('Cloning rules:', ruleIds);
+            ClaimsApp.utils.showNotification(`Cloning ${ruleIds.length} rule${ruleIds.length !== 1 ? 's' : ''}...`, 'info');
+            
+            // The form will handle the actual HTMX request
+            // This is just for logging and UI feedback
+            
+        } catch (error) {
+            console.error('Clone operation failed:', error);
+            ClaimsApp.utils.showNotification('Failed to clone rules. Please try again.', 'error');
         }
     }
 };

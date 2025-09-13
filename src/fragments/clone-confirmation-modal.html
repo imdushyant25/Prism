@@ -1,0 +1,98 @@
+<!-- Clone Confirmation Modal -->
+<div class="h-full w-full flex flex-col">
+    <!-- Modal Container -->
+    <div class="relative bg-white w-full h-full flex flex-col max-w-lg mx-auto mt-20">
+            
+        <!-- Header -->
+        <div class="px-6 py-4 border-b bg-gray-50 rounded-t-lg flex-shrink-0">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-xl font-semibold text-gray-900">Clone Rules</h2>
+                    <p class="text-sm text-gray-600 mt-1">Create modeling versions of selected rules</p>
+                </div>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-3xl leading-none">&times;</button>
+            </div>
+        </div>
+
+        <form id="clone-rules-form" 
+              hx-post="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?clone=true"
+              hx-target="#rules-container"
+              hx-trigger="submit"
+              hx-on::after-request="handleCloneResponse(event)"
+              class="flex flex-col flex-1">
+            
+            <!-- Content -->
+            <div class="px-6 py-6 flex-1">
+                <div class="space-y-6">
+                    
+                    <!-- Selected Rules Info -->
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h3 class="text-sm font-medium text-blue-900 mb-2">Selected Rules</h3>
+                        <div id="clone-rules-list" class="space-y-1">
+                            <!-- Rules will be populated by JavaScript -->
+                        </div>
+                        <div class="mt-2 text-xs text-blue-700">
+                            <span id="clone-count">0</span> rules selected for cloning
+                        </div>
+                    </div>
+                    
+                    <!-- Clone Settings -->
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Target Category</label>
+                            <select name="target_category" class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                                <option value="MODELING" selected>Modeling</option>
+                                <option value="TESTING">Testing</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">Rules will be cloned with this category instead of Production</p>
+                        </div>
+                        
+                        <div class="flex items-center">
+                            <input type="checkbox" name="overwrite_existing" id="overwrite_existing" 
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" checked>
+                            <label for="overwrite_existing" class="ml-2 text-sm text-gray-700">
+                                Overwrite existing models with same flag_name
+                            </label>
+                        </div>
+                        
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </div>
+                                <div class="ml-3">
+                                    <h3 class="text-sm font-medium text-yellow-800">
+                                        Clone Behavior
+                                    </h3>
+                                    <div class="mt-2 text-sm text-yellow-700">
+                                        <ul class="list-disc pl-5 space-y-1">
+                                            <li>Rule names will remain unchanged</li>
+                                            <li>Category will be changed to selected target</li>
+                                            <li>Creation dates will be updated to now</li>
+                                            <li>Version system will be maintained</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hidden field for selected rule IDs -->
+            <input type="hidden" name="rule_ids" id="clone-rule-ids" value="">
+
+            <!-- Footer -->
+            <div class="px-6 py-4 border-t bg-gray-50 flex justify-end gap-3 flex-shrink-0">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 border rounded text-gray-700 hover:bg-gray-100">
+                    Cancel
+                </button>
+                <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                    Clone Rules
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

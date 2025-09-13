@@ -1,5 +1,10 @@
 <tr class="{{ROW_CLASS}} border-b border-gray-100 hover:bg-blue-50 transition-colors">
-    <td class="px-4 py-4"><input type="checkbox" class="rounded border-gray-300"></td>
+    <td class="px-4 py-4">
+        <input type="checkbox" 
+               class="rule-checkbox rounded border-gray-300" 
+               data-rule-id="{{RULE_ID}}" 
+               onchange="ClaimsApp.bulkActions.updateSelection()">
+    </td>
     <td class="px-6 py-4">
         <div class="text-sm font-medium text-gray-900">{{NAME}}</div>
         <div class="text-xs text-gray-500 mt-1">v{{VERSION}} • {{UPDATED_AT}}</div>
