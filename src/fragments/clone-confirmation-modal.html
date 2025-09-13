@@ -18,6 +18,7 @@
               hx-post="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?clone=true"
               hx-target="#rules-container"
               hx-trigger="submit"
+              hx-on::before-request="console.log('🎭 Submitting clone request:', event.detail)"
               hx-on::after-request="handleCloneResponse(event)"
               class="flex flex-col flex-1">
             

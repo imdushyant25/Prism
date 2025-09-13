@@ -143,6 +143,9 @@ ClaimsApp.modal = {
             // Populate the modal with selected rules info
             this.populateCloneModal(ruleIds);
             
+            // CRITICAL: Process HTMX attributes on dynamically loaded content
+            htmx.process(modalContent);
+            
         } catch (error) {
             console.error('Failed to load clone modal:', error);
             ClaimsApp.utils.showNotification('Failed to load clone form. Please try again.', 'error');
@@ -205,6 +208,8 @@ ClaimsApp.modal = {
      * Handle clone form response
      */
     handleCloneResponse(event) {
+        console.log('🎭 Clone response received:', event.detail);
+        
         if (event.detail.successful) {
             this.closeModal();
             ClaimsApp.utils.showNotification('Rules cloned successfully! 🎉', 'success');
@@ -219,6 +224,7 @@ ClaimsApp.modal = {
                 target: '#rules-container'
             });
         } else {
+            console.error('🎭 Clone failed:', event.detail);
             ClaimsApp.utils.showNotification('Failed to clone rules. Try again!', 'error');
         }
     }

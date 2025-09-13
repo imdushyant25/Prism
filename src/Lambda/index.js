@@ -653,6 +653,8 @@ const handler = async (event) => {
         // Handle clone request
         if (method === 'POST' && event.queryStringParameters?.clone) {
             console.log('🎭 Clone request received');
+            console.log('🎭 Request body:', event.body);
+            console.log('🎭 Content-Type:', event.headers['Content-Type'] || event.headers['content-type']);
             
             let formData = {};
             if (event.body) {
