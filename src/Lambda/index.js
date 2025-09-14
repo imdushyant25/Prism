@@ -51,7 +51,7 @@ async function generateFiltersHTML(client) {
         
         // Build HTML options for each dropdown
         const pbmOptions = (data.pbm_codes || [])
-            .map(code => `<option value="${code}">${code}</option>`)
+            .map((code, index) => `<option value="${code}" ${index === 0 ? 'selected' : ''}>${code}</option>`)
             .join('');
             
         const ruleTypeOptions = (data.rule_types || [])
@@ -397,6 +397,25 @@ async function cloneRules(client, ruleIds, targetCategory = 'MODELING', overwrit
                 const sourceRule = sourceResult.rows[0];
                 console.log(`✅ Found source rule: ${sourceRule.name} (${sourceRule.flag_name})`);
                 
+                // Parse eligibility_types using the same logic as edit/save functionality
+                let eligibilityTypesArray = [];
+                try {
+                    const eligibilityData = sourceRule.eligibility_types;
+                    if (typeof eligibilityData === 'string') {
+                        eligibilityTypesArray = JSON.parse(eligibilityData);
+                    } else if (Array.isArray(eligibilityData)) {
+                        eligibilityTypesArray = eligibilityData;
+                    } else {
+                        eligibilityTypesArray = ['REBATES']; // Default fallback
+                    }
+                } catch (e) {
+                    console.log(`⚠️ Invalid eligibility_types, using default: ${sourceRule.eligibility_types}`);
+                    eligibilityTypesArray = ['REBATES']; // Default fallback
+                }
+                
+                const eligibilityTypes = JSON.stringify(eligibilityTypesArray);
+                console.log(`✅ Parsed eligibility_types:`, eligibilityTypes);
+                
                 // Check if a model rule already exists with this flag_name
                 if (overwriteExisting) {
                     const existingModelQuery = `
@@ -447,7 +466,7 @@ async function cloneRules(client, ruleIds, targetCategory = 'MODELING', overwrit
                     targetCategory,         // Change to target category (MODELING)
                     true,                   // Active
                     'clone_system',         // Mark as cloned by system
-                    sourceRule.eligibility_types // Keep same eligibility types
+                    eligibilityTypes // Use sanitized eligibility types
                 ];
                 
                 const cloneResult = await dbClient.query(cloneQuery, cloneValues);
@@ -694,13 +713,13 @@ const handler = async (event) => {
                 if (result.success) {
                     return {
                         statusCode: 200,
-                        headers: { ...headers, 'HX-Trigger': 'rulesCloned' },
+                        headers: { ...headers, 'HX-Trigger': 'rulesCloned, refreshFilters' },
                         body: `<div class="text-green-600">Successfully created ${result.successCount} modeling rules! Refreshing...</div>`
                     };
                 } else {
                     return {
                         statusCode: 200,
-                        headers: { ...headers, 'HX-Trigger': 'rulesCloned' },
+                        headers: { ...headers, 'HX-Trigger': 'rulesCloned, refreshFilters' },
                         body: `<div class="text-yellow-600">Created ${result.successCount} modeling rules, ${result.errorCount} failed. Refreshing...</div>`
                     };
                 }
