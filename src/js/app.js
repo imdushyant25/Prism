@@ -577,4 +577,43 @@ if (document.readyState === 'loading') {
     }
 }
 
+// Tab switching functionality
+window.switchTab = function(tabName) {
+    console.log('Switching to tab:', tabName);
+    
+    // Hide all tab panes
+    const tabPanes = document.querySelectorAll('.tab-pane');
+    tabPanes.forEach(pane => {
+        pane.classList.remove('active');
+    });
+    
+    // Remove active class from all tab buttons
+    const tabButtons = document.querySelectorAll('.tab-button');
+    tabButtons.forEach(button => {
+        button.classList.remove('active');
+    });
+    
+    // Show the selected tab pane
+    const selectedPane = document.getElementById(tabName + '-content');
+    if (selectedPane) {
+        selectedPane.classList.add('active');
+    }
+    
+    // Activate the selected tab button
+    const selectedButton = document.getElementById(tabName + '-tab');
+    if (selectedButton) {
+        selectedButton.classList.add('active');
+    }
+    
+    // Re-initialize filters if switching to rules tab
+    if (tabName === 'rules' && document.getElementById('filter-body')) {
+        // Add small delay to ensure DOM is ready
+        setTimeout(() => {
+            if (ClaimsApp.filters) {
+                ClaimsApp.filters.initializeFilters();
+            }
+        }, 100);
+    }
+};
+
 console.log('🚀 ClaimsApp utilities loaded');

@@ -72,39 +72,141 @@ body.modal-open {
     max-height: 500px;
     transition: max-height 0.3s ease-in;
 }
+
+/* Tab Styles */
+.tab-button {
+    color: #6b7280;
+    border-bottom-color: transparent;
+    transition: all 0.2s;
+}
+
+.tab-button:hover {
+    color: #374151;
+    border-bottom-color: #d1d5db;
+}
+
+.tab-button.active {
+    color: #2563eb;
+    border-bottom-color: #2563eb;
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+}
     </style>
 </head>
 <body class="bg-gray-50">
     <div class="container mx-auto p-6">
-        <!-- Simplified Header - NO PBM selector, NO New Rule button -->
+        <!-- Header -->
         <div class="bg-white rounded-lg border p-6 mb-6">
             <div class="flex justify-between items-center">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-900">Claims Enrichment Rules</h1>
-                    <p class="text-gray-600 mt-2">Manage your claim enrichment business rules across PBMs</p>
+                    <h1 class="text-3xl font-bold text-gray-900">Claims Enrichment Platform</h1>
+                    <p class="text-gray-600 mt-2">Manage rules, modeling, and reports across PBMs</p>
                 </div>
             </div>
         </div>
 
-        <!-- Filters Container - Load dynamically -->
-        <div id="filters-container" 
-             hx-get="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?component=filters" 
-             hx-trigger="load">
-            <!-- Filters will load here -->
-            <div class="bg-white rounded-lg border p-4">
-                <div class="text-center text-gray-500">Loading filters...</div>
+        <!-- Tab Navigation -->
+        <div class="bg-white rounded-lg border mb-6">
+            <div class="border-b border-gray-200">
+                <nav class="flex space-x-8 px-6" aria-label="Tabs">
+                    <button onclick="switchTab('rules')" id="rules-tab" class="tab-button active py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap">
+                        <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Rules
+                    </button>
+                    <button onclick="switchTab('price-modeling')" id="price-modeling-tab" class="tab-button py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap">
+                        <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        Price Modeling
+                    </button>
+                    <button onclick="switchTab('clinical-modeling')" id="clinical-modeling-tab" class="tab-button py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap">
+                        <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
+                        </svg>
+                        Clinical Modeling
+                    </button>
+                    <button onclick="switchTab('pbm-rfp-reports')" id="pbm-rfp-reports-tab" class="tab-button py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap">
+                        <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        PBM RFP Reports
+                    </button>
+                </nav>
             </div>
         </div>
 
-        <!-- Rules Container -->
-        <div id="rules-container">
-            <div class="bg-white rounded-lg border p-8">
-                <div class="text-center text-gray-500">
-                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                    </svg>
-                    <h3 class="text-lg font-medium text-gray-900 mb-2">Select Filters to View Rules</h3>
-                    <p class="text-gray-500">Use the filters above to load and manage enrichment rules</p>
+        <!-- Tab Content -->
+        <div id="tab-content">
+            <!-- Rules Tab Content -->
+            <div id="rules-content" class="tab-pane active">
+                <!-- Filters Container - Load dynamically -->
+                <div id="filters-container" 
+                     hx-get="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?component=filters" 
+                     hx-trigger="load">
+                    <!-- Filters will load here -->
+                    <div class="bg-white rounded-lg border p-4 mb-6">
+                        <div class="text-center text-gray-500">Loading filters...</div>
+                    </div>
+                </div>
+
+                <!-- Rules Container -->
+                <div id="rules-container">
+                    <div class="bg-white rounded-lg border p-8">
+                        <div class="text-center text-gray-500">
+                            <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">Select Filters to View Rules</h3>
+                            <p class="text-gray-500">Use the filters above to load and manage enrichment rules</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Price Modeling Tab Content -->
+            <div id="price-modeling-content" class="tab-pane hidden">
+                <div class="bg-white rounded-lg border p-8">
+                    <div class="text-center text-gray-500">
+                        <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Price Modeling</h3>
+                        <p class="text-gray-500">Price modeling functionality coming soon...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Clinical Modeling Tab Content -->
+            <div id="clinical-modeling-content" class="tab-pane hidden">
+                <div class="bg-white rounded-lg border p-8">
+                    <div class="text-center text-gray-500">
+                        <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
+                        </svg>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Clinical Modeling</h3>
+                        <p class="text-gray-500">Clinical modeling functionality coming soon...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PBM RFP Reports Tab Content -->
+            <div id="pbm-rfp-reports-content" class="tab-pane hidden">
+                <div class="bg-white rounded-lg border p-8">
+                    <div class="text-center text-gray-500">
+                        <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">PBM RFP Reports</h3>
+                        <p class="text-gray-500">PBM RFP reporting functionality coming soon...</p>
+                    </div>
                 </div>
             </div>
         </div>
