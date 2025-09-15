@@ -336,9 +336,17 @@ ClaimsApp.filters = {
             input.addEventListener('keyup', this.handleFilterKeyup.bind(this));
         });
         
-        // Start with filters collapsed
+        // Start with filters expanded
         if (filterBody) {
-            filterBody.classList.add('collapse');
+            filterBody.classList.remove('collapse');
+            filterBody.classList.add('expand');
+        }
+        
+        // Check for pre-selected values and trigger initial rule loading
+        const pbmFilter = document.querySelector('[name="pbm_filter"]');
+        if (pbmFilter && pbmFilter.value && pbmFilter.value.trim() !== '') {
+            console.log('Pre-selected PBM found:', pbmFilter.value, 'triggering initial rule load...');
+            this.applyFilters();
         }
     },
 
