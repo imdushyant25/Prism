@@ -30,6 +30,77 @@ function renderTemplate(template, data) {
     });
 }
 
+// Parse pricing structure and generate enhanced key metrics display
+function generateEnhancedKeyMetrics(pricingStructure) {
+    if (!pricingStructure) return 'N/A';
+
+    const metrics = [];
+
+    // Category display names mapping
+    const categoryNames = {
+        'retail': 'Retail',
+        'retail_90': 'Retail 90',
+        'mail': 'Mail',
+        'maintenance': 'Maintenance',
+        'specialty_mail': 'Spec Mail',
+        'specialty_retail': 'Spec Retail',
+        'limited_distribution_mail': 'LDD Mail',
+        'limited_distribution_retail': 'LDD Retail',
+        'ldd_blended_specialty': 'LDD Blend Spec',
+        'non_ldd_blended_specialty': 'Non-LDD Blend Spec'
+    };
+
+    // Process each category
+    Object.entries(pricingStructure).forEach(([category, data]) => {
+        if (category === 'overall_fee_credit') return; // Skip overall fees for now
+
+        const displayName = categoryNames[category] || category;
+        const categoryMetrics = [];
+
+        // Handle blended specialty categories (no brand/generic breakdown)
+        if (category.includes('blended_specialty')) {
+            const parts = [];
+            if (data.rebate) parts.push(`$${data.rebate}`);
+            if (data.discount) parts.push(`${data.discount}%`);
+            if (data.dispensing_fee) parts.push(`$${data.dispensing_fee}`);
+
+            if (parts.length > 0) {
+                categoryMetrics.push(parts.join('+'));
+            }
+        } else {
+            // Handle brand/generic breakdown
+            if (data.brand) {
+                const brandParts = [];
+                if (data.brand.discount) brandParts.push(`${data.brand.discount}%`);
+                if (data.brand.rebate) brandParts.push(`$${data.brand.rebate}`);
+                if (data.brand.dispensing_fee) brandParts.push(`$${data.brand.dispensing_fee}`);
+
+                if (brandParts.length > 0) {
+                    categoryMetrics.push(`B(${brandParts.join('+')})`);
+                }
+            }
+
+            if (data.generic) {
+                const genericParts = [];
+                if (data.generic.discount) genericParts.push(`${data.generic.discount}%`);
+                if (data.generic.rebate) genericParts.push(`$${data.generic.rebate}`);
+                if (data.generic.dispensing_fee) genericParts.push(`$${data.generic.dispensing_fee}`);
+
+                if (genericParts.length > 0) {
+                    categoryMetrics.push(`G(${genericParts.join('+')})`);
+                }
+            }
+        }
+
+        // Add category to metrics if it has any values
+        if (categoryMetrics.length > 0) {
+            metrics.push(`${displayName}: ${categoryMetrics.join(' ')}`);
+        }
+    });
+
+    return metrics.length > 0 ? metrics.join('<br>• ') : 'N/A';
+}
+
 // Generate price modeling filters HTML using system config
 async function generatePriceFiltersHTML(client) {
     try {
@@ -212,11 +283,11 @@ async function generatePriceModelsHTML(client, models) {
             const contractTypeLabel = configLabels.contract_type?.[model.contract_type] || model.contract_type;
             const pricingTypeLabel = configLabels.pricing_type?.[model.pricing_type] || model.pricing_type;
 
-            // Format metrics for display
-            const pepmCredit = model.pepm_credit ? `$${parseFloat(model.pepm_credit).toFixed(2)}` : 'N/A';
-            const retailBrandDiscount = model.retail_brand_discount ? `${parseFloat(model.retail_brand_discount).toFixed(1)}%` : 'N/A';
-            const retailGenericDiscount = model.retail_generic_discount ? `${parseFloat(model.retail_generic_discount).toFixed(1)}%` : 'N/A';
-            const specialtyRebate = model.specialty_rebate ? `$${parseFloat(model.specialty_rebate).toFixed(0)}` : 'N/A';
+            // Generate enhanced key metrics from pricing structure
+            const enhancedKeyMetrics = generateEnhancedKeyMetrics(model.pricing_structure);
+
+            // Create combined price configuration
+            const priceConfiguration = `${pbmLabel} • ${clientSizeLabel} • ${contractTypeLabel} • ${pricingTypeLabel}`;
 
             // Create status badges
             const statusBadges = [];
@@ -226,7 +297,6 @@ async function generatePriceModelsHTML(client, models) {
 
             const createdDate = new Date(model.created_at).toLocaleDateString();
             const modelDescription = model.description ? `<div class="text-xs text-gray-600 mt-1">${model.description}</div>` : '';
-            const specialtyRebateRow = specialtyRebate !== 'N/A' ? `<div>Specialty: <span class="font-semibold">${specialtyRebate}</span></div>` : '';
 
             // Render row template with data
             const rowData = {
@@ -235,14 +305,8 @@ async function generatePriceModelsHTML(client, models) {
                 STATUS_BADGES: statusBadges.join(' '),
                 CREATED_DATE: createdDate,
                 MODEL_DESCRIPTION: modelDescription,
-                PBM_LABEL: pbmLabel,
-                CLIENT_SIZE_LABEL: clientSizeLabel,
-                CONTRACT_TYPE_LABEL: contractTypeLabel,
-                PRICING_TYPE_LABEL: pricingTypeLabel,
-                PEPM_CREDIT: pepmCredit,
-                RETAIL_BRAND_DISCOUNT: retailBrandDiscount,
-                RETAIL_GENERIC_DISCOUNT: retailGenericDiscount,
-                SPECIALTY_REBATE_ROW: specialtyRebateRow
+                PRICE_CONFIGURATION: priceConfiguration,
+                ENHANCED_KEY_METRICS: enhancedKeyMetrics
             };
 
             return renderTemplate(rowTemplate, rowData);
@@ -272,7 +336,8 @@ const handler = async (event) => {
         port: process.env.DB_PORT || 5432,
         database: process.env.DB_NAME || 'prism',
         user: process.env.DB_USER || 'prism_admin',
-        password: process.env.DB_PASSWORD || 'Prism2024!'
+        password: process.env.DB_PASSWORD || 'Prism2024!',
+        ssl: { rejectUnauthorized: false }
     });
     
     const headers = {
@@ -365,4 +430,4 @@ const handler = async (event) => {
     }
 };
 
-module.exports = { handler };
+exports.handler = handler;
