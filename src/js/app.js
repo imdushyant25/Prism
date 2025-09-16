@@ -705,7 +705,7 @@ ClaimsApp.priceModeling = {
         console.log('Applying price modeling filters...', Object.fromEntries(formData));
         
         // Use POST to send filter data
-        htmx.ajax('POST', 'https://your-price-modeling-api-endpoint.amazonaws.com/dev/price-models', {
+        htmx.ajax('POST', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models', {
             target: '#price-models-container',
             values: Object.fromEntries(formData)
         });
