@@ -104,7 +104,7 @@ async function generatePriceFiltersHTML(client) {
                     ) ORDER BY display_order
                 ) as options
             FROM application.prism_system_config 
-            WHERE config_type IN ('pbm', 'client_size', 'contract_type', 'pricing_type')
+            WHERE config_type IN ('pbm', 'client_size', 'contract_type', 'pricing_type', 'status')
               AND is_active = true
             GROUP BY config_type
         `;
@@ -133,12 +133,9 @@ async function generatePriceFiltersHTML(client) {
             .map(option => `<option value="${option.code}">${option.name}</option>`)
             .join('');
         
-        const statusOptions = [
-            '<option value="active">Active</option>',
-            '<option value="inactive">Inactive</option>',
-            '<option value="baseline">Baseline</option>',
-            '<option value="draft">Draft</option>'
-        ].join('');
+        const statusOptions = (configData.status || [])
+            .map(option => `<option value="${option.code}">${option.name}</option>`)
+            .join('');
         
         // Render template with dynamic data
         const filterData = {
