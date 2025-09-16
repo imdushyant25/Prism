@@ -31,30 +31,16 @@ function renderTemplate(template, data) {
 }
 
 // Parse pricing structure and generate enhanced key metrics display
-function generateEnhancedKeyMetrics(pricingStructure) {
+function generateEnhancedKeyMetrics(pricingStructure, categoryLabels = {}) {
     if (!pricingStructure) return 'N/A';
 
     const metrics = [];
-
-    // Category display names mapping
-    const categoryNames = {
-        'retail': 'Retail',
-        'retail_90': 'Retail 90',
-        'mail': 'Mail',
-        'maintenance': 'Maintenance',
-        'specialty_mail': 'Spec Mail',
-        'specialty_retail': 'Spec Retail',
-        'limited_distribution_mail': 'LDD Mail',
-        'limited_distribution_retail': 'LDD Retail',
-        'ldd_blended_specialty': 'LDD Blend Spec',
-        'non_ldd_blended_specialty': 'Non-LDD Blend Spec'
-    };
 
     // Process each category
     Object.entries(pricingStructure).forEach(([category, data]) => {
         if (category === 'overall_fee_credit') return; // Skip overall fees for now
 
-        const displayName = categoryNames[category] || category;
+        const displayName = categoryLabels[category] || category;
         const categoryMetrics = [];
 
         // Handle blended specialty categories (no brand/generic breakdown)
@@ -262,7 +248,7 @@ async function generatePriceModelsHTML(client, models) {
         const configQuery = `
             SELECT config_type, config_code, display_name
             FROM application.prism_system_config
-            WHERE config_type IN ('pbm', 'client_size', 'contract_type', 'pricing_type')
+            WHERE config_type IN ('pbm', 'client_size', 'contract_type', 'pricing_type', 'pricing_category')
               AND is_active = true
         `;
         const configResult = await client.query(configQuery);
@@ -284,7 +270,8 @@ async function generatePriceModelsHTML(client, models) {
             const pricingTypeLabel = configLabels.pricing_type?.[model.pricing_type] || model.pricing_type;
 
             // Generate enhanced key metrics from pricing structure
-            const enhancedKeyMetrics = generateEnhancedKeyMetrics(model.pricing_structure);
+            const categoryLabels = configLabels.pricing_category || {};
+            const enhancedKeyMetrics = generateEnhancedKeyMetrics(model.pricing_structure, categoryLabels);
 
             // Create combined price configuration
             const priceConfiguration = `${pbmLabel} • ${clientSizeLabel} • ${contractTypeLabel} • ${pricingTypeLabel}`;
