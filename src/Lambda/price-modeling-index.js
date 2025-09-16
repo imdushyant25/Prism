@@ -172,7 +172,7 @@ async function getPriceModels(client, filters = {}) {
 async function generatePriceModelsHTML(client, models) {
     try {
         const tableTemplate = await getTemplate('price-models-table.html');
-        
+
         if (models.length === 0) {
             return `
                 <div class="bg-white rounded-lg border p-8">
@@ -186,95 +186,66 @@ async function generatePriceModelsHTML(client, models) {
                 </div>
             `;
         }
-        
+
         // Get business-friendly labels from system config
         const configQuery = `
-            SELECT config_type, config_code, display_name 
-            FROM application.prism_system_config 
+            SELECT config_type, config_code, display_name
+            FROM application.prism_system_config
             WHERE config_type IN ('pbm', 'client_size', 'contract_type', 'pricing_type')
               AND is_active = true
         `;
         const configResult = await client.query(configQuery);
-        
+
         const configLabels = {};
         configResult.rows.forEach(row => {
             if (!configLabels[row.config_type]) configLabels[row.config_type] = {};
             configLabels[row.config_type][row.config_code] = row.display_name;
         });
-        
-        // Generate table rows
+
+        // Load the row template
+        const rowTemplate = await getTemplate('price-models-row.html');
+
+        // Generate table rows using template
         const tableRows = models.map(model => {
             const pbmLabel = configLabels.pbm?.[model.pbm_code] || model.pbm_code;
             const clientSizeLabel = configLabels.client_size?.[model.client_size] || model.client_size;
             const contractTypeLabel = configLabels.contract_type?.[model.contract_type] || model.contract_type;
             const pricingTypeLabel = configLabels.pricing_type?.[model.pricing_type] || model.pricing_type;
-            
+
             // Format metrics for display
             const pepmCredit = model.pepm_credit ? `$${parseFloat(model.pepm_credit).toFixed(2)}` : 'N/A';
             const retailBrandDiscount = model.retail_brand_discount ? `${parseFloat(model.retail_brand_discount).toFixed(1)}%` : 'N/A';
             const retailGenericDiscount = model.retail_generic_discount ? `${parseFloat(model.retail_generic_discount).toFixed(1)}%` : 'N/A';
             const specialtyRebate = model.specialty_rebate ? `$${parseFloat(model.specialty_rebate).toFixed(0)}` : 'N/A';
-            
+
             // Create status badges
             const statusBadges = [];
             if (model.is_baseline) statusBadges.push('<span class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full">Baseline</span>');
             if (model.is_active) statusBadges.push('<span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Active</span>');
             if (!model.is_active) statusBadges.push('<span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">Inactive</span>');
-            
+
             const createdDate = new Date(model.created_at).toLocaleDateString();
-            
-            return `
-                <tr class="border-b hover:bg-blue-50 transition-colors">
-                    <td class="px-4 py-4"><input type="checkbox" class="rounded" value="${model.id}"></td>
-                    <td class="px-6 py-4">
-                        <div class="text-sm font-medium text-gray-900">${model.name}</div>
-                        <div class="text-xs text-gray-500 mt-1">
-                            ${statusBadges.join(' ')} • Created ${createdDate}
-                        </div>
-                        ${model.description ? `<div class="text-xs text-gray-600 mt-1">${model.description}</div>` : ''}
-                    </td>
-                    <td class="px-6 py-4">
-                        <span class="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">${pbmLabel}</span>
-                    </td>
-                    <td class="px-6 py-4">
-                        <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">${clientSizeLabel}</span>
-                    </td>
-                    <td class="px-6 py-4">
-                        <div class="text-sm text-gray-800">${contractTypeLabel}</div>
-                        <div class="text-xs text-gray-500">${pricingTypeLabel}</div>
-                    </td>
-                    <td class="px-6 py-4 text-center">
-                        <div class="text-xs space-y-1">
-                            <div>PEPM: <span class="font-semibold">${pepmCredit}</span></div>
-                            <div>Retail Brand: <span class="font-semibold">${retailBrandDiscount}</span></div>
-                            <div>Generic: <span class="font-semibold">${retailGenericDiscount}</span></div>
-                            ${specialtyRebate !== 'N/A' ? `<div>Specialty: <span class="font-semibold">${specialtyRebate}</span></div>` : ''}
-                        </div>
-                    </td>
-                    <td class="px-6 py-4">
-                        <div class="flex items-center justify-center gap-2">
-                            <button onclick="editPriceModel('${model.id}')" 
-                                    class="text-blue-600 hover:text-blue-800 p-1 rounded" title="Edit">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                </svg>
-                            </button>
-                            <button onclick="clonePriceModel('${model.id}')" 
-                                    class="text-green-600 hover:text-green-800 p-1 rounded" title="Clone">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-                                </svg>
-                            </button>
-                            <button onclick="analyzePriceModel('${model.id}')" 
-                                    class="text-purple-600 hover:text-purple-800 p-1 rounded" title="Analyze">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                                </svg>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `;
+            const modelDescription = model.description ? `<div class="text-xs text-gray-600 mt-1">${model.description}</div>` : '';
+            const specialtyRebateRow = specialtyRebate !== 'N/A' ? `<div>Specialty: <span class="font-semibold">${specialtyRebate}</span></div>` : '';
+
+            // Render row template with data
+            const rowData = {
+                MODEL_ID: model.id,
+                MODEL_NAME: model.name,
+                STATUS_BADGES: statusBadges.join(' '),
+                CREATED_DATE: createdDate,
+                MODEL_DESCRIPTION: modelDescription,
+                PBM_LABEL: pbmLabel,
+                CLIENT_SIZE_LABEL: clientSizeLabel,
+                CONTRACT_TYPE_LABEL: contractTypeLabel,
+                PRICING_TYPE_LABEL: pricingTypeLabel,
+                PEPM_CREDIT: pepmCredit,
+                RETAIL_BRAND_DISCOUNT: retailBrandDiscount,
+                RETAIL_GENERIC_DISCOUNT: retailGenericDiscount,
+                SPECIALTY_REBATE_ROW: specialtyRebateRow
+            };
+
+            return renderTemplate(rowTemplate, rowData);
         }).join('');
         
         const tableData = {
