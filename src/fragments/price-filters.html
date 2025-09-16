@@ -1,0 +1,130 @@
+<!-- Price Modeling Filters Section -->
+<div class="bg-white rounded-lg border mb-6 shadow-sm">
+    <!-- Filter Header -->
+    <div class="p-4 border-b bg-gray-50 rounded-t-lg">
+        <div class="flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <h3 class="text-lg font-semibold text-gray-900">💰 Price Modeling Filters</h3>
+                <span id="price-filter-count" class="bg-blue-100 text-blue-800 text-sm px-2 py-1 rounded-full">
+                    0 active
+                </span>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <button onclick="clearPriceFilters()" 
+                        class="text-red-500 hover:text-red-700 text-sm font-medium">
+                    Clear All
+                </button>
+                <button onclick="createNewPriceModel()" 
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    New Model
+                </button>
+                <button onclick="togglePriceFilters()" 
+                        class="text-gray-500 hover:text-gray-700 p-1 rounded">
+                    <svg id="price-filter-chevron" class="w-5 h-5 transform transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Collapsible Filter Body -->
+    <div id="price-filter-body" class="expand">
+        <div class="p-4">
+            
+            <!-- Top Row: PBM first, then Client Size, Contract Type, Pricing Type, Status -->
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-4">
+                
+                <!-- PBM Filter -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">PBM</label>
+                    <select name="pbm_filter" class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">All PBMs</option>
+                        {{PBM_OPTIONS}}
+                    </select>
+                </div>
+
+                <!-- Client Size Filter -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Client Size</label>
+                    <select name="client_size_filter" class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">All Sizes</option>
+                        {{CLIENT_SIZE_OPTIONS}}
+                    </select>
+                </div>
+
+                <!-- Contract Type Filter -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Contract Type</label>
+                    <select name="contract_type_filter" class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">All Contracts</option>
+                        {{CONTRACT_TYPE_OPTIONS}}
+                    </select>
+                </div>
+
+                <!-- Pricing Type Filter -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Pricing Type</label>
+                    <select name="pricing_type_filter" class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">All Types</option>
+                        {{PRICING_TYPE_OPTIONS}}
+                    </select>
+                </div>
+
+                <!-- Status Filter -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Status</label>
+                    <select name="status_filter" class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">All Statuses</option>
+                        {{STATUS_OPTIONS}}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Bottom Row: Search and Actions -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                
+                <!-- Model Name Search -->
+                <div class="lg:col-span-2 space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Search Model Names</label>
+                    <div class="relative">
+                        <input type="text" 
+                               name="name_search" 
+                               placeholder="e.g., Standard Large, Enterprise Premium..." 
+                               class="w-full border border-gray-300 rounded-md pl-10 pr-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex items-end gap-2">
+                    <button onclick="showComparisonView()" 
+                            class="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded font-medium text-sm flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        Compare
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Filters Display -->
+    <div id="price-active-filters" class="border-t bg-gray-50 px-4 py-3 hidden">
+        <div class="flex items-center gap-2">
+            <span class="text-sm font-medium text-gray-700">Active Filters:</span>
+            <div id="price-filter-badges" class="flex flex-wrap gap-2">
+                <!-- Filter badges will be added here dynamically -->
+            </div>
+        </div>
+    </div>
+</div>

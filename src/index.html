@@ -173,13 +173,26 @@ body.modal-open {
 
             <!-- Price Modeling Tab Content -->
             <div id="price-modeling-content" class="tab-pane hidden">
-                <div class="bg-white rounded-lg border p-8">
-                    <div class="text-center text-gray-500">
-                        <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                        </svg>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">Price Modeling</h3>
-                        <p class="text-gray-500">Price modeling functionality coming soon...</p>
+                <!-- Price Modeling Filters Container -->
+                <div id="price-filters-container" 
+                     hx-get="https://your-price-modeling-api-endpoint.amazonaws.com/dev/price-models?component=filters" 
+                     hx-trigger="load delay:100ms">
+                    <!-- Filters will load here -->
+                    <div class="bg-white rounded-lg border p-4 mb-6">
+                        <div class="text-center text-gray-500">Loading price modeling filters...</div>
+                    </div>
+                </div>
+
+                <!-- Price Models Container -->
+                <div id="price-models-container">
+                    <div class="bg-white rounded-lg border p-8">
+                        <div class="text-center text-gray-500">
+                            <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">Select Filters to View Price Models</h3>
+                            <p class="text-gray-500">Use the filters above to load and manage pricing models</p>
+                        </div>
                     </div>
                 </div>
             </div>

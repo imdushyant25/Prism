@@ -605,7 +605,7 @@ window.switchTab = function(tabName) {
         selectedButton.classList.add('active');
     }
     
-    // Re-initialize filters if switching to rules tab
+    // Re-initialize filters based on tab
     if (tabName === 'rules' && document.getElementById('filter-body')) {
         // Add small delay to ensure DOM is ready
         setTimeout(() => {
@@ -613,7 +613,231 @@ window.switchTab = function(tabName) {
                 ClaimsApp.filters.initializeFilters();
             }
         }, 100);
+    } else if (tabName === 'price-modeling') {
+        // Initialize price modeling filters
+        setTimeout(() => {
+            if (ClaimsApp.priceModeling) {
+                ClaimsApp.priceModeling.initializeFilters();
+            }
+        }, 100);
     }
+};
+
+// Price Modeling functionality
+ClaimsApp.priceModeling = {
+    /**
+     * Initialize price modeling filters
+     */
+    initializeFilters() {
+        console.log('Initializing price modeling filters...');
+        
+        // Check if filter elements exist
+        const filterBody = document.getElementById('price-filter-body');
+        if (!filterBody) {
+            console.warn('Price filter body not found, skipping initialization');
+            return;
+        }
+        
+        // Add change listeners for real-time updates
+        const filterInputs = filterBody.querySelectorAll('select, input');
+        console.log(`Found ${filterInputs.length} price filter inputs`);
+        
+        filterInputs.forEach(input => {
+            // Remove existing listeners to avoid duplicates
+            input.removeEventListener('change', this.handleFilterChange.bind(this));
+            input.removeEventListener('keyup', this.handleFilterKeyup.bind(this));
+            
+            // Add new listeners
+            input.addEventListener('change', this.handleFilterChange.bind(this));
+            input.addEventListener('keyup', this.handleFilterKeyup.bind(this));
+        });
+        
+        // Start with filters expanded
+        if (filterBody) {
+            filterBody.classList.remove('collapse');
+            filterBody.classList.add('expand');
+        }
+        
+        // Check for pre-selected values and trigger initial model loading
+        const pbmFilter = document.querySelector('[name="pbm_filter"]');
+        if (pbmFilter && pbmFilter.value && pbmFilter.value.trim() !== '') {
+            console.log('Pre-selected PBM found:', pbmFilter.value, 'triggering initial price models load...');
+            this.applyFilters();
+        }
+    },
+
+    /**
+     * Handle filter change events
+     */
+    handleFilterChange() {
+        this.updateFilterBadges();
+        this.applyFilters();
+    },
+
+    /**
+     * Handle filter keyup events (for search inputs)
+     */
+    handleFilterKeyup(event) {
+        if (event.key === 'Enter') {
+            this.applyFilters();
+        }
+        // Update badges in real-time
+        this.updateFilterBadges();
+    },
+
+    /**
+     * Apply current filters and load price models
+     */
+    applyFilters() {
+        this.updateFilterBadges();
+        
+        // Build form data from filters
+        const formData = new FormData();
+        let hasFilters = false;
+        
+        document.querySelectorAll('#price-filter-body select, #price-filter-body input').forEach(input => {
+            if (input.value && input.value.trim() !== '') {
+                formData.append(input.name, input.value.trim());
+                hasFilters = true;
+            }
+        });
+        
+        console.log('Applying price modeling filters...', Object.fromEntries(formData));
+        
+        // Use POST to send filter data
+        htmx.ajax('POST', 'https://your-price-modeling-api-endpoint.amazonaws.com/dev/price-models', {
+            target: '#price-models-container',
+            values: Object.fromEntries(formData)
+        });
+    },
+
+    /**
+     * Update filter badges display
+     */
+    updateFilterBadges() {
+        const activeFilters = document.getElementById('price-active-filters');
+        const filterBadges = document.getElementById('price-filter-badges');
+        const filterCount = document.getElementById('price-filter-count');
+        
+        if (!activeFilters || !filterBadges || !filterCount) return;
+        
+        const badges = [];
+        let count = 0;
+        
+        // Check each filter for active values
+        document.querySelectorAll('#price-filter-body select, #price-filter-body input').forEach(input => {
+            if (input.value && input.value.trim() !== '') {
+                const label = input.closest('.space-y-2')?.querySelector('label')?.textContent || input.name;
+                let displayValue = input.value;
+                
+                // For selects, use the display text
+                if (input.tagName === 'SELECT') {
+                    const selectedOption = input.options[input.selectedIndex];
+                    displayValue = selectedOption ? selectedOption.textContent : input.value;
+                }
+                
+                badges.push(`
+                    <span class="filter-badge bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                        <span>${label}: ${displayValue}</span>
+                        <button onclick="ClaimsApp.priceModeling.removeFilter('${input.name}')" 
+                                class="text-blue-600 hover:text-blue-800 ml-1">×</button>
+                    </span>
+                `);
+                count++;
+            }
+        });
+        
+        filterBadges.innerHTML = badges.join('');
+        filterCount.textContent = `${count} active`;
+        
+        if (count > 0) {
+            activeFilters.classList.remove('hidden');
+        } else {
+            activeFilters.classList.add('hidden');
+        }
+    },
+
+    /**
+     * Remove a specific filter
+     */
+    removeFilter(filterName) {
+        const input = document.querySelector(`[name="${filterName}"]`);
+        if (input) {
+            input.value = '';
+            this.applyFilters();
+        }
+    },
+
+    /**
+     * Toggle filter visibility
+     */
+    toggleFilters() {
+        const body = document.getElementById('price-filter-body');
+        const chevron = document.getElementById('price-filter-chevron');
+        
+        if (!body || !chevron) return;
+        
+        if (body.classList.contains('collapse')) {
+            body.classList.remove('collapse');
+            body.classList.add('expand');
+            chevron.style.transform = 'rotate(180deg)';
+        } else {
+            body.classList.remove('expand');
+            body.classList.add('collapse');
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+};
+
+// Global functions for price modeling
+window.togglePriceFilters = function() {
+    if (ClaimsApp.priceModeling) {
+        ClaimsApp.priceModeling.toggleFilters();
+    }
+};
+
+window.clearPriceFilters = function() {
+    document.querySelectorAll('#price-filter-body select, #price-filter-body input').forEach(input => {
+        input.value = '';
+    });
+    if (ClaimsApp.priceModeling) {
+        ClaimsApp.priceModeling.applyFilters();
+    }
+};
+
+window.createNewPriceModel = function() {
+    console.log('Create new price model');
+    // TODO: Implement modal for creating new price model
+};
+
+window.editPriceModel = function(modelId) {
+    console.log('Edit price model:', modelId);
+    // TODO: Implement edit modal
+};
+
+window.clonePriceModel = function(modelId) {
+    console.log('Clone price model:', modelId);
+    // TODO: Implement clone functionality
+};
+
+window.analyzePriceModel = function(modelId) {
+    console.log('Analyze price model:', modelId);
+    // TODO: Implement analysis modal
+};
+
+window.showComparisonView = function() {
+    console.log('Show comparison view');
+    // TODO: Implement comparison modal
+};
+
+window.bulkClonePriceModels = function() {
+    console.log('Bulk clone price models');
+    // TODO: Implement bulk clone
+};
+
+window.bulkComparePriceModels = function() {
+    console.log('Bulk compare price models');
+    // TODO: Implement bulk comparison
 };
 
 console.log('🚀 ClaimsApp utilities loaded');
