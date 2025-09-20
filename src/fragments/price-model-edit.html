@@ -1,6 +1,10 @@
 <!-- Edit Price Model Form -->
-<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" id="edit-model-modal">
-    <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto mx-4">
+<div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center p-4 overflow-y-auto" id="edit-model-modal"
+     onclick="if(event.target === this) closeEditModelModal()"
+     onkeydown="if(event.key === 'Escape') closeEditModelModal()"
+     tabindex="0">
+    <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full min-h-fit my-8 relative"
+         onclick="event.stopPropagation()">
         <div class="px-6 py-4 border-b bg-gray-50 flex justify-between items-center">
             <h2 class="text-xl font-bold text-gray-900">Edit Price Model</h2>
             <button onclick="closeEditModelModal()" class="text-gray-400 hover:text-gray-600">

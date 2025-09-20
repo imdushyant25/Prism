@@ -813,10 +813,19 @@ window.createNewPriceModel = function() {
 window.openAddModelModal = function() {
     console.log('Opening add model modal');
 
+    // Prevent background scrolling
+    document.body.style.overflow = 'hidden';
+
     // Load the add model form via HTMX
     htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models?component=add', {
         target: 'body',
         swap: 'beforeend'
+    }).then(() => {
+        // Focus the modal for ESC key handling
+        const modal = document.getElementById('add-model-modal');
+        if (modal) {
+            modal.focus();
+        }
     });
 };
 
@@ -825,15 +834,27 @@ window.closeAddModelModal = function() {
     if (modal) {
         modal.remove();
     }
+
+    // Restore background scrolling
+    document.body.style.overflow = '';
 };
 
 window.editPriceModel = function(modelId) {
     console.log('Edit price model:', modelId);
 
+    // Prevent background scrolling
+    document.body.style.overflow = 'hidden';
+
     // Load the edit model form via HTMX
     htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models?component=edit&id=${modelId}`, {
         target: 'body',
         swap: 'beforeend'
+    }).then(() => {
+        // Focus the modal for ESC key handling
+        const modal = document.getElementById('edit-model-modal');
+        if (modal) {
+            modal.focus();
+        }
     });
 };
 
@@ -842,6 +863,9 @@ window.closeEditModelModal = function() {
     if (modal) {
         modal.remove();
     }
+
+    // Restore background scrolling
+    document.body.style.overflow = '';
 };
 
 window.clonePriceModel = function(modelId) {
