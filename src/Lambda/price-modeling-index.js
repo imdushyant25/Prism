@@ -168,37 +168,37 @@ async function generatePriceFiltersHTML(client) {
 // Get price models with filtering
 async function getPriceModels(client, filters = {}) {
     try {
-        let whereClause = 'WHERE is_active = true';
+        let whereClause = 'WHERE 1=1'; // Start with neutral condition
         const params = [];
         let paramCount = 0;
-        
+
         // Build WHERE clause based on filters
         if (filters.pbm_filter && filters.pbm_filter.trim() !== '') {
             paramCount++;
             whereClause += ` AND pbm_code = $${paramCount}`;
             params.push(filters.pbm_filter.trim());
         }
-        
+
         if (filters.client_size_filter && filters.client_size_filter.trim() !== '') {
             paramCount++;
             whereClause += ` AND client_size = $${paramCount}`;
             params.push(filters.client_size_filter.trim());
         }
-        
+
         if (filters.contract_type_filter && filters.contract_type_filter.trim() !== '') {
             paramCount++;
             whereClause += ` AND contract_type = $${paramCount}`;
             params.push(filters.contract_type_filter.trim());
         }
-        
+
         if (filters.pricing_type_filter && filters.pricing_type_filter.trim() !== '') {
             paramCount++;
             whereClause += ` AND pricing_type = $${paramCount}`;
             params.push(filters.pricing_type_filter.trim());
         }
         
-        if (filters.status_filter && filters.status_filter.trim() !== '') {
-            paramCount++;
+        // Handle status filtering - if no status filter or "all", show all models
+        if (filters.status_filter && filters.status_filter.trim() !== '' && filters.status_filter.trim() !== 'all') {
             if (filters.status_filter === 'baseline') {
                 whereClause += ` AND is_baseline = true`;
             } else if (filters.status_filter === 'active') {
@@ -207,6 +207,7 @@ async function getPriceModels(client, filters = {}) {
                 whereClause += ` AND is_active = false`;
             }
         }
+        // If no status filter is specified, show all models (including inactive)
         
         const modelsQuery = `
             SELECT 
@@ -339,6 +340,149 @@ async function generateAddModelHTML(client) {
 
     } catch (error) {
         console.error('Failed to generate add model form:', error);
+        throw error;
+    }
+}
+
+// Generate clone price model form HTML (reuses add template with pre-filled data)
+async function generateCloneModelHTML(client, modelId) {
+    try {
+        const addTemplate = await getTemplate('price-model-add.html');
+        const options = await generateDropdownOptions(client);
+
+        // Get the source model data
+        const modelQuery = `
+            SELECT * FROM application.prism_price_modeling
+            WHERE id = $1
+        `;
+        const modelResult = await client.query(modelQuery, [modelId]);
+
+        if (modelResult.rows.length === 0) {
+            throw new Error('Source price model not found');
+        }
+
+        const sourceModel = modelResult.rows[0];
+        const pricingStructure = sourceModel.pricing_structure || {};
+
+        // Generate selected options for dropdowns
+        const pbmOptionsSelected = options.pbmOptions.replace(
+            `value="${sourceModel.pbm_code}"`,
+            `value="${sourceModel.pbm_code}" selected`
+        );
+        const clientSizeOptionsSelected = options.clientSizeOptions.replace(
+            `value="${sourceModel.client_size}"`,
+            `value="${sourceModel.client_size}" selected`
+        );
+        const contractTypeOptionsSelected = options.contractTypeOptions.replace(
+            `value="${sourceModel.contract_type}"`,
+            `value="${sourceModel.contract_type}" selected`
+        );
+        const pricingTypeOptionsSelected = options.pricingTypeOptions.replace(
+            `value="${sourceModel.pricing_type}"`,
+            `value="${sourceModel.pricing_type}" selected`
+        );
+
+        // Extract pricing data with null checks (same as edit form)
+        const getNestedValue = (obj, path) => {
+            return path.split('.').reduce((current, key) =>
+                current && current[key] !== undefined ? current[key] : '', obj);
+        };
+
+        // Create template data with cloned values but blank name
+        const cloneData = {
+            MODAL_TITLE: `Clone: ${sourceModel.name}`,
+            MODEL_NAME: '', // Blank name to force user input
+            DESCRIPTION: sourceModel.description || '',
+            PBM_OPTIONS: pbmOptionsSelected,
+            CLIENT_SIZE_OPTIONS: clientSizeOptionsSelected,
+            CONTRACT_TYPE_OPTIONS: contractTypeOptionsSelected,
+            PRICING_TYPE_OPTIONS: pricingTypeOptionsSelected,
+
+            // Overall fees
+            OVERALL_PEMP_REBATE_CREDIT: getNestedValue(pricingStructure, 'overall_fee_credit.pepm_rebate_credit'),
+            OVERALL_PRICING_FEE: getNestedValue(pricingStructure, 'overall_fee_credit.pricing_fee'),
+            OVERALL_INHOUSE_PHARMACY_FEE: getNestedValue(pricingStructure, 'overall_fee_credit.inhouse_pharmacy_fee'),
+
+            // Retail
+            RETAIL_BRAND_REBATE: getNestedValue(pricingStructure, 'retail.brand.rebate'),
+            RETAIL_BRAND_DISCOUNT: getNestedValue(pricingStructure, 'retail.brand.discount'),
+            RETAIL_BRAND_DISPENSING_FEE: getNestedValue(pricingStructure, 'retail.brand.dispensing_fee'),
+            RETAIL_GENERIC_DISCOUNT: getNestedValue(pricingStructure, 'retail.generic.discount'),
+            RETAIL_GENERIC_DISPENSING_FEE: getNestedValue(pricingStructure, 'retail.generic.dispensing_fee'),
+
+            // Retail 90
+            RETAIL_90_BRAND_REBATE: getNestedValue(pricingStructure, 'retail_90.brand.rebate'),
+            RETAIL_90_BRAND_DISCOUNT: getNestedValue(pricingStructure, 'retail_90.brand.discount'),
+            RETAIL_90_BRAND_DISPENSING_FEE: getNestedValue(pricingStructure, 'retail_90.brand.dispensing_fee'),
+            RETAIL_90_GENERIC_DISCOUNT: getNestedValue(pricingStructure, 'retail_90.generic.discount'),
+            RETAIL_90_GENERIC_DISPENSING_FEE: getNestedValue(pricingStructure, 'retail_90.generic.dispensing_fee'),
+
+            // Mail
+            MAIL_BRAND_REBATE: getNestedValue(pricingStructure, 'mail.brand.rebate'),
+            MAIL_BRAND_DISCOUNT: getNestedValue(pricingStructure, 'mail.brand.discount'),
+            MAIL_BRAND_DISPENSING_FEE: getNestedValue(pricingStructure, 'mail.brand.dispensing_fee'),
+            MAIL_GENERIC_DISCOUNT: getNestedValue(pricingStructure, 'mail.generic.discount'),
+            MAIL_GENERIC_DISPENSING_FEE: getNestedValue(pricingStructure, 'mail.generic.dispensing_fee'),
+
+            // Specialty Mail
+            SPECIALTY_MAIL_BRAND_REBATE: getNestedValue(pricingStructure, 'specialty_mail.brand.rebate'),
+            SPECIALTY_MAIL_BRAND_DISCOUNT: getNestedValue(pricingStructure, 'specialty_mail.brand.discount'),
+            SPECIALTY_MAIL_BRAND_DISPENSING_FEE: getNestedValue(pricingStructure, 'specialty_mail.brand.dispensing_fee'),
+            SPECIALTY_MAIL_GENERIC_DISCOUNT: getNestedValue(pricingStructure, 'specialty_mail.generic.discount'),
+            SPECIALTY_MAIL_GENERIC_DISPENSING_FEE: getNestedValue(pricingStructure, 'specialty_mail.generic.dispensing_fee'),
+
+            // Blended Specialty
+            LDD_BLENDED_SPECIALTY_REBATE: getNestedValue(pricingStructure, 'ldd_blended_specialty.rebate'),
+            LDD_BLENDED_SPECIALTY_DISCOUNT: getNestedValue(pricingStructure, 'ldd_blended_specialty.discount'),
+            LDD_BLENDED_SPECIALTY_DISPENSING_FEE: getNestedValue(pricingStructure, 'ldd_blended_specialty.dispensing_fee'),
+            NON_LDD_BLENDED_SPECIALTY_REBATE: getNestedValue(pricingStructure, 'non_ldd_blended_specialty.rebate'),
+            NON_LDD_BLENDED_SPECIALTY_DISCOUNT: getNestedValue(pricingStructure, 'non_ldd_blended_specialty.discount'),
+            NON_LDD_BLENDED_SPECIALTY_DISPENSING_FEE: getNestedValue(pricingStructure, 'non_ldd_blended_specialty.dispensing_fee')
+        };
+
+        // Modify the template to use the clone title
+        let modifiedTemplate = addTemplate.replace(
+            '<h2 class="text-xl font-bold text-gray-900">Add New Price Model</h2>',
+            '<h2 class="text-xl font-bold text-gray-900">{{MODAL_TITLE}}</h2>'
+        );
+
+        // Add values to form fields
+        modifiedTemplate = modifiedTemplate.replace(
+            'name="model_name" required',
+            'name="model_name" required value="{{MODEL_NAME}}"'
+        );
+        modifiedTemplate = modifiedTemplate.replace(
+            'name="description" rows="3"',
+            'name="description" rows="3">{{DESCRIPTION}}'
+        );
+
+        // Add values to all pricing fields
+        const pricingFields = [
+            'overall_pepm_rebate_credit', 'overall_pricing_fee', 'overall_inhouse_pharmacy_fee',
+            'retail_brand_rebate', 'retail_brand_discount', 'retail_brand_dispensing_fee',
+            'retail_generic_discount', 'retail_generic_dispensing_fee',
+            'retail_90_brand_rebate', 'retail_90_brand_discount', 'retail_90_brand_dispensing_fee',
+            'retail_90_generic_discount', 'retail_90_generic_dispensing_fee',
+            'mail_brand_rebate', 'mail_brand_discount', 'mail_brand_dispensing_fee',
+            'mail_generic_discount', 'mail_generic_dispensing_fee',
+            'specialty_mail_brand_rebate', 'specialty_mail_brand_discount', 'specialty_mail_brand_dispensing_fee',
+            'specialty_mail_generic_discount', 'specialty_mail_generic_dispensing_fee',
+            'ldd_blended_specialty_rebate', 'ldd_blended_specialty_discount', 'ldd_blended_specialty_dispensing_fee',
+            'non_ldd_blended_specialty_rebate', 'non_ldd_blended_specialty_discount', 'non_ldd_blended_specialty_dispensing_fee'
+        ];
+
+        pricingFields.forEach(field => {
+            const upperField = field.toUpperCase();
+            modifiedTemplate = modifiedTemplate.replace(
+                new RegExp(`name="${field}"`, 'g'),
+                `name="${field}" value="{{${upperField}}}"`
+            );
+        });
+
+        return renderTemplate(modifiedTemplate, cloneData);
+
+    } catch (error) {
+        console.error('Failed to generate clone model form:', error);
         throw error;
     }
 }
@@ -711,6 +855,18 @@ const handler = async (event) => {
                 statusCode: 200,
                 headers,
                 body: editHTML
+            };
+        }
+
+        // Handle clone model form
+        if (queryParams.component === 'clone' && queryParams.id) {
+            console.log('📋 Loading clone model form for ID:', queryParams.id);
+            const cloneHTML = await generateCloneModelHTML(client, queryParams.id);
+
+            return {
+                statusCode: 200,
+                headers,
+                body: cloneHTML
             };
         }
 

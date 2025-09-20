@@ -870,7 +870,21 @@ window.closeEditModelModal = function() {
 
 window.clonePriceModel = function(modelId) {
     console.log('Clone price model:', modelId);
-    // TODO: Implement clone functionality
+
+    // Prevent background scrolling
+    document.body.style.overflow = 'hidden';
+
+    // Load the clone model form via HTMX (reuses add template with pre-filled data)
+    htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models?component=clone&id=${modelId}`, {
+        target: 'body',
+        swap: 'beforeend'
+    }).then(() => {
+        // Focus the modal for ESC key handling
+        const modal = document.getElementById('add-model-modal');
+        if (modal) {
+            modal.focus();
+        }
+    });
 };
 
 
