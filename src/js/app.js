@@ -690,25 +690,32 @@ ClaimsApp.priceModeling = {
      */
     applyFilters() {
         this.updateFilterBadges();
-        
+
         // Build form data from filters
         const formData = new FormData();
         let hasFilters = false;
-        
+
         document.querySelectorAll('#price-filter-body select, #price-filter-body input').forEach(input => {
             if (input.value && input.value.trim() !== '') {
                 formData.append(input.name, input.value.trim());
                 hasFilters = true;
             }
         });
-        
+
         console.log('Applying price modeling filters...', Object.fromEntries(formData));
-        
-        // Use POST to send filter data
-        htmx.ajax('POST', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models', {
-            target: '#price-models-container',
-            values: Object.fromEntries(formData)
-        });
+
+        if (hasFilters) {
+            // Use POST to send filter data when filters are applied
+            htmx.ajax('POST', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models', {
+                target: '#price-models-container',
+                values: Object.fromEntries(formData)
+            });
+        } else {
+            // Use GET when no filters (clear all)
+            htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models', {
+                target: '#price-models-container'
+            });
+        }
     },
 
     /**
@@ -936,5 +943,31 @@ if (typeof window.deletePriceModel === 'undefined') {
         }
     };
 }
+
+// Make Active Price Model function
+window.makeActivePriceModel = function(modelId) {
+    console.log('Make active price model:', modelId);
+
+    // Show confirmation dialog
+    if (confirm('Are you sure you want to make this price model active? This will restore the model.')) {
+        console.log('User confirmed activation for model:', modelId);
+
+        // Send make active request via HTMX
+        htmx.ajax('POST', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models?action=makeActive&id=${modelId}`, {
+            target: '#price-models-container'
+        }).then(() => {
+            // Show success notification
+            showNotification('Price model activated successfully!', 'success');
+
+            // Refresh the table after successful activation
+            htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models', {
+                target: '#price-models-container'
+            });
+        }).catch(error => {
+            console.error('Make active failed:', error);
+            showNotification('Failed to activate price model. Please try again.', 'error');
+        });
+    }
+};
 
 console.log('🚀 ClaimsApp utilities loaded');

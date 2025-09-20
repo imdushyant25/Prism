@@ -23,10 +23,25 @@ async function getTemplate(key) {
 }
 
 function renderTemplate(template, data) {
-    return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+    // Handle conditional blocks {{#KEY}} content {{/KEY}}
+    template = template.replace(/\{\{#(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (match, key, content) => {
+        const value = data[key];
+        return (value && value !== false && value !== 0 && value !== '' && value !== null && value !== undefined) ? content : '';
+    });
+
+    // Handle inverted conditional blocks {{^KEY}} content {{/KEY}}
+    template = template.replace(/\{\{\^(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (match, key, content) => {
+        const value = data[key];
+        return (!value || value === false || value === 0 || value === '' || value === null || value === undefined) ? content : '';
+    });
+
+    // Handle simple variable replacements {{KEY}}
+    template = template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
         const value = data[key];
         return value !== undefined && value !== null ? String(value) : '';
     });
+
+    return template;
 }
 
 // Parse pricing structure and generate enhanced key metrics display
@@ -302,7 +317,8 @@ async function generatePriceModelsHTML(client, models) {
                 CREATED_DATE: createdDate,
                 MODEL_DESCRIPTION: modelDescription,
                 PRICE_CONFIGURATION: priceConfiguration,
-                ENHANCED_KEY_METRICS: enhancedKeyMetrics
+                ENHANCED_KEY_METRICS: enhancedKeyMetrics,
+                IS_ACTIVE: model.is_active
             };
 
             return renderTemplate(rowTemplate, rowData);
@@ -696,6 +712,26 @@ async function deletePriceModel(client, modelId) {
     }
 }
 
+// Make price model active (set is_active to true)
+async function makeActivePriceModel(client, modelId) {
+    try {
+        const activateQuery = `
+            UPDATE application.prism_price_modeling SET
+                is_active = true,
+                updated_at = CURRENT_TIMESTAMP,
+                last_modified_by = $2
+            WHERE id = $1 AND is_active = false
+        `;
+
+        const result = await client.query(activateQuery, [modelId, 'user']); // TODO: Replace with actual user from session
+        return result.rowCount > 0;
+
+    } catch (error) {
+        console.error('Failed to make price model active:', error);
+        throw error;
+    }
+}
+
 // Update existing price model
 async function updatePriceModel(client, modelId, formData) {
     try {
@@ -891,6 +927,31 @@ const handler = async (event) => {
                     statusCode: 400,
                     headers,
                     body: `<div class="text-red-600">Error deleting model: ${error.message}</div>`
+                };
+            }
+        }
+
+        // Handle make active model (POST request without body, just query params)
+        if (method === 'POST' && queryParams.action === 'makeActive') {
+            const modelId = queryParams.id;
+            console.log('✅ Making price model active:', modelId);
+            try {
+                const success = await makeActivePriceModel(client, modelId);
+                if (success) {
+                    console.log('✅ Activated model:', modelId);
+                    return {
+                        statusCode: 200,
+                        headers,
+                        body: '<div class="text-green-600">Price model activated successfully!</div>'
+                    };
+                } else {
+                    throw new Error('Model not found or already active');
+                }
+            } catch (error) {
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: `<div class="text-red-600">Error activating model: ${error.message}</div>`
                 };
             }
         }
