@@ -873,6 +873,28 @@ window.clonePriceModel = function(modelId) {
     // TODO: Implement clone functionality
 };
 
+window.deletePriceModel = function(modelId) {
+    console.log('Delete price model:', modelId);
+
+    // Show confirmation dialog
+    if (confirm('Are you sure you want to delete this price model? This action cannot be undone.')) {
+        console.log('User confirmed deletion for model:', modelId);
+
+        // Send delete request via HTMX
+        htmx.ajax('POST', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models?action=delete&id=${modelId}`, {
+            target: '#price-models-container'
+        }).then(() => {
+            // Refresh the table after successful deletion
+            htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models', {
+                target: '#price-models-container'
+            });
+        }).catch(error => {
+            console.error('Delete failed:', error);
+            showNotification('Failed to delete price model. Please try again.', 'error');
+        });
+    }
+};
+
 window.analyzePriceModel = function(modelId) {
     console.log('Analyze price model:', modelId);
     // TODO: Implement analysis modal

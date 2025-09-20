@@ -535,6 +535,26 @@ async function createPriceModel(client, formData) {
     }
 }
 
+// Delete price model (set is_active to false)
+async function deletePriceModel(client, modelId) {
+    try {
+        const deleteQuery = `
+            UPDATE application.prism_price_modeling SET
+                is_active = false,
+                updated_at = CURRENT_TIMESTAMP,
+                last_modified_by = $2
+            WHERE id = $1 AND is_active = true
+        `;
+
+        const result = await client.query(deleteQuery, [modelId, 'user']); // TODO: Replace with actual user from session
+        return result.rowCount > 0;
+
+    } catch (error) {
+        console.error('Failed to delete price model:', error);
+        throw error;
+    }
+}
+
 // Update existing price model
 async function updatePriceModel(client, modelId, formData) {
     try {
@@ -748,6 +768,31 @@ const handler = async (event) => {
                         statusCode: 400,
                         headers,
                         body: `<div class="text-red-600">Error updating model: ${error.message}</div>`
+                    };
+                }
+            }
+
+            // Handle delete model
+            if (path.includes('/delete') || queryParams.action === 'delete') {
+                const modelId = queryParams.id;
+                console.log('🗑️ Deleting price model:', modelId);
+                try {
+                    const success = await deletePriceModel(client, modelId);
+                    if (success) {
+                        console.log('✅ Deleted model:', modelId);
+                        return {
+                            statusCode: 200,
+                            headers,
+                            body: '<div class="text-green-600">Price model deleted successfully!</div>'
+                        };
+                    } else {
+                        throw new Error('Model not found or already deleted');
+                    }
+                } catch (error) {
+                    return {
+                        statusCode: 400,
+                        headers,
+                        body: `<div class="text-red-600">Error deleting model: ${error.message}</div>`
                     };
                 }
             }
