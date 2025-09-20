@@ -456,28 +456,6 @@ async function generateEditModelHTML(client, modelId) {
 // Create new price model
 async function createPriceModel(client, formData) {
     try {
-        // Build pricing structure from form data
-        const buildNestedStructure = (data, prefix, structure = {}) => {
-            Object.keys(data).forEach(key => {
-                if (key.startsWith(prefix)) {
-                    const path = key.replace(prefix, '').split('_');
-                    let current = structure;
-
-                    // Navigate/create nested structure
-                    for (let i = 0; i < path.length - 1; i++) {
-                        if (!current[path[i]]) current[path[i]] = {};
-                        current = current[path[i]];
-                    }
-
-                    // Set the value if it's not empty
-                    const value = data[key];
-                    if (value !== '' && value !== null && value !== undefined) {
-                        current[path[path.length - 1]] = isNaN(value) ? value : parseFloat(value);
-                    }
-                }
-            });
-            return structure;
-        };
 
         const pricingStructure = {};
 

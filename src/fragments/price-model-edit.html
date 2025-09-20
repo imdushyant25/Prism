@@ -6,7 +6,7 @@
     <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full min-h-fit my-8 relative"
          onclick="event.stopPropagation()">
         <div class="px-6 py-4 border-b bg-gray-50 flex justify-between items-center">
-            <h2 class="text-xl font-bold text-gray-900">Edit Price Model</h2>
+            <h2 class="text-xl font-bold text-gray-900">Edit: {{MODEL_NAME}}</h2>
             <button onclick="closeEditModelModal()" class="text-gray-400 hover:text-gray-600">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -138,12 +138,7 @@
                         </div>
                         <div>
                             <h5 class="text-sm font-medium text-gray-700 mb-3">Generic</h5>
-                            <div class="grid grid-cols-3 gap-3">
-                                <div>
-                                    <label class="block text-xs text-gray-600 mb-1">Rebate ($)</label>
-                                    <input type="number" step="0.01" name="retail_generic_rebate" value="{{RETAIL_GENERIC_REBATE}}"
-                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
-                                </div>
+                            <div class="grid grid-cols-2 gap-3">
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Discount (%)</label>
                                     <input type="number" step="0.01" name="retail_generic_discount" value="{{RETAIL_GENERIC_DISCOUNT}}"
@@ -185,12 +180,7 @@
                         </div>
                         <div>
                             <h5 class="text-sm font-medium text-gray-700 mb-3">Generic</h5>
-                            <div class="grid grid-cols-3 gap-3">
-                                <div>
-                                    <label class="block text-xs text-gray-600 mb-1">Rebate ($)</label>
-                                    <input type="number" step="0.01" name="retail_90_generic_rebate" value="{{RETAIL_90_GENERIC_REBATE}}"
-                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
-                                </div>
+                            <div class="grid grid-cols-2 gap-3">
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Discount (%)</label>
                                     <input type="number" step="0.01" name="retail_90_generic_discount" value="{{RETAIL_90_GENERIC_DISCOUNT}}"
@@ -232,12 +222,7 @@
                         </div>
                         <div>
                             <h5 class="text-sm font-medium text-gray-700 mb-3">Generic</h5>
-                            <div class="grid grid-cols-3 gap-3">
-                                <div>
-                                    <label class="block text-xs text-gray-600 mb-1">Rebate ($)</label>
-                                    <input type="number" step="0.01" name="mail_generic_rebate" value="{{MAIL_GENERIC_REBATE}}"
-                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
-                                </div>
+                            <div class="grid grid-cols-2 gap-3">
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Discount (%)</label>
                                     <input type="number" step="0.01" name="mail_generic_discount" value="{{MAIL_GENERIC_DISCOUNT}}"
@@ -279,12 +264,7 @@
                         </div>
                         <div>
                             <h5 class="text-sm font-medium text-gray-700 mb-3">Generic</h5>
-                            <div class="grid grid-cols-3 gap-3">
-                                <div>
-                                    <label class="block text-xs text-gray-600 mb-1">Rebate ($)</label>
-                                    <input type="number" step="0.01" name="specialty_mail_generic_rebate" value="{{SPECIALTY_MAIL_GENERIC_REBATE}}"
-                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
-                                </div>
+                            <div class="grid grid-cols-2 gap-3">
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Discount (%)</label>
                                     <input type="number" step="0.01" name="specialty_mail_generic_discount" value="{{SPECIALTY_MAIL_GENERIC_DISCOUNT}}"
