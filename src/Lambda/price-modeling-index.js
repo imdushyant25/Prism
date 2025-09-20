@@ -1,6 +1,5 @@
 const AWS = require('aws-sdk');
 const { Client } = require('pg');
-const { v4: uuidv4 } = require('uuid');
 const s3 = new AWS.S3();
 
 // Cache templates
@@ -714,7 +713,32 @@ const handler = async (event) => {
                 body: editHTML
             };
         }
-        
+
+        // Handle delete model (POST request without body, just query params)
+        if (method === 'POST' && (path.includes('/delete') || queryParams.action === 'delete')) {
+            const modelId = queryParams.id;
+            console.log('🗑️ Deleting price model:', modelId);
+            try {
+                const success = await deletePriceModel(client, modelId);
+                if (success) {
+                    console.log('✅ Deleted model:', modelId);
+                    return {
+                        statusCode: 200,
+                        headers,
+                        body: '<div class="text-green-600">Price model deleted successfully!</div>'
+                    };
+                } else {
+                    throw new Error('Model not found or already deleted');
+                }
+            } catch (error) {
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: `<div class="text-red-600">Error deleting model: ${error.message}</div>`
+                };
+            }
+        }
+
         // Handle POST requests for creating/updating models
         if (method === 'POST' && event.body) {
             const params = new URLSearchParams(event.body);
@@ -770,30 +794,6 @@ const handler = async (event) => {
                 }
             }
 
-            // Handle delete model
-            if (path.includes('/delete') || queryParams.action === 'delete') {
-                const modelId = queryParams.id;
-                console.log('🗑️ Deleting price model:', modelId);
-                try {
-                    const success = await deletePriceModel(client, modelId);
-                    if (success) {
-                        console.log('✅ Deleted model:', modelId);
-                        return {
-                            statusCode: 200,
-                            headers,
-                            body: '<div class="text-green-600">Price model deleted successfully!</div>'
-                        };
-                    } else {
-                        throw new Error('Model not found or already deleted');
-                    }
-                } catch (error) {
-                    return {
-                        statusCode: 400,
-                        headers,
-                        body: `<div class="text-red-600">Error deleting model: ${error.message}</div>`
-                    };
-                }
-            }
 
             // Handle filter requests (existing functionality)
             console.log('📊 Loading price models with filters...');
