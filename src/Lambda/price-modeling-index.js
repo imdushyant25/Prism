@@ -704,6 +704,7 @@ const handler = async (event) => {
             for (const [key, value] of params) {
                 formData[key] = value;
             }
+            console.log('Form data received:', Object.keys(formData));
 
             // Handle create model
             if (path.includes('/create') || queryParams.action === 'create') {
