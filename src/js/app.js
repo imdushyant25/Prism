@@ -873,27 +873,6 @@ window.clonePriceModel = function(modelId) {
     // TODO: Implement clone functionality
 };
 
-window.deletePriceModel = function(modelId) {
-    console.log('Delete price model:', modelId);
-
-    // Show confirmation dialog
-    if (confirm('Are you sure you want to delete this price model? This action cannot be undone.')) {
-        console.log('User confirmed deletion for model:', modelId);
-
-        // Send delete request via HTMX
-        htmx.ajax('POST', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models?action=delete&id=${modelId}`, {
-            target: '#price-models-container'
-        }).then(() => {
-            // Refresh the table after successful deletion
-            htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models', {
-                target: '#price-models-container'
-            });
-        }).catch(error => {
-            console.error('Delete failed:', error);
-            showNotification('Failed to delete price model. Please try again.', 'error');
-        });
-    }
-};
 
 window.analyzePriceModel = function(modelId) {
     console.log('Analyze price model:', modelId);
@@ -914,5 +893,34 @@ window.bulkComparePriceModels = function() {
     console.log('Bulk compare price models');
     // TODO: Implement bulk comparison
 };
+
+// Ensure deletePriceModel is globally available
+if (typeof window.deletePriceModel === 'undefined') {
+    console.warn('deletePriceModel not found, defining it globally');
+    window.deletePriceModel = function(modelId) {
+        console.log('Delete price model:', modelId);
+
+        // Show confirmation dialog
+        if (confirm('Are you sure you want to delete this price model? This action cannot be undone.')) {
+            console.log('User confirmed deletion for model:', modelId);
+
+            // Send delete request via HTMX
+            htmx.ajax('POST', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models?action=delete&id=${modelId}`, {
+                target: '#price-models-container'
+            }).then(() => {
+                // Show success notification
+                showNotification('Price model deleted successfully!', 'success');
+
+                // Refresh the table after successful deletion
+                htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models', {
+                    target: '#price-models-container'
+                });
+            }).catch(error => {
+                console.error('Delete failed:', error);
+                showNotification('Failed to delete price model. Please try again.', 'error');
+            });
+        }
+    };
+}
 
 console.log('🚀 ClaimsApp utilities loaded');

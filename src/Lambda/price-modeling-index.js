@@ -504,16 +504,14 @@ async function createPriceModel(client, formData) {
 
         const insertQuery = `
             INSERT INTO application.prism_price_modeling (
-                id, name, pbm_code, client_size, contract_type, pricing_type,
+                name, pbm_code, client_size, contract_type, pricing_type,
                 pricing_structure, description, created_by, is_active, is_baseline
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
             ) RETURNING id
         `;
 
-        const modelId = uuidv4();
         const values = [
-            modelId,
             formData.model_name,
             formData.pbm_code,
             formData.client_size,
@@ -526,8 +524,8 @@ async function createPriceModel(client, formData) {
             false // Default to non-baseline
         ];
 
-        await client.query(insertQuery, values);
-        return modelId;
+        const result = await client.query(insertQuery, values);
+        return result.rows[0].id;
 
     } catch (error) {
         console.error('Failed to create price model:', error);
