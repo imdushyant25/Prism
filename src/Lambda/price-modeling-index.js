@@ -596,7 +596,7 @@ async function updatePriceModel(client, modelId, formData) {
                 is_active = $9,
                 is_baseline = $10,
                 updated_at = CURRENT_TIMESTAMP,
-                updated_by = $11
+                last_modified_by = $11
             WHERE id = $1
         `;
 
