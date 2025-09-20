@@ -810,9 +810,38 @@ window.createNewPriceModel = function() {
     // TODO: Implement modal for creating new price model
 };
 
+window.openAddModelModal = function() {
+    console.log('Opening add model modal');
+
+    // Load the add model form via HTMX
+    htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models?component=add', {
+        target: 'body',
+        swap: 'beforeend'
+    });
+};
+
+window.closeAddModelModal = function() {
+    const modal = document.getElementById('add-model-modal');
+    if (modal) {
+        modal.remove();
+    }
+};
+
 window.editPriceModel = function(modelId) {
     console.log('Edit price model:', modelId);
-    // TODO: Implement edit modal
+
+    // Load the edit model form via HTMX
+    htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models?component=edit&id=${modelId}`, {
+        target: 'body',
+        swap: 'beforeend'
+    });
+};
+
+window.closeEditModelModal = function() {
+    const modal = document.getElementById('edit-model-modal');
+    if (modal) {
+        modal.remove();
+    }
 };
 
 window.clonePriceModel = function(modelId) {

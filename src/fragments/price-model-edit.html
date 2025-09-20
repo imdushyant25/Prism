@@ -1,0 +1,357 @@
+<!-- Edit Price Model Form -->
+<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" id="edit-model-modal">
+    <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto mx-4">
+        <div class="px-6 py-4 border-b bg-gray-50 flex justify-between items-center">
+            <h2 class="text-xl font-bold text-gray-900">Edit Price Model</h2>
+            <button onclick="closeEditModelModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <form id="edit-model-form" class="p-6"
+              hx-post="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models?action=update"
+              hx-target="#edit-model-form"
+              hx-on::after-request="if(event.detail.successful) { closeEditModelModal(); htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models', {target: '#price-models-container'}); }"
+            <input type="hidden" id="model_id" name="model_id" value="{{MODEL_ID}}">
+
+            <!-- Basic Model Information -->
+            <div class="mb-8">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="edit_model_name" class="block text-sm font-medium text-gray-700 mb-2">Model Name *</label>
+                        <input type="text" id="edit_model_name" name="model_name" value="{{MODEL_NAME}}" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+
+                    <div>
+                        <label for="edit_pbm_code" class="block text-sm font-medium text-gray-700 mb-2">PBM *</label>
+                        <select id="edit_pbm_code" name="pbm_code" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            {{PBM_OPTIONS}}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="edit_client_size" class="block text-sm font-medium text-gray-700 mb-2">Client Size *</label>
+                        <select id="edit_client_size" name="client_size" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            {{CLIENT_SIZE_OPTIONS}}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="edit_contract_type" class="block text-sm font-medium text-gray-700 mb-2">Contract Type *</label>
+                        <select id="edit_contract_type" name="contract_type" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            {{CONTRACT_TYPE_OPTIONS}}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="edit_pricing_type" class="block text-sm font-medium text-gray-700 mb-2">Pricing Type *</label>
+                        <select id="edit_pricing_type" name="pricing_type" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            {{PRICING_TYPE_OPTIONS}}
+                        </select>
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label for="edit_description" class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                        <textarea id="edit_description" name="description" rows="3"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  placeholder="Optional description of the price model">{{DESCRIPTION}}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Status -->
+            <div class="mb-8">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Status</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="edit_is_active" name="is_active" value="1" {{IS_ACTIVE_CHECKED}}
+                               class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                        <label for="edit_is_active" class="ml-2 text-sm font-medium text-gray-700">Active Model</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="edit_is_baseline" name="is_baseline" value="1" {{IS_BASELINE_CHECKED}}
+                               class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                        <label for="edit_is_baseline" class="ml-2 text-sm font-medium text-gray-700">Baseline Model</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Overall Fees & Credits -->
+            <div class="mb-8">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Overall Fees & Credits</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">PEMP Rebate Credit ($)</label>
+                        <input type="number" step="0.01" name="overall_pepm_rebate_credit" value="{{OVERALL_PEPM_REBATE_CREDIT}}"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Pricing Fee ($)</label>
+                        <input type="number" step="0.01" name="overall_pricing_fee" value="{{OVERALL_PRICING_FEE}}"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">In-House Pharmacy Fee ($)</label>
+                        <input type="number" step="0.01" name="overall_inhouse_pharmacy_fee" value="{{OVERALL_INHOUSE_PHARMACY_FEE}}"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pricing Categories -->
+            <div class="space-y-8">
+                <!-- Retail -->
+                <div class="border border-gray-200 rounded-lg p-6">
+                    <h4 class="text-md font-semibold text-gray-900 mb-4">Retail Pharmacy</h4>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div>
+                            <h5 class="text-sm font-medium text-gray-700 mb-3">Brand</h5>
+                            <div class="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Rebate ($)</label>
+                                    <input type="number" step="0.01" name="retail_brand_rebate" value="{{RETAIL_BRAND_REBATE}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Discount (%)</label>
+                                    <input type="number" step="0.01" name="retail_brand_discount" value="{{RETAIL_BRAND_DISCOUNT}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Dispensing Fee ($)</label>
+                                    <input type="number" step="0.01" name="retail_brand_dispensing_fee" value="{{RETAIL_BRAND_DISPENSING_FEE}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h5 class="text-sm font-medium text-gray-700 mb-3">Generic</h5>
+                            <div class="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Rebate ($)</label>
+                                    <input type="number" step="0.01" name="retail_generic_rebate" value="{{RETAIL_GENERIC_REBATE}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Discount (%)</label>
+                                    <input type="number" step="0.01" name="retail_generic_discount" value="{{RETAIL_GENERIC_DISCOUNT}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Dispensing Fee ($)</label>
+                                    <input type="number" step="0.01" name="retail_generic_dispensing_fee" value="{{RETAIL_GENERIC_DISPENSING_FEE}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Retail 90-Day -->
+                <div class="border border-gray-200 rounded-lg p-6">
+                    <h4 class="text-md font-semibold text-gray-900 mb-4">Retail 90-Day</h4>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div>
+                            <h5 class="text-sm font-medium text-gray-700 mb-3">Brand</h5>
+                            <div class="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Rebate ($)</label>
+                                    <input type="number" step="0.01" name="retail_90_brand_rebate" value="{{RETAIL_90_BRAND_REBATE}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Discount (%)</label>
+                                    <input type="number" step="0.01" name="retail_90_brand_discount" value="{{RETAIL_90_BRAND_DISCOUNT}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Dispensing Fee ($)</label>
+                                    <input type="number" step="0.01" name="retail_90_brand_dispensing_fee" value="{{RETAIL_90_BRAND_DISPENSING_FEE}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h5 class="text-sm font-medium text-gray-700 mb-3">Generic</h5>
+                            <div class="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Rebate ($)</label>
+                                    <input type="number" step="0.01" name="retail_90_generic_rebate" value="{{RETAIL_90_GENERIC_REBATE}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Discount (%)</label>
+                                    <input type="number" step="0.01" name="retail_90_generic_discount" value="{{RETAIL_90_GENERIC_DISCOUNT}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Dispensing Fee ($)</label>
+                                    <input type="number" step="0.01" name="retail_90_generic_dispensing_fee" value="{{RETAIL_90_GENERIC_DISPENSING_FEE}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mail Order -->
+                <div class="border border-gray-200 rounded-lg p-6">
+                    <h4 class="text-md font-semibold text-gray-900 mb-4">Mail Order</h4>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div>
+                            <h5 class="text-sm font-medium text-gray-700 mb-3">Brand</h5>
+                            <div class="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Rebate ($)</label>
+                                    <input type="number" step="0.01" name="mail_brand_rebate" value="{{MAIL_BRAND_REBATE}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Discount (%)</label>
+                                    <input type="number" step="0.01" name="mail_brand_discount" value="{{MAIL_BRAND_DISCOUNT}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Dispensing Fee ($)</label>
+                                    <input type="number" step="0.01" name="mail_brand_dispensing_fee" value="{{MAIL_BRAND_DISPENSING_FEE}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h5 class="text-sm font-medium text-gray-700 mb-3">Generic</h5>
+                            <div class="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Rebate ($)</label>
+                                    <input type="number" step="0.01" name="mail_generic_rebate" value="{{MAIL_GENERIC_REBATE}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Discount (%)</label>
+                                    <input type="number" step="0.01" name="mail_generic_discount" value="{{MAIL_GENERIC_DISCOUNT}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Dispensing Fee ($)</label>
+                                    <input type="number" step="0.01" name="mail_generic_dispensing_fee" value="{{MAIL_GENERIC_DISPENSING_FEE}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Specialty Mail -->
+                <div class="border border-gray-200 rounded-lg p-6">
+                    <h4 class="text-md font-semibold text-gray-900 mb-4">Specialty Mail</h4>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div>
+                            <h5 class="text-sm font-medium text-gray-700 mb-3">Brand</h5>
+                            <div class="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Rebate ($)</label>
+                                    <input type="number" step="0.01" name="specialty_mail_brand_rebate" value="{{SPECIALTY_MAIL_BRAND_REBATE}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Discount (%)</label>
+                                    <input type="number" step="0.01" name="specialty_mail_brand_discount" value="{{SPECIALTY_MAIL_BRAND_DISCOUNT}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Dispensing Fee ($)</label>
+                                    <input type="number" step="0.01" name="specialty_mail_brand_dispensing_fee" value="{{SPECIALTY_MAIL_BRAND_DISPENSING_FEE}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h5 class="text-sm font-medium text-gray-700 mb-3">Generic</h5>
+                            <div class="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Rebate ($)</label>
+                                    <input type="number" step="0.01" name="specialty_mail_generic_rebate" value="{{SPECIALTY_MAIL_GENERIC_REBATE}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Discount (%)</label>
+                                    <input type="number" step="0.01" name="specialty_mail_generic_discount" value="{{SPECIALTY_MAIL_GENERIC_DISCOUNT}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-600 mb-1">Dispensing Fee ($)</label>
+                                    <input type="number" step="0.01" name="specialty_mail_generic_dispensing_fee" value="{{SPECIALTY_MAIL_GENERIC_DISPENSING_FEE}}"
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LDD Blended Specialty -->
+                <div class="border border-gray-200 rounded-lg p-6">
+                    <h4 class="text-md font-semibold text-gray-900 mb-4">LDD Blended Specialty</h4>
+                    <div class="grid grid-cols-3 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Rebate ($)</label>
+                            <input type="number" step="0.01" name="ldd_blended_specialty_rebate" value="{{LDD_BLENDED_SPECIALTY_REBATE}}"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Discount (%)</label>
+                            <input type="number" step="0.01" name="ldd_blended_specialty_discount" value="{{LDD_BLENDED_SPECIALTY_DISCOUNT}}"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Dispensing Fee ($)</label>
+                            <input type="number" step="0.01" name="ldd_blended_specialty_dispensing_fee" value="{{LDD_BLENDED_SPECIALTY_DISPENSING_FEE}}"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Non-LDD Blended Specialty -->
+                <div class="border border-gray-200 rounded-lg p-6">
+                    <h4 class="text-md font-semibold text-gray-900 mb-4">Non-LDD Blended Specialty</h4>
+                    <div class="grid grid-cols-3 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Rebate ($)</label>
+                            <input type="number" step="0.01" name="non_ldd_blended_specialty_rebate" value="{{NON_LDD_BLENDED_SPECIALTY_REBATE}}"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Discount (%)</label>
+                            <input type="number" step="0.01" name="non_ldd_blended_specialty_discount" value="{{NON_LDD_BLENDED_SPECIALTY_DISCOUNT}}"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Dispensing Fee ($)</label>
+                            <input type="number" step="0.01" name="non_ldd_blended_specialty_dispensing_fee" value="{{NON_LDD_BLENDED_SPECIALTY_DISPENSING_FEE}}"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="flex justify-end gap-3 mt-8 pt-6 border-t">
+                <button type="button" onclick="closeEditModelModal()"
+                        class="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="px-6 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Update Price Model
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

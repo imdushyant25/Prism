@@ -87,67 +87,79 @@ function generateEnhancedKeyMetrics(pricingStructure, categoryLabels = {}) {
     return metrics.length > 0 ? metrics.join('<br>• ') : 'N/A';
 }
 
+// Generate dropdown options for forms
+async function generateDropdownOptions(client) {
+    const configQuery = `
+        SELECT
+            config_type,
+            ARRAY_AGG(
+                json_build_object(
+                    'code', config_code,
+                    'name', display_name,
+                    'is_default', is_default
+                ) ORDER BY display_order
+            ) as options
+        FROM application.prism_system_config
+        WHERE config_type IN ('pbm', 'client_size', 'contract_type', 'pricing_type', 'status')
+          AND is_active = true
+        GROUP BY config_type
+    `;
+
+    const result = await client.query(configQuery);
+    const configData = {};
+
+    result.rows.forEach(row => {
+        configData[row.config_type] = row.options;
+    });
+
+    return {
+        pbmOptions: (configData.pbm || [])
+            .map(option => `<option value="${option.code}">${option.name}</option>`)
+            .join(''),
+        clientSizeOptions: (configData.client_size || [])
+            .map(option => `<option value="${option.code}">${option.name}</option>`)
+            .join(''),
+        contractTypeOptions: (configData.contract_type || [])
+            .map(option => `<option value="${option.code}">${option.name}</option>`)
+            .join(''),
+        pricingTypeOptions: (configData.pricing_type || [])
+            .map(option => `<option value="${option.code}">${option.name}</option>`)
+            .join(''),
+        statusOptions: (configData.status || [])
+            .map(option => `<option value="${option.code}">${option.name}</option>`)
+            .join('')
+    };
+}
+
 // Generate price modeling filters HTML using system config
 async function generatePriceFiltersHTML(client) {
     try {
         const filtersTemplate = await getTemplate('price-filters.html');
-        
-        // Get dropdown options from system config
-        const configQuery = `
-            SELECT 
-                config_type,
-                ARRAY_AGG(
-                    json_build_object(
-                        'code', config_code,
-                        'name', display_name,
-                        'is_default', is_default
-                    ) ORDER BY display_order
-                ) as options
-            FROM application.prism_system_config 
-            WHERE config_type IN ('pbm', 'client_size', 'contract_type', 'pricing_type', 'status')
-              AND is_active = true
-            GROUP BY config_type
-        `;
-        
-        const result = await client.query(configQuery);
-        const configData = {};
-        
-        result.rows.forEach(row => {
-            configData[row.config_type] = row.options;
-        });
-        
-        // Build HTML options for each dropdown
-        const pbmOptions = (configData.pbm || [])
-            .map((option, index) => `<option value="${option.code}" ${option.is_default || index === 0 ? 'selected' : ''}>${option.name}</option>`)
-            .join('');
-            
-        const clientSizeOptions = (configData.client_size || [])
-            .map(option => `<option value="${option.code}">${option.name}</option>`)
-            .join('');
-            
-        const contractTypeOptions = (configData.contract_type || [])
-            .map(option => `<option value="${option.code}">${option.name}</option>`)
-            .join('');
-            
-        const pricingTypeOptions = (configData.pricing_type || [])
-            .map(option => `<option value="${option.code}">${option.name}</option>`)
-            .join('');
-        
-        const statusOptions = (configData.status || [])
-            .map(option => `<option value="${option.code}">${option.name}</option>`)
-            .join('');
-        
+        const options = await generateDropdownOptions(client);
+
+        // Build HTML options for each dropdown with defaults for filters
+        const pbmOptionsWithDefault = (await client.query(`
+            SELECT ARRAY_AGG(
+                json_build_object('code', config_code, 'name', display_name, 'is_default', is_default)
+                ORDER BY display_order
+            ) as options
+            FROM application.prism_system_config
+            WHERE config_type = 'pbm' AND is_active = true
+        `)).rows[0].options.map((option, index) =>
+            `<option value="${option.code}" ${option.is_default || index === 0 ? 'selected' : ''}>${option.name}</option>`
+        ).join('');
+
         // Render template with dynamic data
         const filterData = {
-            PBM_OPTIONS: pbmOptions,
-            CLIENT_SIZE_OPTIONS: clientSizeOptions,
-            CONTRACT_TYPE_OPTIONS: contractTypeOptions,
-            PRICING_TYPE_OPTIONS: pricingTypeOptions,
-            STATUS_OPTIONS: statusOptions
+            PBM_OPTIONS: pbmOptionsWithDefault,
+            CLIENT_SIZE_OPTIONS: options.clientSizeOptions,
+            CONTRACT_TYPE_OPTIONS: options.contractTypeOptions,
+            PRICING_TYPE_OPTIONS: options.pricingTypeOptions,
+            STATUS_OPTIONS: options.statusOptions
         };
-        
+
         return renderTemplate(filtersTemplate, filterData);
-        
+
     } catch (error) {
         console.error('Failed to generate price filters:', error);
         throw error;
@@ -311,6 +323,328 @@ async function generatePriceModelsHTML(client, models) {
     }
 }
 
+// Generate add price model form HTML
+async function generateAddModelHTML(client) {
+    try {
+        const addTemplate = await getTemplate('price-model-add.html');
+        const options = await generateDropdownOptions(client);
+
+        const addData = {
+            PBM_OPTIONS: options.pbmOptions,
+            CLIENT_SIZE_OPTIONS: options.clientSizeOptions,
+            CONTRACT_TYPE_OPTIONS: options.contractTypeOptions,
+            PRICING_TYPE_OPTIONS: options.pricingTypeOptions
+        };
+
+        return renderTemplate(addTemplate, addData);
+
+    } catch (error) {
+        console.error('Failed to generate add model form:', error);
+        throw error;
+    }
+}
+
+// Generate edit price model form HTML
+async function generateEditModelHTML(client, modelId) {
+    try {
+        const editTemplate = await getTemplate('price-model-edit.html');
+        const options = await generateDropdownOptions(client);
+
+        // Get the model data
+        const modelQuery = `
+            SELECT * FROM application.prism_price_modeling
+            WHERE id = $1 AND is_active = true
+        `;
+        const modelResult = await client.query(modelQuery, [modelId]);
+
+        if (modelResult.rows.length === 0) {
+            throw new Error('Price model not found');
+        }
+
+        const model = modelResult.rows[0];
+        const pricingStructure = model.pricing_structure || {};
+
+        // Generate selected options for dropdowns
+        const pbmOptionsSelected = options.pbmOptions.replace(
+            `value="${model.pbm_code}"`,
+            `value="${model.pbm_code}" selected`
+        );
+        const clientSizeOptionsSelected = options.clientSizeOptions.replace(
+            `value="${model.client_size}"`,
+            `value="${model.client_size}" selected`
+        );
+        const contractTypeOptionsSelected = options.contractTypeOptions.replace(
+            `value="${model.contract_type}"`,
+            `value="${model.contract_type}" selected`
+        );
+        const pricingTypeOptionsSelected = options.pricingTypeOptions.replace(
+            `value="${model.pricing_type}"`,
+            `value="${model.pricing_type}" selected`
+        );
+
+        // Extract pricing data with null checks
+        const getNestedValue = (obj, path) => {
+            return path.split('.').reduce((current, key) =>
+                current && current[key] !== undefined ? current[key] : '', obj);
+        };
+
+        const editData = {
+            MODEL_ID: model.id,
+            MODEL_NAME: model.name,
+            DESCRIPTION: model.description || '',
+            PBM_OPTIONS: pbmOptionsSelected,
+            CLIENT_SIZE_OPTIONS: clientSizeOptionsSelected,
+            CONTRACT_TYPE_OPTIONS: contractTypeOptionsSelected,
+            PRICING_TYPE_OPTIONS: pricingTypeOptionsSelected,
+            IS_ACTIVE_CHECKED: model.is_active ? 'checked' : '',
+            IS_BASELINE_CHECKED: model.is_baseline ? 'checked' : '',
+
+            // Overall fees
+            OVERALL_PEPM_REBATE_CREDIT: getNestedValue(pricingStructure, 'overall_fee_credit.pepm_rebate_credit'),
+            OVERALL_PRICING_FEE: getNestedValue(pricingStructure, 'overall_fee_credit.pricing_fee'),
+            OVERALL_INHOUSE_PHARMACY_FEE: getNestedValue(pricingStructure, 'overall_fee_credit.inhouse_pharmacy_fee'),
+
+            // Retail
+            RETAIL_BRAND_REBATE: getNestedValue(pricingStructure, 'retail.brand.rebate'),
+            RETAIL_BRAND_DISCOUNT: getNestedValue(pricingStructure, 'retail.brand.discount'),
+            RETAIL_BRAND_DISPENSING_FEE: getNestedValue(pricingStructure, 'retail.brand.dispensing_fee'),
+            RETAIL_GENERIC_REBATE: getNestedValue(pricingStructure, 'retail.generic.rebate'),
+            RETAIL_GENERIC_DISCOUNT: getNestedValue(pricingStructure, 'retail.generic.discount'),
+            RETAIL_GENERIC_DISPENSING_FEE: getNestedValue(pricingStructure, 'retail.generic.dispensing_fee'),
+
+            // Retail 90
+            RETAIL_90_BRAND_REBATE: getNestedValue(pricingStructure, 'retail_90.brand.rebate'),
+            RETAIL_90_BRAND_DISCOUNT: getNestedValue(pricingStructure, 'retail_90.brand.discount'),
+            RETAIL_90_BRAND_DISPENSING_FEE: getNestedValue(pricingStructure, 'retail_90.brand.dispensing_fee'),
+            RETAIL_90_GENERIC_REBATE: getNestedValue(pricingStructure, 'retail_90.generic.rebate'),
+            RETAIL_90_GENERIC_DISCOUNT: getNestedValue(pricingStructure, 'retail_90.generic.discount'),
+            RETAIL_90_GENERIC_DISPENSING_FEE: getNestedValue(pricingStructure, 'retail_90.generic.dispensing_fee'),
+
+            // Mail
+            MAIL_BRAND_REBATE: getNestedValue(pricingStructure, 'mail.brand.rebate'),
+            MAIL_BRAND_DISCOUNT: getNestedValue(pricingStructure, 'mail.brand.discount'),
+            MAIL_BRAND_DISPENSING_FEE: getNestedValue(pricingStructure, 'mail.brand.dispensing_fee'),
+            MAIL_GENERIC_REBATE: getNestedValue(pricingStructure, 'mail.generic.rebate'),
+            MAIL_GENERIC_DISCOUNT: getNestedValue(pricingStructure, 'mail.generic.discount'),
+            MAIL_GENERIC_DISPENSING_FEE: getNestedValue(pricingStructure, 'mail.generic.dispensing_fee'),
+
+            // Specialty Mail
+            SPECIALTY_MAIL_BRAND_REBATE: getNestedValue(pricingStructure, 'specialty_mail.brand.rebate'),
+            SPECIALTY_MAIL_BRAND_DISCOUNT: getNestedValue(pricingStructure, 'specialty_mail.brand.discount'),
+            SPECIALTY_MAIL_BRAND_DISPENSING_FEE: getNestedValue(pricingStructure, 'specialty_mail.brand.dispensing_fee'),
+            SPECIALTY_MAIL_GENERIC_REBATE: getNestedValue(pricingStructure, 'specialty_mail.generic.rebate'),
+            SPECIALTY_MAIL_GENERIC_DISCOUNT: getNestedValue(pricingStructure, 'specialty_mail.generic.discount'),
+            SPECIALTY_MAIL_GENERIC_DISPENSING_FEE: getNestedValue(pricingStructure, 'specialty_mail.generic.dispensing_fee'),
+
+            // Blended Specialty
+            LDD_BLENDED_SPECIALTY_REBATE: getNestedValue(pricingStructure, 'ldd_blended_specialty.rebate'),
+            LDD_BLENDED_SPECIALTY_DISCOUNT: getNestedValue(pricingStructure, 'ldd_blended_specialty.discount'),
+            LDD_BLENDED_SPECIALTY_DISPENSING_FEE: getNestedValue(pricingStructure, 'ldd_blended_specialty.dispensing_fee'),
+            NON_LDD_BLENDED_SPECIALTY_REBATE: getNestedValue(pricingStructure, 'non_ldd_blended_specialty.rebate'),
+            NON_LDD_BLENDED_SPECIALTY_DISCOUNT: getNestedValue(pricingStructure, 'non_ldd_blended_specialty.discount'),
+            NON_LDD_BLENDED_SPECIALTY_DISPENSING_FEE: getNestedValue(pricingStructure, 'non_ldd_blended_specialty.dispensing_fee')
+        };
+
+        return renderTemplate(editTemplate, editData);
+
+    } catch (error) {
+        console.error('Failed to generate edit model form:', error);
+        throw error;
+    }
+}
+
+// Create new price model
+async function createPriceModel(client, formData) {
+    try {
+        // Build pricing structure from form data
+        const buildNestedStructure = (data, prefix, structure = {}) => {
+            Object.keys(data).forEach(key => {
+                if (key.startsWith(prefix)) {
+                    const path = key.replace(prefix, '').split('_');
+                    let current = structure;
+
+                    // Navigate/create nested structure
+                    for (let i = 0; i < path.length - 1; i++) {
+                        if (!current[path[i]]) current[path[i]] = {};
+                        current = current[path[i]];
+                    }
+
+                    // Set the value if it's not empty
+                    const value = data[key];
+                    if (value !== '' && value !== null && value !== undefined) {
+                        current[path[path.length - 1]] = isNaN(value) ? value : parseFloat(value);
+                    }
+                }
+            });
+            return structure;
+        };
+
+        const pricingStructure = {};
+
+        // Overall fees
+        if (formData.overall_pepm_rebate_credit || formData.overall_pricing_fee || formData.overall_inhouse_pharmacy_fee) {
+            pricingStructure.overall_fee_credit = {};
+            if (formData.overall_pemp_rebate_credit) pricingStructure.overall_fee_credit.pepm_rebate_credit = parseFloat(formData.overall_pemp_rebate_credit);
+            if (formData.overall_pricing_fee) pricingStructure.overall_fee_credit.pricing_fee = parseFloat(formData.overall_pricing_fee);
+            if (formData.overall_inhouse_pharmacy_fee) pricingStructure.overall_fee_credit.inhouse_pharmacy_fee = parseFloat(formData.overall_inhouse_pharmacy_fee);
+        }
+
+        // Build other structures
+        const categories = ['retail', 'retail_90', 'mail', 'specialty_mail'];
+        categories.forEach(category => {
+            const categoryData = {};
+
+            // Brand data
+            const brandData = {};
+            if (formData[`${category}_brand_rebate`]) brandData.rebate = parseFloat(formData[`${category}_brand_rebate`]);
+            if (formData[`${category}_brand_discount`]) brandData.discount = parseFloat(formData[`${category}_brand_discount`]);
+            if (formData[`${category}_brand_dispensing_fee`]) brandData.dispensing_fee = parseFloat(formData[`${category}_brand_dispensing_fee`]);
+            if (Object.keys(brandData).length > 0) categoryData.brand = brandData;
+
+            // Generic data
+            const genericData = {};
+            if (formData[`${category}_generic_rebate`]) genericData.rebate = parseFloat(formData[`${category}_generic_rebate`]);
+            if (formData[`${category}_generic_discount`]) genericData.discount = parseFloat(formData[`${category}_generic_discount`]);
+            if (formData[`${category}_generic_dispensing_fee`]) genericData.dispensing_fee = parseFloat(formData[`${category}_generic_dispensing_fee`]);
+            if (Object.keys(genericData).length > 0) categoryData.generic = genericData;
+
+            if (Object.keys(categoryData).length > 0) {
+                pricingStructure[category] = categoryData;
+            }
+        });
+
+        // Blended specialty categories
+        ['ldd_blended_specialty', 'non_ldd_blended_specialty'].forEach(category => {
+            const categoryData = {};
+            if (formData[`${category}_rebate`]) categoryData.rebate = parseFloat(formData[`${category}_rebate`]);
+            if (formData[`${category}_discount`]) categoryData.discount = parseFloat(formData[`${category}_discount`]);
+            if (formData[`${category}_dispensing_fee`]) categoryData.dispensing_fee = parseFloat(formData[`${category}_dispensing_fee`]);
+            if (Object.keys(categoryData).length > 0) {
+                pricingStructure[category] = categoryData;
+            }
+        });
+
+        const insertQuery = `
+            INSERT INTO application.prism_price_modeling (
+                id, name, pbm_code, client_size, contract_type, pricing_type,
+                pricing_structure, description, created_by, is_active, is_baseline
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+            ) RETURNING id
+        `;
+
+        const modelId = uuidv4();
+        const values = [
+            modelId,
+            formData.model_name,
+            formData.pbm_code,
+            formData.client_size,
+            formData.contract_type,
+            formData.pricing_type,
+            JSON.stringify(pricingStructure),
+            formData.description || null,
+            'user', // TODO: Replace with actual user from session
+            true, // Default to active
+            false // Default to non-baseline
+        ];
+
+        await client.query(insertQuery, values);
+        return modelId;
+
+    } catch (error) {
+        console.error('Failed to create price model:', error);
+        throw error;
+    }
+}
+
+// Update existing price model
+async function updatePriceModel(client, modelId, formData) {
+    try {
+        // Build pricing structure (same logic as create)
+        const pricingStructure = {};
+
+        // Overall fees
+        if (formData.overall_pepm_rebate_credit || formData.overall_pricing_fee || formData.overall_inhouse_pharmacy_fee) {
+            pricingStructure.overall_fee_credit = {};
+            if (formData.overall_pemp_rebate_credit) pricingStructure.overall_fee_credit.pepm_rebate_credit = parseFloat(formData.overall_pemp_rebate_credit);
+            if (formData.overall_pricing_fee) pricingStructure.overall_fee_credit.pricing_fee = parseFloat(formData.overall_pricing_fee);
+            if (formData.overall_inhouse_pharmacy_fee) pricingStructure.overall_fee_credit.inhouse_pharmacy_fee = parseFloat(formData.overall_inhouse_pharmacy_fee);
+        }
+
+        // Build category structures
+        const categories = ['retail', 'retail_90', 'mail', 'specialty_mail'];
+        categories.forEach(category => {
+            const categoryData = {};
+
+            // Brand data
+            const brandData = {};
+            if (formData[`${category}_brand_rebate`]) brandData.rebate = parseFloat(formData[`${category}_brand_rebate`]);
+            if (formData[`${category}_brand_discount`]) brandData.discount = parseFloat(formData[`${category}_brand_discount`]);
+            if (formData[`${category}_brand_dispensing_fee`]) brandData.dispensing_fee = parseFloat(formData[`${category}_brand_dispensing_fee`]);
+            if (Object.keys(brandData).length > 0) categoryData.brand = brandData;
+
+            // Generic data
+            const genericData = {};
+            if (formData[`${category}_generic_rebate`]) genericData.rebate = parseFloat(formData[`${category}_generic_rebate`]);
+            if (formData[`${category}_generic_discount`]) genericData.discount = parseFloat(formData[`${category}_generic_discount`]);
+            if (formData[`${category}_generic_dispensing_fee`]) genericData.dispensing_fee = parseFloat(formData[`${category}_generic_dispensing_fee`]);
+            if (Object.keys(genericData).length > 0) categoryData.generic = genericData;
+
+            if (Object.keys(categoryData).length > 0) {
+                pricingStructure[category] = categoryData;
+            }
+        });
+
+        // Blended specialty categories
+        ['ldd_blended_specialty', 'non_ldd_blended_specialty'].forEach(category => {
+            const categoryData = {};
+            if (formData[`${category}_rebate`]) categoryData.rebate = parseFloat(formData[`${category}_rebate`]);
+            if (formData[`${category}_discount`]) categoryData.discount = parseFloat(formData[`${category}_discount`]);
+            if (formData[`${category}_dispensing_fee`]) categoryData.dispensing_fee = parseFloat(formData[`${category}_dispensing_fee`]);
+            if (Object.keys(categoryData).length > 0) {
+                pricingStructure[category] = categoryData;
+            }
+        });
+
+        const updateQuery = `
+            UPDATE application.prism_price_modeling SET
+                name = $2,
+                pbm_code = $3,
+                client_size = $4,
+                contract_type = $5,
+                pricing_type = $6,
+                pricing_structure = $7,
+                description = $8,
+                is_active = $9,
+                is_baseline = $10,
+                updated_at = CURRENT_TIMESTAMP,
+                updated_by = $11
+            WHERE id = $1
+        `;
+
+        const values = [
+            modelId,
+            formData.model_name,
+            formData.pbm_code,
+            formData.client_size,
+            formData.contract_type,
+            formData.pricing_type,
+            JSON.stringify(pricingStructure),
+            formData.description || null,
+            formData.is_active === '1',
+            formData.is_baseline === '1',
+            'user' // TODO: Replace with actual user from session
+        ];
+
+        const result = await client.query(updateQuery, values);
+        return result.rowCount > 0;
+
+    } catch (error) {
+        console.error('Failed to update price model:', error);
+        throw error;
+    }
+}
+
 // Main Lambda handler
 const handler = async (event) => {
     console.log('🚀 Price Modeling Lambda Event:', JSON.stringify(event, null, 2));
@@ -353,36 +687,123 @@ const handler = async (event) => {
         if (queryParams.component === 'filters') {
             console.log('📋 Loading price modeling filters...');
             const filtersHTML = await generatePriceFiltersHTML(client);
-            
+
             return {
                 statusCode: 200,
                 headers,
                 body: filtersHTML
             };
         }
+
+        // Handle add model form
+        if (queryParams.component === 'add') {
+            console.log('➕ Loading add model form...');
+            const addHTML = await generateAddModelHTML(client);
+
+            return {
+                statusCode: 200,
+                headers,
+                body: addHTML
+            };
+        }
+
+        // Handle edit model form
+        if (queryParams.component === 'edit' && queryParams.id) {
+            console.log('✏️ Loading edit model form for ID:', queryParams.id);
+            const editHTML = await generateEditModelHTML(client, queryParams.id);
+
+            return {
+                statusCode: 200,
+                headers,
+                body: editHTML
+            };
+        }
         
-        // Handle price models list (GET with filters or POST with form data)
-        if (method === 'GET' || method === 'POST') {
-            console.log('📊 Loading price models...');
-            
-            let filters = {};
-            
-            if (method === 'POST' && event.body) {
-                // Parse form data from POST request
-                const params = new URLSearchParams(event.body);
-                for (const [key, value] of params) {
-                    filters[key] = value;
+        // Handle POST requests for creating/updating models
+        if (method === 'POST' && event.body) {
+            const params = new URLSearchParams(event.body);
+            const formData = {};
+            for (const [key, value] of params) {
+                formData[key] = value;
+            }
+
+            // Handle create model
+            if (path.includes('/create') || queryParams.action === 'create') {
+                console.log('🆕 Creating new price model...');
+                try {
+                    const modelId = await createPriceModel(client, formData);
+                    console.log('✅ Created model with ID:', modelId);
+
+                    return {
+                        statusCode: 200,
+                        headers: { ...headers, 'HX-Redirect': '/price-models' },
+                        body: '<div class="text-green-600">Price model created successfully!</div>'
+                    };
+                } catch (error) {
+                    return {
+                        statusCode: 400,
+                        headers,
+                        body: `<div class="text-red-600">Error creating model: ${error.message}</div>`
+                    };
                 }
-                console.log('Filters from POST body:', filters);
-            } else if (method === 'GET' && queryParams) {
-                // Use query parameters from GET request
+            }
+
+            // Handle update model
+            if (path.includes('/update') || queryParams.action === 'update') {
+                const modelId = formData.model_id || queryParams.id;
+                console.log('🔄 Updating price model:', modelId);
+                try {
+                    const success = await updatePriceModel(client, modelId, formData);
+                    if (success) {
+                        console.log('✅ Updated model:', modelId);
+                        return {
+                            statusCode: 200,
+                            headers: { ...headers, 'HX-Redirect': '/price-models' },
+                            body: '<div class="text-green-600">Price model updated successfully!</div>'
+                        };
+                    } else {
+                        throw new Error('Model not found or no changes made');
+                    }
+                } catch (error) {
+                    return {
+                        statusCode: 400,
+                        headers,
+                        body: `<div class="text-red-600">Error updating model: ${error.message}</div>`
+                    };
+                }
+            }
+
+            // Handle filter requests (existing functionality)
+            console.log('📊 Loading price models with filters...');
+            let filters = {};
+            for (const [key, value] of params) {
+                filters[key] = value;
+            }
+            console.log('Filters from POST body:', filters);
+
+            const models = await getPriceModels(client, filters);
+            const modelsHTML = await generatePriceModelsHTML(client, models);
+
+            return {
+                statusCode: 200,
+                headers,
+                body: modelsHTML
+            };
+        }
+
+        // Handle GET requests for price models list
+        if (method === 'GET') {
+            console.log('📊 Loading price models...');
+
+            let filters = {};
+            if (queryParams) {
                 filters = queryParams;
                 console.log('Filters from GET params:', filters);
             }
-            
+
             const models = await getPriceModels(client, filters);
             const modelsHTML = await generatePriceModelsHTML(client, models);
-            
+
             return {
                 statusCode: 200,
                 headers,
