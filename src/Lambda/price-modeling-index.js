@@ -468,8 +468,8 @@ async function generateCloneModelHTML(client, modelId) {
             'name="model_name" required value="{{MODEL_NAME}}"'
         );
         modifiedTemplate = modifiedTemplate.replace(
-            'name="description" rows="3"',
-            'name="description" rows="3">{{DESCRIPTION}}'
+            'placeholder="Optional description of the price model"></textarea>',
+            'placeholder="Optional description of the price model">{{DESCRIPTION}}</textarea>'
         );
 
         // Add values to all pricing fields
