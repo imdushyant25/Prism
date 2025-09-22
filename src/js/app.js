@@ -1061,6 +1061,110 @@ window.loadDataSourceFields = function(dataSource) {
     // TODO: Implement dynamic field loading based on data source
 };
 
+// Helper function to update conditions textarea (for both simple and complex builders)
+window.updateConditionsTextarea = function(conditions) {
+    const conditionsTextarea = document.getElementById('conditions-textarea');
+    if (conditionsTextarea) {
+        conditionsTextarea.value = conditions;
+        console.log('Updated conditions textarea:', conditions);
+    }
+};
+
+// Placeholder functions for rule builders (to be implemented later if needed)
+window.buildCondition = function() {
+    console.log('Build condition function called - placeholder');
+    // This would build conditions for simple rules
+    // For now, users need to manually enter conditions
+};
+
+window.addFlag = function() {
+    console.log('Add flag function called - placeholder');
+    // This would add flags to complex rule expressions
+    // For now, users need to manually enter conditions
+};
+
+window.addOperator = function(operator) {
+    console.log('Add operator function called:', operator);
+    // This would add operators to complex rule expressions
+};
+
+window.clearExpression = function() {
+    console.log('Clear expression function called');
+    // Clear the expression builder and update textarea
+    updateConditionsTextarea('');
+};
+
+window.clearAllConditions = function() {
+    console.log('Clear all conditions function called');
+    // Clear the condition builder and update textarea
+    updateConditionsTextarea('');
+};
+
+// Validate Rule Form Before Submission
+window.validateRuleForm = function(event) {
+    console.log('Validating rule form before submission');
+
+    const form = document.getElementById('add-rule-form');
+    const ruleType = form.querySelector('select[name="rule_type"]').value;
+    const conditions = form.querySelector('textarea[name="conditions"]').value.trim();
+    const ruleName = form.querySelector('input[name="rule_name"]').value.trim();
+    const flagName = form.querySelector('input[name="flag_name"]').value.trim();
+    const pbmCode = form.querySelector('select[name="pbm_code"]').value;
+
+    // Check required fields
+    if (!ruleName) {
+        showNotification('Rule name is required', 'error');
+        event.preventDefault();
+        return false;
+    }
+
+    if (!flagName) {
+        showNotification('Flag name is required', 'error');
+        event.preventDefault();
+        return false;
+    }
+
+    if (!pbmCode) {
+        showNotification('PBM selection is required', 'error');
+        event.preventDefault();
+        return false;
+    }
+
+    if (!ruleType) {
+        showNotification('Rule type is required', 'error');
+        event.preventDefault();
+        return false;
+    }
+
+    // Check conditions based on rule type
+    if (ruleType === 'SIMPLE') {
+        const dataSource = form.querySelector('select[name="data_source"]').value;
+        if (!dataSource) {
+            showNotification('Data source is required for Simple rules', 'error');
+            event.preventDefault();
+            return false;
+        }
+    }
+
+    // Always check for conditions - they cannot be empty
+    if (!conditions) {
+        showNotification('Rule conditions are required. Please build your rule conditions using the visual builder.', 'error');
+        event.preventDefault();
+        return false;
+    }
+
+    // Check eligibility types - at least one must be selected
+    const eligibilityTypes = form.querySelectorAll('input[name="eligibility_types"]:checked');
+    if (eligibilityTypes.length === 0) {
+        showNotification('At least one eligibility type must be selected', 'error');
+        event.preventDefault();
+        return false;
+    }
+
+    console.log('Form validation passed');
+    return true;
+};
+
 // Clone Individual Rule (already exists but let me enhance it)
 window.cloneRule = function(ruleId) {
     console.log('Clone rule:', ruleId);

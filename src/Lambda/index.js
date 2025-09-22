@@ -506,10 +506,40 @@ async function getCloneRuleModal(client, ruleId) {
             'name="priority" min="1" value="100"',
             `name="priority" min="1" value="${rule.priority || 100}"`
         );
+
+        // Pre-populate effective dates if they exist
+        if (rule.effective_from) {
+            const effectiveFromDate = new Date(rule.effective_from).toISOString().split('T')[0];
+            modifiedTemplate = modifiedTemplate.replace(
+                'name="effective_from"',
+                `name="effective_from" value="${effectiveFromDate}"`
+            );
+        }
+
+        if (rule.effective_to) {
+            const effectiveToDate = new Date(rule.effective_to).toISOString().split('T')[0];
+            modifiedTemplate = modifiedTemplate.replace(
+                'name="effective_to"',
+                `name="effective_to" value="${effectiveToDate}"`
+            );
+        }
+        // Pre-populate conditions in the hidden textarea (this is used for both simple and complex rules)
         modifiedTemplate = modifiedTemplate.replace(
-            'placeholder="Enter rule conditions..."',
-            `placeholder="Enter rule conditions...">${rule.conditions || ''}`
+            'name="conditions" id="conditions-textarea" class="hidden"></textarea>',
+            `name="conditions" id="conditions-textarea" class="hidden">${rule.conditions || ''}</textarea>`
         );
+
+        // Also populate any visible condition preview areas
+        if (rule.conditions) {
+            modifiedTemplate = modifiedTemplate.replace(
+                '<!-- SQL preview will be generated here -->',
+                rule.conditions
+            );
+            modifiedTemplate = modifiedTemplate.replace(
+                '<!-- SQL preview will be shown here -->',
+                rule.conditions
+            );
+        }
 
         // Set rule category
         if (rule.rule_category) {
@@ -519,12 +549,33 @@ async function getCloneRuleModal(client, ruleId) {
             );
         }
 
-        // Set rule type
+        // Set rule type and show appropriate section
         if (rule.rule_type) {
             modifiedTemplate = modifiedTemplate.replace(
                 `value="${rule.rule_type}"`,
                 `value="${rule.rule_type}" selected`
             );
+
+            // Show the correct rule builder section based on rule type
+            if (rule.rule_type === 'SIMPLE') {
+                modifiedTemplate = modifiedTemplate.replace(
+                    'id="simple-section" class="hidden"',
+                    'id="simple-section" class=""'
+                );
+                modifiedTemplate = modifiedTemplate.replace(
+                    'id="complex-section" class="hidden"',
+                    'id="complex-section" class="hidden"'
+                );
+            } else if (rule.rule_type === 'COMPLEX') {
+                modifiedTemplate = modifiedTemplate.replace(
+                    'id="complex-section" class="hidden"',
+                    'id="complex-section" class=""'
+                );
+                modifiedTemplate = modifiedTemplate.replace(
+                    'id="simple-section" class="hidden"',
+                    'id="simple-section" class="hidden"'
+                );
+            }
         }
 
         // Set checkboxes
@@ -535,11 +586,11 @@ async function getCloneRuleModal(client, ruleId) {
             modifiedTemplate = modifiedTemplate.replace('name="is_standalone_executable"', 'name="is_standalone_executable" checked');
         }
 
-        // Set eligibility type checkboxes
+        // Set eligibility type checkboxes - need to be more specific to avoid conflicts
         eligibilityTypes.forEach(type => {
             modifiedTemplate = modifiedTemplate.replace(
-                `value="${type}"`,
-                `value="${type}" checked`
+                `name="eligibility_types" value="${type}"`,
+                `name="eligibility_types" value="${type}" checked`
             );
         });
 
@@ -851,21 +902,38 @@ async function createRule(client, formData) {
         const { v4: uuidv4 } = require('uuid');
         const newRuleId = uuidv4();
 
+        // Validate required fields
+        if (!formData.rule_name || !formData.flag_name || !formData.pbm_code || !formData.rule_type) {
+            return {
+                success: false,
+                error: 'Missing required fields: rule_name, flag_name, pbm_code, and rule_type are required'
+            };
+        }
+
+        if (!formData.conditions || formData.conditions.trim() === '') {
+            return {
+                success: false,
+                error: 'Rule conditions are required and cannot be empty'
+            };
+        }
+
         // Prepare rule data
         const ruleData = {
             rule_id: newRuleId,
             version: 1,
-            name: formData.rule_name,
+            name: formData.rule_name.trim(),
             pbm_code: formData.pbm_code,
             rule_type: formData.rule_type,
             data_source: formData.data_source || null,
-            conditions: formData.conditions,
-            flag_name: formData.flag_name,
+            conditions: formData.conditions.trim(),
+            flag_name: formData.flag_name.trim(),
             priority: parseInt(formData.priority) || 100,
             is_standalone_executable: formData.is_standalone_executable === 'on' || formData.is_standalone_executable === 'true',
-            rule_category: formData.rule_category || 'ENRICHMENT',
+            rule_category: formData.rule_category || 'PRODUCTION',
             is_active: formData.is_active === 'on' || formData.is_active === 'true' || true,
-            eligibility_types: JSON.stringify(eligibilityTypes)
+            eligibility_types: JSON.stringify(eligibilityTypes),
+            effective_from: formData.effective_from || null,
+            effective_to: formData.effective_to || null
         };
 
         console.log('Final rule data:', ruleData);
@@ -875,9 +943,9 @@ async function createRule(client, formData) {
             INSERT INTO application.prism_enrichment_rules (
                 rule_id, version, name, pbm_code, rule_type, data_source, conditions,
                 flag_name, priority, is_standalone_executable, rule_category,
-                effective_from, is_active, created_by, eligibility_types
+                effective_from, effective_to, is_active, created_by, eligibility_types
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12, $13, $14
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
             )
             RETURNING id, rule_id, version
         `;
@@ -894,6 +962,8 @@ async function createRule(client, formData) {
             ruleData.priority,
             ruleData.is_standalone_executable,
             ruleData.rule_category,
+            ruleData.effective_from ? new Date(ruleData.effective_from) : new Date(), // Default to current date if not provided
+            ruleData.effective_to ? new Date(ruleData.effective_to) : null,
             ruleData.is_active,
             'system',
             ruleData.eligibility_types
