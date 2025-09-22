@@ -284,20 +284,20 @@ async function getEditRuleModal(client, ruleId) {
             } else if (Array.isArray(eligibilityData)) {
                 eligibilityTypes = eligibilityData;
             } else {
-                eligibilityTypes = ['REBATES']; // Default
+                eligibilityTypes = ['REBATE_ELIGIBLE']; // Default
             }
         } catch (e) {
             console.warn('Failed to parse eligibility types:', e);
-            eligibilityTypes = ['REBATES'];
+            eligibilityTypes = ['REBATE_ELIGIBLE'];
         }
         console.log('✅ Eligibility types parsed:', eligibilityTypes);
         
         // FIXED: Build eligibility options as multi-select with proper defaults
         const eligibilityOptions = [
-            { value: 'REBATES', label: 'Rebates' },
             { value: 'REBATE_ELIGIBLE', label: 'Rebate Eligible' },
-            { value: 'DISCOUNT', label: 'Discount' },
-            { value: 'DISCOUNT_ELIGIBLE', label: 'Discount Eligible' }
+            { value: 'REBATE_INELIGIBLE', label: 'Rebate Ineligible' },
+            { value: 'DISCOUNT_ELIGIBLE', label: 'Discount Eligible' },
+            { value: 'DISCOUNT_INELIGIBLE', label: 'Discount Ineligible' }
         ];
         
         const eligibilityHTML = eligibilityOptions
@@ -391,10 +391,18 @@ async function getAddRuleModal(client) {
                 .map(source => `<option value="${source}">${source}</option>`)
                 .join('');
 
+        // Get available flags for complex rules
+        const availableFlags = await getAvailableFlags(client, null);
+        const flagOptions = availableFlags
+            .map(flag => `<option value="${flag.flag_name}" data-rule-type="${flag.rule_type}" data-pbm="${flag.pbm_code}">${flag.flag_name} (${flag.rule_type} - ${flag.pbm_code})</option>`)
+            .join('');
+
         // Template data for add modal
         const templateData = {
             PBM_OPTIONS: pbmOptions,
-            DATA_SOURCE_OPTIONS: dataSourceOptions
+            DATA_SOURCE_OPTIONS: dataSourceOptions,
+            AVAILABLE_FLAGS: flagOptions,
+            DATASOURCE_FIELDS: '<option value="">Select data source first</option>'
         };
 
         console.log('🔨 Rendering add template...');
@@ -451,12 +459,18 @@ async function getCloneRuleModal(client, ruleId) {
                 .map(source => `<option value="${source}" ${source === rule.data_source ? 'selected' : ''}>${source}</option>`)
                 .join('');
 
+        // Get available flags for complex rules
+        const availableFlags = await getAvailableFlags(client, ruleId);
+        const flagOptions = availableFlags
+            .map(flag => `<option value="${flag.flag_name}" data-rule-type="${flag.rule_type}" data-pbm="${flag.pbm_code}">${flag.flag_name} (${flag.rule_type} - ${flag.pbm_code})</option>`)
+            .join('');
+
         // Parse eligibility types
         let eligibilityTypes = [];
         try {
-            eligibilityTypes = rule.eligibility_types ? JSON.parse(rule.eligibility_types) : ['REBATES'];
+            eligibilityTypes = rule.eligibility_types ? JSON.parse(rule.eligibility_types) : ['REBATE_ELIGIBLE'];
         } catch (e) {
-            eligibilityTypes = ['REBATES'];
+            eligibilityTypes = ['REBATE_ELIGIBLE'];
         }
 
         // Create modified template for cloning
@@ -474,7 +488,9 @@ async function getCloneRuleModal(client, ruleId) {
         // Template data for clone modal (pre-filled with source rule data)
         const templateData = {
             PBM_OPTIONS: pbmOptions,
-            DATA_SOURCE_OPTIONS: dataSourceOptions
+            DATA_SOURCE_OPTIONS: dataSourceOptions,
+            AVAILABLE_FLAGS: flagOptions,
+            DATASOURCE_FIELDS: '<option value="">Select data source first</option>'
         };
 
         // Pre-fill form values by replacing input/textarea values
@@ -828,7 +844,7 @@ async function createRule(client, formData) {
                 eligibilityTypes = [formData.eligibility_types];
             }
         } else {
-            eligibilityTypes = ['REBATES']; // Default
+            eligibilityTypes = ['REBATE_ELIGIBLE']; // Default
         }
 
         // Generate new rule_id

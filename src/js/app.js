@@ -1026,18 +1026,32 @@ window.handleAddRuleResponse = function(event) {
     }
 };
 
-// Handle Rule Type Change (show/hide data source section)
+// Handle Rule Type Change (show/hide sections based on Simple vs Complex)
 window.handleRuleTypeChange = function(ruleType) {
-    const dataSourceSection = document.getElementById('data-source-section');
-    const dataSourceSelect = document.getElementById('add_data_source');
+    const simpleSection = document.getElementById('simple-section');
+    const complexSection = document.getElementById('complex-section');
+    const dataSourceSelect = document.querySelector('select[name="data_source"]');
 
     if (ruleType === 'SIMPLE') {
-        dataSourceSection.classList.remove('hidden');
-        dataSourceSelect.required = true;
+        simpleSection.classList.remove('hidden');
+        complexSection.classList.add('hidden');
+        if (dataSourceSelect) {
+            dataSourceSelect.required = true;
+        }
+    } else if (ruleType === 'COMPLEX') {
+        complexSection.classList.remove('hidden');
+        simpleSection.classList.add('hidden');
+        if (dataSourceSelect) {
+            dataSourceSelect.required = false;
+            dataSourceSelect.value = '';
+        }
     } else {
-        dataSourceSection.classList.add('hidden');
-        dataSourceSelect.required = false;
-        dataSourceSelect.value = '';
+        // No type selected - hide both
+        simpleSection.classList.add('hidden');
+        complexSection.classList.add('hidden');
+        if (dataSourceSelect) {
+            dataSourceSelect.required = false;
+        }
     }
 };
 
