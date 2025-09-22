@@ -31,23 +31,46 @@ function renderTemplate(template, data) {
     });
 }
 
-// Generate filters HTML with ALL dynamic options from database
+// Generate filters HTML with options from prism_source_config
 async function generateFiltersHTML(client) {
     try {
         const filtersTemplate = await getTemplate('filters.html');
-        
-        // Get all unique values from the actual data
-        const filtersQuery = `
-            SELECT 
-                ARRAY_AGG(DISTINCT pbm_code ORDER BY pbm_code) as pbm_codes,
-                ARRAY_AGG(DISTINCT rule_type ORDER BY rule_type) as rule_types,
-                ARRAY_AGG(DISTINCT rule_category ORDER BY rule_category) as rule_categories,
-                ARRAY_AGG(DISTINCT data_source ORDER BY data_source) FILTER (WHERE data_source IS NOT NULL) as data_sources
+
+        // Get PBM codes from actual data (keep dynamic)
+        const pbmQuery = `
+            SELECT ARRAY_AGG(DISTINCT pbm_code ORDER BY pbm_code) as pbm_codes
             FROM application.prism_enrichment_rules
         `;
-        
-        const result = await client.query(filtersQuery);
-        const data = result.rows[0];
+        const pbmResult = await client.query(pbmQuery);
+        const pbmCodes = pbmResult.rows[0].pbm_codes || [];
+
+        // Get rule types, categories, and data sources from config
+        const configQuery = `
+            SELECT config_key, config_value
+            FROM application.prism_system_config
+            WHERE config_key IN ('rule_type', 'rule_category', 'data_source')
+        `;
+
+        const configResult = await client.query(configQuery);
+        const configData = {};
+
+        // Parse config data
+        configResult.rows.forEach(row => {
+            try {
+                configData[row.config_key] = JSON.parse(row.config_value);
+            } catch (e) {
+                console.warn(`Failed to parse config for ${row.config_key}:`, row.config_value);
+                configData[row.config_key] = [];
+            }
+        });
+
+        // Prepare data object
+        const data = {
+            pbm_codes: pbmCodes,
+            rule_types: configData.rule_type || [],
+            rule_categories: configData.rule_category || [],
+            data_sources: configData.data_source || []
+        };
         
         // Build HTML options for each dropdown
         const pbmOptions = (data.pbm_codes || [])
@@ -211,18 +234,36 @@ async function getEditRuleModal(client, ruleId) {
         const rule = ruleResult.rows[0];
         console.log('✅ Rule found:', rule.name, 'Type:', rule.rule_type, 'Data Source:', rule.data_source);
         
-        // Get dropdown options
+        // Get dropdown options - PBM from actual data, others from config
         console.log('🔍 Fetching dropdown options...');
-        const optionsQuery = `
-            SELECT 
-                ARRAY_AGG(DISTINCT pbm_code ORDER BY pbm_code) as pbm_codes,
-                ARRAY_AGG(DISTINCT data_source ORDER BY data_source) FILTER (WHERE data_source IS NOT NULL) as data_sources
+
+        // Get PBM codes from actual data
+        const pbmQuery = `
+            SELECT ARRAY_AGG(DISTINCT pbm_code ORDER BY pbm_code) as pbm_codes
             FROM application.prism_enrichment_rules
         `;
-        
-        const optionsResult = await client.query(optionsQuery);
-        const options = optionsResult.rows[0];
-        console.log('✅ Options fetched - PBMs:', options.pbm_codes?.length, 'Sources:', options.data_sources?.length);
+        const pbmResult = await client.query(pbmQuery);
+        const pbmCodes = pbmResult.rows[0].pbm_codes || [];
+
+        // Get data sources from config
+        const configQuery = `
+            SELECT config_value
+            FROM application.prism_system_config
+            WHERE config_key = 'data_source'
+        `;
+        const configResult = await client.query(configQuery);
+
+        let dataSources = [];
+        if (configResult.rows.length > 0) {
+            try {
+                dataSources = JSON.parse(configResult.rows[0].config_value);
+            } catch (e) {
+                console.warn('Failed to parse data_source config:', configResult.rows[0].config_value);
+                dataSources = [];
+            }
+        }
+
+        console.log('✅ Options fetched - PBMs:', pbmCodes.length, 'Sources:', dataSources.length);
         
         // FIXED: Get fields specific to current rule's data source (if it's a simple rule)
         let fieldsData = [];
@@ -242,11 +283,11 @@ async function getEditRuleModal(client, ruleId) {
         
         // Build dropdown options
         console.log('🔨 Building dropdown options...');
-        const pbmOptions = (options.pbm_codes || [])
+        const pbmOptions = pbmCodes
             .map(code => `<option value="${code}" ${code === rule.pbm_code ? 'selected' : ''}>${code}</option>`)
             .join('');
-            
-        const dataSourceOptions = (options.data_sources || [])
+
+        const dataSourceOptions = dataSources
             .map(source => `<option value="${source}" ${source === rule.data_source ? 'selected' : ''}>${source.charAt(0).toUpperCase() + source.slice(1)}</option>`)
             .join('');
             
@@ -372,26 +413,46 @@ async function getAddRuleModal(client) {
         const addModalTemplate = await getTemplate('add-rule-modal.html');
         console.log('✅ Template loaded, length:', addModalTemplate.length);
 
-        // Get dropdown options
+        // Get dropdown options - PBM from actual data, others from config
         console.log('🔍 Fetching dropdown options...');
-        const optionsQuery = `
-            SELECT
-                ARRAY_AGG(DISTINCT pbm_code ORDER BY pbm_code) as pbm_codes,
-                ARRAY_AGG(DISTINCT data_source ORDER BY data_source) FILTER (WHERE data_source IS NOT NULL) as data_sources
+
+        // Get PBM codes from actual data
+        const pbmQuery = `
+            SELECT ARRAY_AGG(DISTINCT pbm_code ORDER BY pbm_code) as pbm_codes
             FROM application.prism_enrichment_rules
         `;
+        const pbmResult = await client.query(pbmQuery);
+        const pbmCodes = pbmResult.rows[0].pbm_codes || [];
 
-        const optionsResult = await client.query(optionsQuery);
-        const options = optionsResult.rows[0];
-        console.log('✅ Options fetched - PBMs:', options.pbm_codes?.length, 'Sources:', options.data_sources?.length);
+        // Get other options from config
+        const configQuery = `
+            SELECT config_key, config_value
+            FROM application.prism_system_config
+            WHERE config_key IN ('data_source')
+        `;
+        const configResult = await client.query(configQuery);
+
+        let dataSources = [];
+        configResult.rows.forEach(row => {
+            if (row.config_key === 'data_source') {
+                try {
+                    dataSources = JSON.parse(row.config_value);
+                } catch (e) {
+                    console.warn('Failed to parse data_source config:', row.config_value);
+                    dataSources = [];
+                }
+            }
+        });
+
+        console.log('✅ Options fetched - PBMs:', pbmCodes.length, 'Sources:', dataSources.length);
 
         // Build dropdown HTML
-        const pbmOptions = (options.pbm_codes || [])
+        const pbmOptions = pbmCodes
             .map(code => `<option value="${code}">${code}</option>`)
             .join('');
 
         const dataSourceOptions = '<option value="">Select Data Source</option>' +
-            (options.data_sources || [])
+            dataSources
                 .map(source => `<option value="${source}">${source}</option>`)
                 .join('');
 
@@ -442,24 +503,39 @@ async function getCloneRuleModal(client, ruleId) {
         const rule = ruleResult.rows[0];
         console.log('✅ Source rule found:', rule.name);
 
-        // Get dropdown options
-        const optionsQuery = `
-            SELECT
-                ARRAY_AGG(DISTINCT pbm_code ORDER BY pbm_code) as pbm_codes,
-                ARRAY_AGG(DISTINCT data_source ORDER BY data_source) FILTER (WHERE data_source IS NOT NULL) as data_sources
+        // Get dropdown options - PBM from actual data, others from config
+        const pbmQuery = `
+            SELECT ARRAY_AGG(DISTINCT pbm_code ORDER BY pbm_code) as pbm_codes
             FROM application.prism_enrichment_rules
         `;
+        const pbmResult = await client.query(pbmQuery);
+        const pbmCodes = pbmResult.rows[0].pbm_codes || [];
 
-        const optionsResult = await client.query(optionsQuery);
-        const options = optionsResult.rows[0];
+        // Get data sources from config
+        const configQuery = `
+            SELECT config_value
+            FROM application.prism_system_config
+            WHERE config_key = 'data_source'
+        `;
+        const configResult = await client.query(configQuery);
+
+        let dataSources = [];
+        if (configResult.rows.length > 0) {
+            try {
+                dataSources = JSON.parse(configResult.rows[0].config_value);
+            } catch (e) {
+                console.warn('Failed to parse data_source config:', configResult.rows[0].config_value);
+                dataSources = [];
+            }
+        }
 
         // Build dropdown HTML with selections
-        const pbmOptions = (options.pbm_codes || [])
+        const pbmOptions = pbmCodes
             .map(code => `<option value="${code}" ${code === rule.pbm_code ? 'selected' : ''}>${code}</option>`)
             .join('');
 
         const dataSourceOptions = '<option value="">Select Data Source</option>' +
-            (options.data_sources || [])
+            dataSources
                 .map(source => `<option value="${source}" ${source === rule.data_source ? 'selected' : ''}>${source}</option>`)
                 .join('');
 
