@@ -361,6 +361,184 @@ async function getEditRuleModal(client, ruleId) {
     }
 }
 
+// Handle GET request for add modal
+async function getAddRuleModal(client) {
+    try {
+        console.log('➕ Loading add modal template...');
+        const addModalTemplate = await getTemplate('add-rule-modal.html');
+        console.log('✅ Template loaded, length:', addModalTemplate.length);
+
+        // Get dropdown options
+        console.log('🔍 Fetching dropdown options...');
+        const optionsQuery = `
+            SELECT
+                ARRAY_AGG(DISTINCT pbm_code ORDER BY pbm_code) as pbm_codes,
+                ARRAY_AGG(DISTINCT data_source ORDER BY data_source) FILTER (WHERE data_source IS NOT NULL) as data_sources
+            FROM application.prism_enrichment_rules
+        `;
+
+        const optionsResult = await client.query(optionsQuery);
+        const options = optionsResult.rows[0];
+        console.log('✅ Options fetched - PBMs:', options.pbm_codes?.length, 'Sources:', options.data_sources?.length);
+
+        // Build dropdown HTML
+        const pbmOptions = (options.pbm_codes || [])
+            .map(code => `<option value="${code}">${code}</option>`)
+            .join('');
+
+        const dataSourceOptions = '<option value="">Select Data Source</option>' +
+            (options.data_sources || [])
+                .map(source => `<option value="${source}">${source}</option>`)
+                .join('');
+
+        // Template data for add modal
+        const templateData = {
+            PBM_OPTIONS: pbmOptions,
+            DATA_SOURCE_OPTIONS: dataSourceOptions
+        };
+
+        console.log('🔨 Rendering add template...');
+        const result = renderTemplate(addModalTemplate, templateData);
+        console.log('✅ Add template rendered successfully, final length:', result.length);
+
+        return result;
+
+    } catch (error) {
+        console.error('❌ Error in getAddRuleModal:', error);
+        throw error;
+    }
+}
+
+// Handle GET request for clone modal
+async function getCloneRuleModal(client, ruleId) {
+    try {
+        console.log('📋 Loading clone modal template...');
+        const addModalTemplate = await getTemplate('add-rule-modal.html');
+        console.log('✅ Template loaded, length:', addModalTemplate.length);
+
+        // Get the source rule data
+        const ruleQuery = `
+            SELECT * FROM application.prism_enrichment_rules
+            WHERE rule_id = $1 AND is_active = true
+        `;
+
+        const ruleResult = await client.query(ruleQuery, [ruleId]);
+        if (ruleResult.rows.length === 0) {
+            throw new Error('Source rule not found');
+        }
+
+        const rule = ruleResult.rows[0];
+        console.log('✅ Source rule found:', rule.name);
+
+        // Get dropdown options
+        const optionsQuery = `
+            SELECT
+                ARRAY_AGG(DISTINCT pbm_code ORDER BY pbm_code) as pbm_codes,
+                ARRAY_AGG(DISTINCT data_source ORDER BY data_source) FILTER (WHERE data_source IS NOT NULL) as data_sources
+            FROM application.prism_enrichment_rules
+        `;
+
+        const optionsResult = await client.query(optionsQuery);
+        const options = optionsResult.rows[0];
+
+        // Build dropdown HTML with selections
+        const pbmOptions = (options.pbm_codes || [])
+            .map(code => `<option value="${code}" ${code === rule.pbm_code ? 'selected' : ''}>${code}</option>`)
+            .join('');
+
+        const dataSourceOptions = '<option value="">Select Data Source</option>' +
+            (options.data_sources || [])
+                .map(source => `<option value="${source}" ${source === rule.data_source ? 'selected' : ''}>${source}</option>`)
+                .join('');
+
+        // Parse eligibility types
+        let eligibilityTypes = [];
+        try {
+            eligibilityTypes = rule.eligibility_types ? JSON.parse(rule.eligibility_types) : ['REBATES'];
+        } catch (e) {
+            eligibilityTypes = ['REBATES'];
+        }
+
+        // Create modified template for cloning
+        let modifiedTemplate = addModalTemplate.replace(
+            'Add New Enrichment Rule',
+            `Clone: ${rule.name}`
+        );
+
+        // Modify the form to handle cloning
+        modifiedTemplate = modifiedTemplate.replace(
+            'hx-post="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?action=create"',
+            'hx-post="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?action=create"'
+        );
+
+        // Template data for clone modal (pre-filled with source rule data)
+        const templateData = {
+            PBM_OPTIONS: pbmOptions,
+            DATA_SOURCE_OPTIONS: dataSourceOptions
+        };
+
+        // Pre-fill form values by replacing input/textarea values
+        modifiedTemplate = modifiedTemplate.replace(
+            'name="rule_name" required',
+            `name="rule_name" required value=""`
+        );
+        modifiedTemplate = modifiedTemplate.replace(
+            'name="flag_name" required',
+            `name="flag_name" required value="${rule.flag_name || ''}"`
+        );
+        modifiedTemplate = modifiedTemplate.replace(
+            'name="priority" min="1" value="100"',
+            `name="priority" min="1" value="${rule.priority || 100}"`
+        );
+        modifiedTemplate = modifiedTemplate.replace(
+            'placeholder="Enter rule conditions..."',
+            `placeholder="Enter rule conditions...">${rule.conditions || ''}`
+        );
+
+        // Set rule category
+        if (rule.rule_category) {
+            modifiedTemplate = modifiedTemplate.replace(
+                `value="${rule.rule_category}"`,
+                `value="${rule.rule_category}" selected`
+            );
+        }
+
+        // Set rule type
+        if (rule.rule_type) {
+            modifiedTemplate = modifiedTemplate.replace(
+                `value="${rule.rule_type}"`,
+                `value="${rule.rule_type}" selected`
+            );
+        }
+
+        // Set checkboxes
+        if (rule.is_active) {
+            modifiedTemplate = modifiedTemplate.replace('name="is_active"', 'name="is_active" checked');
+        }
+        if (rule.is_standalone_executable) {
+            modifiedTemplate = modifiedTemplate.replace('name="is_standalone_executable"', 'name="is_standalone_executable" checked');
+        }
+
+        // Set eligibility type checkboxes
+        eligibilityTypes.forEach(type => {
+            modifiedTemplate = modifiedTemplate.replace(
+                `value="${type}"`,
+                `value="${type}" checked`
+            );
+        });
+
+        console.log('🔨 Rendering clone template...');
+        const result = renderTemplate(modifiedTemplate, templateData);
+        console.log('✅ Clone template rendered successfully');
+
+        return result;
+
+    } catch (error) {
+        console.error('❌ Error in getCloneRuleModal:', error);
+        throw error;
+    }
+}
+
 // Handle clone operation
 async function cloneRules(client, ruleIds, targetCategory = 'MODELING', overwriteExisting = true) {
     const dbClient = client;
@@ -632,6 +810,105 @@ async function updateRule(client, ruleId, formData) {
     }
 }
 
+// Handle POST request to create new rule
+async function createRule(client, formData) {
+    const dbClient = client;
+
+    try {
+        await dbClient.query('BEGIN');
+
+        console.log('Creating new rule with data:', formData);
+
+        // Parse eligibility types from form data
+        let eligibilityTypes = [];
+        if (formData.eligibility_types) {
+            if (Array.isArray(formData.eligibility_types)) {
+                eligibilityTypes = formData.eligibility_types;
+            } else {
+                eligibilityTypes = [formData.eligibility_types];
+            }
+        } else {
+            eligibilityTypes = ['REBATES']; // Default
+        }
+
+        // Generate new rule_id
+        const { v4: uuidv4 } = require('uuid');
+        const newRuleId = uuidv4();
+
+        // Prepare rule data
+        const ruleData = {
+            rule_id: newRuleId,
+            version: 1,
+            name: formData.rule_name,
+            pbm_code: formData.pbm_code,
+            rule_type: formData.rule_type,
+            data_source: formData.data_source || null,
+            conditions: formData.conditions,
+            flag_name: formData.flag_name,
+            priority: parseInt(formData.priority) || 100,
+            is_standalone_executable: formData.is_standalone_executable === 'on' || formData.is_standalone_executable === 'true',
+            rule_category: formData.rule_category || 'ENRICHMENT',
+            is_active: formData.is_active === 'on' || formData.is_active === 'true' || true,
+            eligibility_types: JSON.stringify(eligibilityTypes)
+        };
+
+        console.log('Final rule data:', ruleData);
+
+        // Insert new rule
+        const insertQuery = `
+            INSERT INTO application.prism_enrichment_rules (
+                rule_id, version, name, pbm_code, rule_type, data_source, conditions,
+                flag_name, priority, is_standalone_executable, rule_category,
+                effective_from, is_active, created_by, eligibility_types
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12, $13, $14
+            )
+            RETURNING id, rule_id, version
+        `;
+
+        const insertValues = [
+            ruleData.rule_id,
+            ruleData.version,
+            ruleData.name,
+            ruleData.pbm_code,
+            ruleData.rule_type,
+            ruleData.data_source,
+            ruleData.conditions,
+            ruleData.flag_name,
+            ruleData.priority,
+            ruleData.is_standalone_executable,
+            ruleData.rule_category,
+            ruleData.is_active,
+            'system',
+            ruleData.eligibility_types
+        ];
+
+        const insertResult = await dbClient.query(insertQuery, insertValues);
+        await dbClient.query('COMMIT');
+
+        console.log('Rule created successfully:', {
+            ruleId: newRuleId,
+            version: insertResult.rows[0].version,
+            name: ruleData.name
+        });
+
+        return {
+            success: true,
+            message: 'Rule created successfully',
+            ruleId: newRuleId,
+            version: insertResult.rows[0].version
+        };
+
+    } catch (error) {
+        await dbClient.query('ROLLBACK');
+        console.error('Error creating rule:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+}
+
 const handler = async (event) => {
     // TEMPORARY: Force template cache refresh for debugging
     templateCache = {};
@@ -777,7 +1054,43 @@ const handler = async (event) => {
                 };
             }
         }
-        
+
+        // Handle rule creation
+        if (method === 'POST' && event.queryStringParameters?.action === 'create') {
+            console.log('➕ Rule creation request via rules route');
+
+            let formData = {};
+            if (event.body) {
+                if (event.headers['Content-Type']?.includes('application/json')) {
+                    formData = JSON.parse(event.body);
+                } else {
+                    const params = new URLSearchParams(event.body);
+                    for (const [key, value] of params) {
+                        formData[key] = value;
+                    }
+                }
+            }
+
+            console.log('Form data for create:', formData);
+
+            const result = await createRule(client, formData);
+            await client.end();
+
+            if (result.success) {
+                return {
+                    statusCode: 200,
+                    headers: { ...headers, 'HX-Trigger': 'ruleCreated' },
+                    body: '<div class="text-green-600">Rule created successfully! Refreshing...</div>'
+                };
+            } else {
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: `<div class="text-red-600">Failed to create rule: ${result.error}</div>`
+                };
+            }
+        }
+
         // Handle dynamic field loading by data source
         if (method === 'GET' && event.queryStringParameters?.get_fields) {
             console.log('🔄 Dynamic fields request');
@@ -835,10 +1148,42 @@ const handler = async (event) => {
             if (!ruleId || ruleId.length !== 36) {
                 throw new Error('Invalid Rule ID format');
             }
-            
+
             const modalHTML = await getEditRuleModal(client, ruleId);
             await client.end();
-            
+
+            return {
+                statusCode: 200,
+                headers,
+                body: modalHTML
+            };
+        }
+
+        // Handle add modal request
+        if (method === 'GET' && event.queryStringParameters?.component === 'add') {
+            console.log('➕ Add modal request via rules route');
+
+            const modalHTML = await getAddRuleModal(client);
+            await client.end();
+
+            return {
+                statusCode: 200,
+                headers,
+                body: modalHTML
+            };
+        }
+
+        // Handle clone modal request
+        if (method === 'GET' && event.queryStringParameters?.component === 'clone' && event.queryStringParameters?.id) {
+            console.log('📋 Clone modal request via rules route');
+            const ruleId = event.queryStringParameters.id;
+            if (!ruleId || ruleId.length !== 36) {
+                throw new Error('Invalid Rule ID format');
+            }
+
+            const modalHTML = await getCloneRuleModal(client, ruleId);
+            await client.end();
+
             return {
                 statusCode: 200,
                 headers,

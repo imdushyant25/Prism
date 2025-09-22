@@ -970,4 +970,101 @@ window.makeActivePriceModel = function(modelId) {
     }
 };
 
+//======================================================================
+// ENRICHMENT RULES - ADD NEW RULE FUNCTIONALITY
+//======================================================================
+
+// Open Add Rule Modal
+window.openAddRuleModal = function() {
+    console.log('Opening add rule modal');
+
+    // Prevent background scrolling
+    document.body.style.overflow = 'hidden';
+
+    // Load the add rule form via HTMX
+    htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?component=add', {
+        target: 'body',
+        swap: 'beforeend'
+    }).then(() => {
+        // Focus the modal for ESC key handling
+        const modal = document.getElementById('add-rule-modal');
+        if (modal) {
+            modal.focus();
+        }
+    });
+};
+
+// Close Add Rule Modal
+window.closeAddRuleModal = function() {
+    console.log('Closing add rule modal');
+
+    const modal = document.getElementById('add-rule-modal');
+    if (modal) {
+        modal.remove();
+    }
+
+    // Restore background scrolling
+    document.body.style.overflow = 'auto';
+};
+
+// Handle Add Rule Response
+window.handleAddRuleResponse = function(event) {
+    console.log('Add rule response:', event.detail);
+
+    if (event.detail.successful) {
+        // Close modal and show success message
+        closeAddRuleModal();
+        showNotification('Enrichment rule created successfully!', 'success');
+
+        // Refresh the rules table
+        htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules', {
+            target: '#rules-container'
+        });
+    } else {
+        // Show error message
+        showNotification('Failed to create rule. Please try again.', 'error');
+    }
+};
+
+// Handle Rule Type Change (show/hide data source section)
+window.handleRuleTypeChange = function(ruleType) {
+    const dataSourceSection = document.getElementById('data-source-section');
+    const dataSourceSelect = document.getElementById('add_data_source');
+
+    if (ruleType === 'SIMPLE') {
+        dataSourceSection.classList.remove('hidden');
+        dataSourceSelect.required = true;
+    } else {
+        dataSourceSection.classList.add('hidden');
+        dataSourceSelect.required = false;
+        dataSourceSelect.value = '';
+    }
+};
+
+// Load Data Source Fields (for future implementation)
+window.loadDataSourceFields = function(dataSource) {
+    console.log('Loading fields for data source:', dataSource);
+    // TODO: Implement dynamic field loading based on data source
+};
+
+// Clone Individual Rule (already exists but let me enhance it)
+window.cloneRule = function(ruleId) {
+    console.log('Clone rule:', ruleId);
+
+    // Prevent background scrolling
+    document.body.style.overflow = 'hidden';
+
+    // Load the clone rule form via HTMX (reuses add template with pre-filled data)
+    htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?component=clone&id=${ruleId}`, {
+        target: 'body',
+        swap: 'beforeend'
+    }).then(() => {
+        // Focus the modal for ESC key handling
+        const modal = document.getElementById('add-rule-modal');
+        if (modal) {
+            modal.focus();
+        }
+    });
+};
+
 console.log('🚀 ClaimsApp utilities loaded');
