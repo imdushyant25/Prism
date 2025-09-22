@@ -1247,10 +1247,15 @@ const handler = async (event) => {
 
         // Handle rule deletion
         if (method === 'POST' && (path.includes('/delete') || event.queryStringParameters?.action === 'delete')) {
+            console.log('🗑️ Delete request received');
+            console.log('Query parameters:', event.queryStringParameters);
+            console.log('Path:', path);
+
             const ruleId = event.queryStringParameters?.id;
             console.log('🗑️ Deleting enrichment rule:', ruleId);
 
             if (!ruleId) {
+                console.log('❌ No rule ID provided');
                 return {
                     statusCode: 400,
                     headers,
@@ -1259,22 +1264,40 @@ const handler = async (event) => {
             }
 
             try {
+                // Ensure client is connected for the delete operation
+                if (!client._connected) {
+                    console.log('🔄 Connecting client for delete operation...');
+                    await client.connect();
+                }
+
+                console.log('🔄 Attempting to delete rule:', ruleId);
                 const success = await deleteEnrichmentRule(client, ruleId);
-                await client.end();
+                console.log('🔄 Delete result:', success);
 
                 if (success) {
                     console.log('✅ Deleted rule:', ruleId);
+                    await client.end();
                     return {
                         statusCode: 200,
                         headers: { ...headers, 'HX-Trigger': 'ruleDeleted' },
                         body: '<div class="text-green-600">Enrichment rule deleted successfully!</div>'
                     };
                 } else {
-                    throw new Error('Rule not found or already deleted');
+                    await client.end();
+                    return {
+                        statusCode: 400,
+                        headers,
+                        body: '<div class="text-red-600">Rule not found or already deleted</div>'
+                    };
                 }
             } catch (error) {
                 console.error('❌ Delete error:', error);
-                await client.end();
+                console.error('❌ Error stack:', error.stack);
+                try {
+                    await client.end();
+                } catch (e) {
+                    console.error('Error closing client:', e);
+                }
                 return {
                     statusCode: 400,
                     headers,
@@ -1552,12 +1575,11 @@ async function deleteEnrichmentRule(client, ruleId) {
         const deleteQuery = `
             UPDATE application.prism_enrichment_rules SET
                 is_active = false,
-                updated_at = CURRENT_TIMESTAMP,
-                last_modified_by = $2
-            WHERE id = $1 AND is_active = true
+                updated_at = CURRENT_TIMESTAMP
+            WHERE rule_id = $1 AND is_active = true
         `;
 
-        const result = await client.query(deleteQuery, [ruleId, 'user']); // TODO: Replace with actual user from session
+        const result = await client.query(deleteQuery, [ruleId]);
         return result.rowCount > 0;
 
     } catch (error) {

@@ -58,6 +58,77 @@ ClaimsApp.utils = {
         if (dropdown) {
             dropdown.classList.toggle('hidden');
         }
+    },
+
+    /**
+     * Show custom confirmation dialog
+     */
+    showConfirmDialog(title, message, onConfirm, onCancel = null) {
+        // Create modal backdrop
+        const backdrop = document.createElement('div');
+        backdrop.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+
+        // Create modal content
+        const modal = document.createElement('div');
+        modal.className = 'bg-white rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden';
+
+        modal.innerHTML = `
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">${title}</h3>
+            </div>
+            <div class="px-6 py-4">
+                <p class="text-gray-600">${message}</p>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 flex justify-end gap-3">
+                <button id="confirm-cancel" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    Cancel
+                </button>
+                <button id="confirm-delete" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                    Delete
+                </button>
+            </div>
+        `;
+
+        backdrop.appendChild(modal);
+        document.body.appendChild(backdrop);
+
+        // Handle button clicks
+        const cancelBtn = modal.querySelector('#confirm-cancel');
+        const deleteBtn = modal.querySelector('#confirm-delete');
+
+        const cleanup = () => {
+            if (backdrop.parentNode) {
+                backdrop.parentNode.removeChild(backdrop);
+            }
+        };
+
+        cancelBtn.addEventListener('click', () => {
+            cleanup();
+            if (onCancel) onCancel();
+        });
+
+        deleteBtn.addEventListener('click', () => {
+            cleanup();
+            onConfirm();
+        });
+
+        // Close on backdrop click
+        backdrop.addEventListener('click', (e) => {
+            if (e.target === backdrop) {
+                cleanup();
+                if (onCancel) onCancel();
+            }
+        });
+
+        // Close on ESC key
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') {
+                cleanup();
+                document.removeEventListener('keydown', handleEsc);
+                if (onCancel) onCancel();
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
     }
 };
 
@@ -179,15 +250,35 @@ ClaimsApp.actions = {
     },
 
     deleteRule(ruleId) {
-        if (confirm('Are you sure you want to delete this enrichment rule? This action cannot be undone.')) {
-            console.log('User confirmed deletion for rule:', ruleId);
+        ClaimsApp.utils.showConfirmDialog(
+            'Confirm Deletion',
+            'Are you sure you want to delete this enrichment rule? This action cannot be undone.',
+            () => {
+                console.log('User confirmed deletion for rule:', ruleId);
 
-            // Send delete request via HTMX
-            htmx.ajax('POST', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?action=delete&id=${ruleId}`, {
-                target: '#rules-container',
-                swap: 'innerHTML'
-            });
-        }
+                // Send delete request via HTMX and manually refresh table
+                htmx.ajax('POST', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?action=delete&id=${ruleId}`)
+                .then((response) => {
+                    console.log('Delete request completed successfully');
+                    // Show success notification
+                    ClaimsApp.utils.showNotification('Rule deleted successfully!', 'success');
+
+                    // Manually refresh the rules table
+                    setTimeout(() => {
+                        console.log('Refreshing rules table after deletion...');
+                        htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules', {
+                            target: '#rules-container',
+                            swap: 'innerHTML'
+                        });
+                    }, 500); // Small delay to show the success message
+                })
+                .catch((error) => {
+                    console.error('Delete request failed:', error);
+                    // Show error notification
+                    ClaimsApp.utils.showNotification('Failed to delete rule. Please try again.', 'error');
+                });
+            }
+        );
     }
 };
 
