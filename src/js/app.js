@@ -667,13 +667,34 @@ window.applyQuickFilter = function(type) {
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM ready, initializing ClaimsApp...');
-    
+
     // Initialize HTMX event handlers
     initializeHTMXEventHandlers();
-    
+
     // Initialize filters if they exist
     if (document.getElementById('filter-body')) {
         ClaimsApp.filters.initializeFilters();
+    }
+
+    // Check if we need to restore a specific tab after page reload
+    const savedTab = sessionStorage.getItem('activeTab');
+    if (savedTab) {
+        console.log('Restoring saved tab:', savedTab);
+        sessionStorage.removeItem('activeTab'); // Clear it after use
+
+        setTimeout(() => {
+            if (savedTab === 'price-models') {
+                // Try to find and click the price models tab
+                const priceModelTab = document.querySelector('[onclick*="showPriceModels"], [onclick*="price"], .tab-button[data-tab="price"]');
+                if (priceModelTab) {
+                    console.log('Clicking price models tab');
+                    priceModelTab.click();
+                } else if (window.showPriceModels) {
+                    console.log('Calling showPriceModels function');
+                    window.showPriceModels();
+                }
+            }
+        }, 100); // Small delay to ensure everything is loaded
     }
 });
 
@@ -687,6 +708,22 @@ if (document.readyState === 'loading') {
     initializeHTMXEventHandlers();
     if (document.getElementById('filter-body')) {
         ClaimsApp.filters.initializeFilters();
+    }
+
+    // Check for tab restoration here too
+    const savedTab = sessionStorage.getItem('activeTab');
+    if (savedTab === 'price-models') {
+        console.log('Restoring saved tab immediately:', savedTab);
+        sessionStorage.removeItem('activeTab');
+
+        setTimeout(() => {
+            const priceModelTab = document.querySelector('[onclick*="showPriceModels"], [onclick*="price"], .tab-button[data-tab="price"]');
+            if (priceModelTab) {
+                priceModelTab.click();
+            } else if (window.showPriceModels) {
+                window.showPriceModels();
+            }
+        }, 100);
     }
 }
 
@@ -1048,10 +1085,28 @@ if (typeof window.deletePriceModel === 'undefined') {
                     // Show success notification
                     ClaimsApp.utils.showNotification('Price model deleted successfully!', 'success');
 
-                    // Refresh page to maintain correct tab/filter state after price model deletion
+                    // Maintain price modeling tab after deletion
                     setTimeout(() => {
-                        console.log('Refreshing page after price model deletion to maintain tab state...');
-                        window.location.reload();
+                        console.log('Refreshing price models after deletion...');
+
+                        // Try to find and preserve the active tab state
+                        const priceModelTab = document.querySelector('[onclick*="showPriceModels"], [onclick*="price"], .tab-button[data-tab="price"]');
+                        const rulesTab = document.querySelector('[onclick*="showRules"], [onclick*="rules"], .tab-button[data-tab="rules"]');
+
+                        if (priceModelTab) {
+                            // Ensure price model tab stays active
+                            console.log('Maintaining price model tab state');
+
+                            // Store current state before reload
+                            sessionStorage.setItem('activeTab', 'price-models');
+                            window.location.reload();
+                        } else {
+                            // Fallback approach - try direct HTMX refresh
+                            htmx.ajax('GET', window.location.href, {
+                                target: 'body',
+                                swap: 'innerHTML'
+                            });
+                        }
                     }, 1000); // Small delay to show the success message
                 })
                 .catch((error) => {
