@@ -263,14 +263,18 @@ ClaimsApp.actions = {
                     // Show success notification
                     ClaimsApp.utils.showNotification('Rule deleted successfully!', 'success');
 
-                    // Manually refresh the rules table
+                    // Manually refresh the rules table by reapplying current filters
                     setTimeout(() => {
                         console.log('Refreshing rules table after deletion...');
-                        htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules', {
-                            target: '#rules-container',
-                            swap: 'innerHTML'
-                        });
-                    }, 500); // Small delay to show the success message
+                        // Trigger a filter refresh which will reload the table with current filter state
+                        const applyButton = document.querySelector('#apply-filters-btn');
+                        if (applyButton) {
+                            applyButton.click();
+                        } else {
+                            // Fallback: reload page if filter apply button not found
+                            window.location.reload();
+                        }
+                    }, 1000); // Small delay to show the success message
                 })
                 .catch((error) => {
                     console.error('Delete request failed:', error);
@@ -1030,26 +1034,43 @@ if (typeof window.deletePriceModel === 'undefined') {
     window.deletePriceModel = function(modelId) {
         console.log('Delete price model:', modelId);
 
-        // Show confirmation dialog
-        if (confirm('Are you sure you want to delete this price model? This action cannot be undone.')) {
-            console.log('User confirmed deletion for model:', modelId);
+        // Use custom confirmation dialog
+        ClaimsApp.utils.showConfirmDialog(
+            'Confirm Deletion',
+            'Are you sure you want to delete this price model? This action cannot be undone.',
+            () => {
+                console.log('User confirmed deletion for model:', modelId);
 
-            // Send delete request via HTMX
-            htmx.ajax('POST', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models?action=delete&id=${modelId}`, {
-                target: '#price-models-container'
-            }).then(() => {
-                // Show success notification
-                showNotification('Price model deleted successfully!', 'success');
+                // Send delete request via HTMX and manually refresh table
+                htmx.ajax('POST', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models?action=delete&id=${modelId}`)
+                .then((response) => {
+                    console.log('Price model delete request completed successfully');
+                    // Show success notification
+                    ClaimsApp.utils.showNotification('Price model deleted successfully!', 'success');
 
-                // Refresh the table after successful deletion
-                htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models', {
-                    target: '#price-models-container'
+                    // Manually refresh the price models table by reapplying current filters
+                    setTimeout(() => {
+                        console.log('Refreshing price models table after deletion...');
+                        // Trigger a filter refresh which will reload the table with current filter state
+                        const applyButton = document.querySelector('#apply-price-filters-btn');
+                        if (applyButton) {
+                            applyButton.click();
+                        } else {
+                            // Fallback: reload page if filter apply button not found
+                            window.location.reload();
+                        }
+                    }, 1000); // Small delay to show the success message
+                })
+                .catch((error) => {
+                    console.error('Delete request failed:', error);
+                    // Show error notification
+                    ClaimsApp.utils.showNotification('Failed to delete price model. Please try again.', 'error');
                 });
-            }).catch(error => {
-                console.error('Delete failed:', error);
-                showNotification('Failed to delete price model. Please try again.', 'error');
-            });
-        }
+            },
+            () => {
+                console.log('User cancelled price model deletion');
+            }
+        );
     };
 }
 
