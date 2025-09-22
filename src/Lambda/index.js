@@ -318,22 +318,26 @@ async function getEditRuleModal(client, ruleId) {
             FLAG_NAME: rule.flag_name,
             DATA_SOURCE: rule.data_source || '',
             PRIORITY: rule.priority,
-            
+
+            // Effective dates
+            EFFECTIVE_FROM: rule.effective_from ? new Date(rule.effective_from).toISOString().split('T')[0] : '',
+            EFFECTIVE_TO: rule.effective_to ? new Date(rule.effective_to).toISOString().split('T')[0] : '',
+
             // Dropdown options
             PBM_OPTIONS: pbmOptions,
             DATA_SOURCE_OPTIONS: dataSourceOptions,
             DATASOURCE_FIELDS: fieldOptions,  // FIXED: Now properly filtered
             AVAILABLE_FLAGS: availableFlagsOptions,
             ELIGIBILITY_OPTIONS: eligibilityHTML,
-            
+
             // Selected states for dropdowns
             SIMPLE_SELECTED: rule.rule_type === 'SIMPLE' ? 'selected' : '',
             COMPLEX_SELECTED: rule.rule_type === 'COMPLEX' ? 'selected' : '',
             CLIENT_SELECTED: rule.rule_type === 'CLIENT' ? 'selected' : '',
-            
+
             PRODUCTION_SELECTED: rule.rule_category === 'PRODUCTION' ? 'selected' : '',
             MODELING_SELECTED: rule.rule_category === 'MODELING' ? 'selected' : '',
-            
+
             // Checkboxes
             STANDALONE_CHECKED: rule.is_standalone_executable ? 'checked' : '',
             ACTIVE_CHECKED: rule.is_active ? 'checked' : ''
@@ -813,7 +817,9 @@ async function updateRule(client, ruleId, formData) {
             rule_category: formData.rule_category || currentRule.rule_category,
             is_standalone_executable: formData.is_standalone_executable === 'on' || formData.is_standalone_executable === 'true',
             is_active: formData.is_active === 'on' || formData.is_active === 'true',
-            eligibility_types: JSON.stringify(eligibilityTypes) // FIXED: Properly serialize array
+            eligibility_types: JSON.stringify(eligibilityTypes), // FIXED: Properly serialize array
+            effective_from: formData.effective_from ? new Date(formData.effective_from) : currentRule.effective_from,
+            effective_to: formData.effective_to ? new Date(formData.effective_to) : currentRule.effective_to
         };
         
         console.log('Final eligibility_types JSON:', updatedFields.eligibility_types);
@@ -829,9 +835,9 @@ async function updateRule(client, ruleId, formData) {
             INSERT INTO application.prism_enrichment_rules (
                 rule_id, version, name, pbm_code, rule_type, data_source, conditions,
                 flag_name, priority, is_standalone_executable, rule_category,
-                effective_from, is_active, created_by, eligibility_types
+                effective_from, effective_to, is_active, created_by, eligibility_types
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12, $13, $14
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
             )
             RETURNING id, version
         `;
@@ -849,6 +855,8 @@ async function updateRule(client, ruleId, formData) {
             updatedFields.priority,
             updatedFields.is_standalone_executable,
             updatedFields.rule_category,
+            updatedFields.effective_from,
+            updatedFields.effective_to,
             updatedFields.is_active,
             'system',
             updatedFields.eligibility_types
