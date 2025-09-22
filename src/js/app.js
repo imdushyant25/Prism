@@ -9,7 +9,7 @@ window.ClaimsApp = window.ClaimsApp || {};
 // Utility functions
 ClaimsApp.utils = {
     /**
-     * Show notification to user
+     * Show notification
      */
     showNotification(message, type = 'info') {
         const notification = document.getElementById('notification');
