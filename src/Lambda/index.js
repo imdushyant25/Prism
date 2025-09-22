@@ -36,57 +36,52 @@ async function generateFiltersHTML(client) {
     try {
         const filtersTemplate = await getTemplate('filters.html');
 
-        // Get PBM codes from actual data (keep dynamic)
-        const pbmQuery = `
-            SELECT ARRAY_AGG(DISTINCT pbm_code ORDER BY pbm_code) as pbm_codes
-            FROM application.prism_enrichment_rules
-        `;
-        const pbmResult = await client.query(pbmQuery);
-        const pbmCodes = pbmResult.rows[0].pbm_codes || [];
-
-        // Get rule types, categories, and data sources from config
+        // Get all dropdown options from config
         const configQuery = `
-            SELECT config_key, config_value
+            SELECT config_type, config_code, display_name
             FROM application.prism_system_config
-            WHERE config_key IN ('rule_type', 'rule_category', 'data_source')
+            WHERE config_type IN ('rule_type', 'rule_category', 'data_source', 'pbm')
+              AND is_active = true
+            ORDER BY config_type, display_order
         `;
 
         const configResult = await client.query(configQuery);
         const configData = {};
 
-        // Parse config data
+        // Group config data by type
         configResult.rows.forEach(row => {
-            try {
-                configData[row.config_key] = JSON.parse(row.config_value);
-            } catch (e) {
-                console.warn(`Failed to parse config for ${row.config_key}:`, row.config_value);
-                configData[row.config_key] = [];
+            if (!configData[row.config_type]) {
+                configData[row.config_type] = [];
             }
+            configData[row.config_type].push({
+                code: row.config_code,
+                name: row.display_name
+            });
         });
 
         // Prepare data object
         const data = {
-            pbm_codes: pbmCodes,
+            pbm_codes: configData.pbm || [],
             rule_types: configData.rule_type || [],
             rule_categories: configData.rule_category || [],
             data_sources: configData.data_source || []
         };
-        
+
         // Build HTML options for each dropdown
         const pbmOptions = (data.pbm_codes || [])
-            .map((code, index) => `<option value="${code}" ${index === 0 ? 'selected' : ''}>${code}</option>`)
+            .map((pbm, index) => `<option value="${pbm.code}" ${index === 0 ? 'selected' : ''}>${pbm.name}</option>`)
             .join('');
             
         const ruleTypeOptions = (data.rule_types || [])
-            .map(type => `<option value="${type}">${type.charAt(0) + type.slice(1).toLowerCase()} Rules</option>`)
+            .map(type => `<option value="${type.code}">${type.name}</option>`)
             .join('');
-            
+
         const categoryOptions = (data.rule_categories || [])
-            .map(cat => `<option value="${cat}">${cat.charAt(0) + cat.slice(1).toLowerCase()}</option>`)
+            .map(cat => `<option value="${cat.code}">${cat.name}</option>`)
             .join('');
-            
+
         const dataSourceOptions = (data.data_sources || [])
-            .map(source => `<option value="${source}">${source.charAt(0).toUpperCase() + source.slice(1)}</option>`)
+            .map(source => `<option value="${source.code}">${source.name}</option>`)
             .join('');
         
         // Status options are still hardcoded since they're UI concepts, not data
@@ -237,31 +232,28 @@ async function getEditRuleModal(client, ruleId) {
         // Get dropdown options - PBM from actual data, others from config
         console.log('🔍 Fetching dropdown options...');
 
-        // Get PBM codes from actual data
-        const pbmQuery = `
-            SELECT ARRAY_AGG(DISTINCT pbm_code ORDER BY pbm_code) as pbm_codes
-            FROM application.prism_enrichment_rules
-        `;
-        const pbmResult = await client.query(pbmQuery);
-        const pbmCodes = pbmResult.rows[0].pbm_codes || [];
-
-        // Get data sources from config
+        // Get all dropdown options from config
         const configQuery = `
-            SELECT config_value
+            SELECT config_type, config_code, display_name
             FROM application.prism_system_config
-            WHERE config_key = 'data_source'
+            WHERE config_type IN ('pbm', 'data_source') AND is_active = true
+            ORDER BY config_type, display_order
         `;
         const configResult = await client.query(configQuery);
 
-        let dataSources = [];
-        if (configResult.rows.length > 0) {
-            try {
-                dataSources = JSON.parse(configResult.rows[0].config_value);
-            } catch (e) {
-                console.warn('Failed to parse data_source config:', configResult.rows[0].config_value);
-                dataSources = [];
+        const configData = {};
+        configResult.rows.forEach(row => {
+            if (!configData[row.config_type]) {
+                configData[row.config_type] = [];
             }
-        }
+            configData[row.config_type].push({
+                code: row.config_code,
+                name: row.display_name
+            });
+        });
+
+        const pbmCodes = configData.pbm || [];
+        const dataSources = configData.data_source || [];
 
         console.log('✅ Options fetched - PBMs:', pbmCodes.length, 'Sources:', dataSources.length);
         
@@ -284,11 +276,11 @@ async function getEditRuleModal(client, ruleId) {
         // Build dropdown options
         console.log('🔨 Building dropdown options...');
         const pbmOptions = pbmCodes
-            .map(code => `<option value="${code}" ${code === rule.pbm_code ? 'selected' : ''}>${code}</option>`)
+            .map(pbm => `<option value="${pbm.code}" ${pbm.code === rule.pbm_code ? 'selected' : ''}>${pbm.name}</option>`)
             .join('');
 
         const dataSourceOptions = dataSources
-            .map(source => `<option value="${source}" ${source === rule.data_source ? 'selected' : ''}>${source.charAt(0).toUpperCase() + source.slice(1)}</option>`)
+            .map(source => `<option value="${source.code}" ${source.code === rule.data_source ? 'selected' : ''}>${source.name}</option>`)
             .join('');
             
         // FIXED: Build field options properly with current data source filtering
@@ -416,44 +408,39 @@ async function getAddRuleModal(client) {
         // Get dropdown options - PBM from actual data, others from config
         console.log('🔍 Fetching dropdown options...');
 
-        // Get PBM codes from actual data
-        const pbmQuery = `
-            SELECT ARRAY_AGG(DISTINCT pbm_code ORDER BY pbm_code) as pbm_codes
-            FROM application.prism_enrichment_rules
-        `;
-        const pbmResult = await client.query(pbmQuery);
-        const pbmCodes = pbmResult.rows[0].pbm_codes || [];
-
-        // Get other options from config
+        // Get all dropdown options from config
         const configQuery = `
-            SELECT config_key, config_value
+            SELECT config_type, config_code, display_name
             FROM application.prism_system_config
-            WHERE config_key IN ('data_source')
+            WHERE config_type IN ('pbm', 'data_source') AND is_active = true
+            ORDER BY config_type, display_order
         `;
         const configResult = await client.query(configQuery);
 
-        let dataSources = [];
+        const configData = {};
         configResult.rows.forEach(row => {
-            if (row.config_key === 'data_source') {
-                try {
-                    dataSources = JSON.parse(row.config_value);
-                } catch (e) {
-                    console.warn('Failed to parse data_source config:', row.config_value);
-                    dataSources = [];
-                }
+            if (!configData[row.config_type]) {
+                configData[row.config_type] = [];
             }
+            configData[row.config_type].push({
+                code: row.config_code,
+                name: row.display_name
+            });
         });
+
+        const pbmCodes = configData.pbm || [];
+        const dataSources = configData.data_source || [];
 
         console.log('✅ Options fetched - PBMs:', pbmCodes.length, 'Sources:', dataSources.length);
 
         // Build dropdown HTML
         const pbmOptions = pbmCodes
-            .map(code => `<option value="${code}">${code}</option>`)
+            .map(pbm => `<option value="${pbm.code}">${pbm.name}</option>`)
             .join('');
 
         const dataSourceOptions = '<option value="">Select Data Source</option>' +
             dataSources
-                .map(source => `<option value="${source}">${source}</option>`)
+                .map(source => `<option value="${source.code}">${source.name}</option>`)
                 .join('');
 
         // Get available flags for complex rules
@@ -503,40 +490,37 @@ async function getCloneRuleModal(client, ruleId) {
         const rule = ruleResult.rows[0];
         console.log('✅ Source rule found:', rule.name);
 
-        // Get dropdown options - PBM from actual data, others from config
-        const pbmQuery = `
-            SELECT ARRAY_AGG(DISTINCT pbm_code ORDER BY pbm_code) as pbm_codes
-            FROM application.prism_enrichment_rules
-        `;
-        const pbmResult = await client.query(pbmQuery);
-        const pbmCodes = pbmResult.rows[0].pbm_codes || [];
-
-        // Get data sources from config
+        // Get all dropdown options from config
         const configQuery = `
-            SELECT config_value
+            SELECT config_type, config_code, display_name
             FROM application.prism_system_config
-            WHERE config_key = 'data_source'
+            WHERE config_type IN ('pbm', 'data_source') AND is_active = true
+            ORDER BY config_type, display_order
         `;
         const configResult = await client.query(configQuery);
 
-        let dataSources = [];
-        if (configResult.rows.length > 0) {
-            try {
-                dataSources = JSON.parse(configResult.rows[0].config_value);
-            } catch (e) {
-                console.warn('Failed to parse data_source config:', configResult.rows[0].config_value);
-                dataSources = [];
+        const configData = {};
+        configResult.rows.forEach(row => {
+            if (!configData[row.config_type]) {
+                configData[row.config_type] = [];
             }
-        }
+            configData[row.config_type].push({
+                code: row.config_code,
+                name: row.display_name
+            });
+        });
+
+        const pbmCodes = configData.pbm || [];
+        const dataSources = configData.data_source || [];
 
         // Build dropdown HTML with selections
         const pbmOptions = pbmCodes
-            .map(code => `<option value="${code}" ${code === rule.pbm_code ? 'selected' : ''}>${code}</option>`)
+            .map(pbm => `<option value="${pbm.code}" ${pbm.code === rule.pbm_code ? 'selected' : ''}>${pbm.name}</option>`)
             .join('');
 
         const dataSourceOptions = '<option value="">Select Data Source</option>' +
             dataSources
-                .map(source => `<option value="${source}" ${source === rule.data_source ? 'selected' : ''}>${source}</option>`)
+                .map(source => `<option value="${source.code}" ${source.code === rule.data_source ? 'selected' : ''}>${source.name}</option>`)
                 .join('');
 
         // Get available flags for complex rules
@@ -1261,6 +1245,44 @@ const handler = async (event) => {
             }
         }
 
+        // Handle rule deletion
+        if (method === 'POST' && (path.includes('/delete') || event.queryStringParameters?.action === 'delete')) {
+            const ruleId = event.queryStringParameters?.id;
+            console.log('🗑️ Deleting enrichment rule:', ruleId);
+
+            if (!ruleId) {
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: '<div class="text-red-600">Rule ID required for deletion</div>'
+                };
+            }
+
+            try {
+                const success = await deleteEnrichmentRule(client, ruleId);
+                await client.end();
+
+                if (success) {
+                    console.log('✅ Deleted rule:', ruleId);
+                    return {
+                        statusCode: 200,
+                        headers: { ...headers, 'HX-Trigger': 'ruleDeleted' },
+                        body: '<div class="text-green-600">Enrichment rule deleted successfully!</div>'
+                    };
+                } else {
+                    throw new Error('Rule not found or already deleted');
+                }
+            } catch (error) {
+                console.error('❌ Delete error:', error);
+                await client.end();
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: `<div class="text-red-600">Error deleting rule: ${error.message}</div>`
+                };
+            }
+        }
+
         // Handle dynamic field loading by data source
         if (method === 'GET' && event.queryStringParameters?.get_fields) {
             console.log('🔄 Dynamic fields request');
@@ -1523,6 +1545,26 @@ const handler = async (event) => {
         };
     }
 };
+
+// Delete enrichment rule (set is_active to false)
+async function deleteEnrichmentRule(client, ruleId) {
+    try {
+        const deleteQuery = `
+            UPDATE application.prism_enrichment_rules SET
+                is_active = false,
+                updated_at = CURRENT_TIMESTAMP,
+                last_modified_by = $2
+            WHERE id = $1 AND is_active = true
+        `;
+
+        const result = await client.query(deleteQuery, [ruleId, 'user']); // TODO: Replace with actual user from session
+        return result.rowCount > 0;
+
+    } catch (error) {
+        console.error('Failed to delete enrichment rule:', error);
+        throw error;
+    }
+}
 
 // Your original function (unchanged)
 function getBadgeClass(ruleType) {

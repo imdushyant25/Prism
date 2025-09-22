@@ -142,6 +142,19 @@ function initializeHTMXEventHandlers() {
         }
     });
 
+    // Handle rule deletion - refresh the rules table
+    document.body.addEventListener('ruleDeleted', function(evt) {
+        console.log('Rule deleted, refreshing rules table...');
+        // Trigger refresh of rules table
+        const rulesContainer = document.getElementById('rules-container');
+        if (rulesContainer) {
+            htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules', {
+                target: '#rules-container',
+                swap: 'innerHTML'
+            });
+        }
+    });
+
     console.log('✅ HTMX event handlers initialized');
 }
 
@@ -166,9 +179,14 @@ ClaimsApp.actions = {
     },
 
     deleteRule(ruleId) {
-        if (confirm('Are you sure you want to delete this rule?')) {
-            console.log('Delete rule:', ruleId);
-            ClaimsApp.utils.showNotification('Delete functionality coming soon!', 'warning');
+        if (confirm('Are you sure you want to delete this enrichment rule? This action cannot be undone.')) {
+            console.log('User confirmed deletion for rule:', ruleId);
+
+            // Send delete request via HTMX
+            htmx.ajax('POST', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?action=delete&id=${ruleId}`, {
+                target: '#rules-container',
+                swap: 'innerHTML'
+            });
         }
     }
 };
