@@ -1048,17 +1048,10 @@ if (typeof window.deletePriceModel === 'undefined') {
                     // Show success notification
                     ClaimsApp.utils.showNotification('Price model deleted successfully!', 'success');
 
-                    // Manually refresh the price models table by reapplying current filters
+                    // Refresh page to maintain correct tab/filter state after price model deletion
                     setTimeout(() => {
-                        console.log('Refreshing price models table after deletion...');
-                        // Trigger a filter refresh which will reload the table with current filter state
-                        const applyButton = document.querySelector('#apply-price-filters-btn');
-                        if (applyButton) {
-                            applyButton.click();
-                        } else {
-                            // Fallback: reload page if filter apply button not found
-                            window.location.reload();
-                        }
+                        console.log('Refreshing page after price model deletion to maintain tab state...');
+                        window.location.reload();
                     }, 1000); // Small delay to show the success message
                 })
                 .catch((error) => {
