@@ -310,8 +310,19 @@ function initializeHTMXEventHandlers() {
                 setTimeout(function() {
                     const conditionsTextarea = document.getElementById('conditions-textarea');
                     if (conditionsTextarea) {
-                        const existingConditions = conditionsTextarea.value;
-                        console.log('Found conditions textarea with value:', existingConditions);
+                        // Check both value and textContent/innerHTML
+                        const valueConditions = conditionsTextarea.value;
+                        const textConditions = conditionsTextarea.textContent;
+                        const htmlConditions = conditionsTextarea.innerHTML;
+
+                        console.log('Found conditions textarea:');
+                        console.log('  - value:', `"${valueConditions}"`);
+                        console.log('  - textContent:', `"${textConditions}"`);
+                        console.log('  - innerHTML:', `"${htmlConditions}"`);
+
+                        // Try to get conditions from any of these sources
+                        const existingConditions = valueConditions || textConditions || htmlConditions;
+
                         if (existingConditions && existingConditions.trim() !== '' && existingConditions !== 'null') {
                             console.log('HTMX modal loaded - populating condition builder with:', existingConditions);
                             populateConditionBuilder(existingConditions);
