@@ -152,6 +152,30 @@ ClaimsApp.utils = {
                 dropdown.style.top = '';
                 dropdown.style.bottom = '';
                 dropdown.style.minWidth = '';
+                dropdown.style.zIndex = '';
+                dropdown.classList.remove('dropdown-up');
+            }
+        } else if (dropdown.parentElement === document.body && dropdown.hasAttribute('data-original-parent')) {
+            // Fallback: if original parent not found, try to find it by dropdown ID pattern
+            const dropdownIdMatch = dropdown.id.match(/dropdown-(.+)/);
+            if (dropdownIdMatch) {
+                // Find any button that toggles this dropdown
+                const triggerButton = document.querySelector(`[onclick*="${dropdown.id}"]`);
+                if (triggerButton) {
+                    const actionContainer = triggerButton.closest('.relative');
+                    if (actionContainer) {
+                        actionContainer.appendChild(dropdown);
+                        dropdown.removeAttribute('data-original-parent');
+                        // Reset all positioning styles
+                        dropdown.style.position = '';
+                        dropdown.style.left = '';
+                        dropdown.style.top = '';
+                        dropdown.style.bottom = '';
+                        dropdown.style.minWidth = '';
+                        dropdown.style.zIndex = '';
+                        dropdown.classList.remove('dropdown-up');
+                    }
+                }
             }
         }
     },
@@ -270,6 +294,20 @@ function initializeHTMXEventHandlers() {
                     console.log('Successfully loaded', fieldSelect.options.length - 1, 'fields');
                     ClaimsApp.utils.showNotification('Fields loaded successfully!', 'success');
                 }
+            }
+
+            // Initialize condition builder when edit modal loads
+            if (evt.detail.target && evt.detail.target.id === 'modal-container') {
+                setTimeout(function() {
+                    const conditionsTextarea = document.getElementById('conditions-textarea');
+                    if (conditionsTextarea) {
+                        const existingConditions = conditionsTextarea.value;
+                        if (existingConditions && existingConditions.trim() !== '' && existingConditions !== 'null') {
+                            console.log('HTMX modal loaded - populating condition builder with:', existingConditions);
+                            populateConditionBuilder(existingConditions);
+                        }
+                    }
+                }, 300); // Longer delay to ensure all modal elements are rendered
             }
         } else {
             console.error('HTMX request failed:', evt.detail);

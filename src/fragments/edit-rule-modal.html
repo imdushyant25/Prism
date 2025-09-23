@@ -306,30 +306,4 @@
         </div>
 </div>
 
-<script>
-// Auto-populate condition builder when modal loads
-document.addEventListener('DOMContentLoaded', function() {
-    // Small delay to ensure all elements are rendered
-    setTimeout(function() {
-        const existingConditions = '{{CONDITIONS}}';
-        if (existingConditions && existingConditions.trim() !== '' && existingConditions !== 'null') {
-            console.log('Auto-populating condition builder with existing conditions');
-            populateConditionBuilder(existingConditions);
-        }
-    }, 100);
-});
-
-// Also trigger when the modal becomes visible (for HTMX loading)
-document.addEventListener('htmx:afterRequest', function(event) {
-    if (event.detail.target && event.detail.target.id === 'modal-container') {
-        setTimeout(function() {
-            const existingConditions = '{{CONDITIONS}}';
-            if (existingConditions && existingConditions.trim() !== '' && existingConditions !== 'null') {
-                console.log('HTMX modal loaded - populating condition builder');
-                populateConditionBuilder(existingConditions);
-            }
-        }, 200);
-    }
-});
-</script>
 
