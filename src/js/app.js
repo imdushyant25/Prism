@@ -1873,6 +1873,8 @@ window.populateConditionBuilder = function(conditionsSQL) {
 
 // Helper function to parse individual condition parts
 function parseConditionPart(conditionStr) {
+    console.log('🔍 Parsing condition:', `"${conditionStr}"`);
+
     // Basic regex patterns for different operators
     const patterns = [
         { regex: /^(.+?)\s+(NOT\s+IN)\s+\((.+)\)$/i, operator: 'NOT IN' },
@@ -1884,8 +1886,10 @@ function parseConditionPart(conditionStr) {
     ];
 
     for (const pattern of patterns) {
+        console.log(`🔍 Testing pattern: ${pattern.operator} - ${pattern.regex}`);
         const match = conditionStr.match(pattern.regex);
         if (match) {
+            console.log(`✅ Pattern matched:`, match);
             let value = match[3];
 
             // Clean up value for IN/NOT IN operators
@@ -1893,17 +1897,22 @@ function parseConditionPart(conditionStr) {
                 value = value.replace(/'/g, '').replace(/\s*,\s*/g, ', ');
             }
 
-            return {
+            const result = {
                 field: match[1].trim(),
                 operator: pattern.operator,
                 value: value,
                 display: `${match[1].trim()} ${pattern.operator} ${value}`
             };
+
+            console.log(`✅ Parsed condition result:`, result);
+            return result;
+        } else {
+            console.log(`❌ Pattern did not match`);
         }
     }
 
     // If no pattern matches, return null
-    console.warn('Could not parse condition:', conditionStr);
+    console.warn('❌ Could not parse condition:', conditionStr);
     return null;
 }
 
