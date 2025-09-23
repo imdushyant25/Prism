@@ -3,7 +3,6 @@
  * Claims Enrichment Rules Management System
  */
 
-console.log('🚀 ClaimsApp JavaScript starting to load...');
 
 // Global namespace for the app
 window.ClaimsApp = window.ClaimsApp || {};
@@ -273,14 +272,7 @@ function initializeHTMXEventHandlers() {
     });
 
     document.body.addEventListener('htmx:afterRequest', function(evt) {
-        console.log('HTMX afterRequest fired:', {
-            successful: evt.detail.successful,
-            target: evt.detail.target ? evt.detail.target.id : 'no target',
-            url: evt.detail.xhr ? evt.detail.xhr.responseURL : 'no URL'
-        });
-
         if (evt.detail.successful) {
-            console.log('HTMX request successful');
             
             // Re-initialize filters if they were loaded via HTMX
             if (evt.detail.target && evt.detail.target.id === 'filters-container') {
@@ -306,33 +298,16 @@ function initializeHTMXEventHandlers() {
 
             // Initialize condition builder when edit modal loads
             if (evt.detail.target && evt.detail.target.id === 'modal-content') {
-                console.log('Edit modal content loaded via HTMX, initializing condition builder...');
                 setTimeout(function() {
                     const conditionsTextarea = document.getElementById('conditions-textarea');
                     if (conditionsTextarea) {
-                        // Check both value and textContent/innerHTML
-                        const valueConditions = conditionsTextarea.value;
-                        const textConditions = conditionsTextarea.textContent;
-                        const htmlConditions = conditionsTextarea.innerHTML;
-
-                        console.log('Found conditions textarea:');
-                        console.log('  - value:', `"${valueConditions}"`);
-                        console.log('  - textContent:', `"${textConditions}"`);
-                        console.log('  - innerHTML:', `"${htmlConditions}"`);
-
-                        // Try to get conditions from any of these sources
-                        const existingConditions = valueConditions || textConditions || htmlConditions;
+                        const existingConditions = conditionsTextarea.value || conditionsTextarea.textContent || conditionsTextarea.innerHTML;
 
                         if (existingConditions && existingConditions.trim() !== '' && existingConditions !== 'null') {
-                            console.log('HTMX modal loaded - populating condition builder with:', existingConditions);
                             populateConditionBuilder(existingConditions);
-                        } else {
-                            console.log('No existing conditions to populate or conditions are empty/null');
                         }
-                    } else {
-                        console.log('Conditions textarea not found in loaded modal');
                     }
-                }, 500); // Longer delay to ensure all modal elements are rendered
+                }, 500);
             }
         } else {
             console.error('HTMX request failed:', evt.detail);
@@ -392,21 +367,7 @@ function initializeHTMXEventHandlers() {
 // Action handlers for rules
 ClaimsApp.actions = {
     editRule(ruleId) {
-        console.log('Edit rule:', ruleId);
-        console.log('About to open edit modal - testing condition builder');
-
-        // Open the modal first
         ClaimsApp.modal.openEditModal(ruleId);
-
-        // Try to initialize condition builder after modal loads
-        setTimeout(function() {
-            console.log('Attempting to initialize condition builder after modal load...');
-            if (typeof window.initializeEditModalConditionBuilder === 'function') {
-                window.initializeEditModalConditionBuilder();
-            } else {
-                console.log('initializeEditModalConditionBuilder function not found');
-            }
-        }, 1000);
     },
 
     cloneRule(ruleId) {
@@ -1729,19 +1690,21 @@ window.removeCondition = function(button) {
     updateSQLPreview();
 };
 
-// Function to update SQL preview
+// Function to update SQL preview (only for newly built conditions)
 function updateSQLPreview() {
     const builtConditions = document.getElementById('built-conditions');
-    const sqlPreview = document.getElementById('final-sql-preview');
+    const sqlPreviewSimple = document.getElementById('final-sql-preview');
+    const sqlPreviewComplex = document.getElementById('sql-preview');
     const conditions = builtConditions.querySelectorAll('[data-field]');
 
+    // Only show SQL preview if there are newly built conditions
     if (conditions.length === 0) {
-        sqlPreview.textContent = 'No conditions defined';
-        updateConditionsTextarea('');
+        if (sqlPreviewSimple) sqlPreviewSimple.textContent = '';
+        if (sqlPreviewComplex) sqlPreviewComplex.textContent = '';
         return;
     }
 
-    // Build SQL WHERE clause
+    // Build SQL WHERE clause for newly built conditions
     let sqlParts = [];
     conditions.forEach(condition => {
         const field = condition.getAttribute('data-field');
@@ -1750,7 +1713,6 @@ function updateSQLPreview() {
 
         // Format value based on operator
         if (operator === 'IN' || operator === 'NOT IN') {
-            // Handle comma-separated values for IN operator
             const values = value.split(',').map(v => `'${v.trim()}'`).join(', ');
             value = `(${values})`;
         } else if (operator === 'LIKE' || operator === 'NOT LIKE') {
@@ -1763,7 +1725,10 @@ function updateSQLPreview() {
     });
 
     const sql = sqlParts.join(' AND ');
-    sqlPreview.textContent = sql;
+
+    // Update SQL preview areas
+    if (sqlPreviewSimple) sqlPreviewSimple.textContent = sql;
+    if (sqlPreviewComplex) sqlPreviewComplex.textContent = sql;
 
     // Update the hidden conditions textarea
     updateConditionsTextarea(sql);
@@ -1821,101 +1786,37 @@ window.clearAllConditions = function() {
 
 // Function to initialize edit modal condition builder (called directly from modal)
 window.initializeEditModalConditionBuilder = function() {
-    console.log('initializeEditModalConditionBuilder called directly');
     setTimeout(function() {
         const conditionsTextarea = document.getElementById('conditions-textarea');
         if (conditionsTextarea) {
-            const existingConditions = conditionsTextarea.value;
-            console.log('Direct call - Found conditions textarea with value:', existingConditions);
+            const existingConditions = conditionsTextarea.value || conditionsTextarea.textContent || conditionsTextarea.innerHTML;
             if (existingConditions && existingConditions.trim() !== '' && existingConditions !== 'null') {
-                console.log('Direct call - populating condition builder with:', existingConditions);
                 populateConditionBuilder(existingConditions);
-            } else {
-                console.log('Direct call - No existing conditions to populate');
             }
-        } else {
-            console.log('Direct call - Conditions textarea not found');
         }
     }, 100);
 };
 
-// Function to populate condition builder with existing conditions (for edit mode)
+// Function to show existing conditions when editing a rule
 window.populateConditionBuilder = function(conditionsSQL) {
     if (!conditionsSQL || conditionsSQL.trim() === '') {
         return;
     }
 
-    console.log('Populating condition builder with:', conditionsSQL);
-
-    // Clear existing conditions first
-    clearAllConditions();
-
-    // Parse SQL conditions - this is a basic parser for simple AND-separated conditions
-    try {
-        // Remove extra whitespace and split on AND (case insensitive)
-        const conditionParts = conditionsSQL.split(/\s+AND\s+/i);
-
-        conditionParts.forEach(part => {
-            const condition = parseConditionPart(part.trim());
-            if (condition) {
-                addConditionToBuilder(condition);
-            }
-        });
-    } catch (error) {
-        console.error('Error parsing conditions:', error);
-        // If parsing fails, just show the raw SQL
-        const sqlPreview = document.getElementById('final-sql-preview');
-        if (sqlPreview) {
-            sqlPreview.textContent = conditionsSQL;
-        }
-        updateConditionsTextarea(conditionsSQL);
+    // Simply show the existing condition as informational text
+    const builtConditions = document.getElementById('built-conditions');
+    if (builtConditions) {
+        builtConditions.innerHTML = `
+            <div class="bg-blue-50 border border-blue-200 rounded px-3 py-2">
+                <div class="text-xs text-blue-600 mb-1">Current Rule Condition:</div>
+                <div class="text-sm font-mono text-blue-900">${conditionsSQL}</div>
+            </div>
+        `;
     }
+
+    // Update the conditions textarea so the form has the existing condition
+    updateConditionsTextarea(conditionsSQL);
 };
-
-// Helper function to parse individual condition parts
-function parseConditionPart(conditionStr) {
-    console.log('🔍 Parsing condition:', `"${conditionStr}"`);
-
-    // Basic regex patterns for different operators
-    const patterns = [
-        { regex: /^(.+?)\s+(NOT\s+IN)\s+\((.+)\)$/i, operator: 'NOT IN' },
-        { regex: /^(.+?)\s+(IN)\s+\((.+)\)$/i, operator: 'IN' },
-        { regex: /^(.+?)\s+(NOT\s+LIKE)\s+'%(.+)%'$/i, operator: 'NOT LIKE' },
-        { regex: /^(.+?)\s+(LIKE)\s+'%(.+)%'$/i, operator: 'LIKE' },
-        { regex: /^(.+?)\s+(!=|<>)\s+'(.+)'$/i, operator: '!=' },
-        { regex: /^(.+?)\s+(=)\s+'(.+)'$/i, operator: '=' }
-    ];
-
-    for (const pattern of patterns) {
-        console.log(`🔍 Testing pattern: ${pattern.operator} - ${pattern.regex}`);
-        const match = conditionStr.match(pattern.regex);
-        if (match) {
-            console.log(`✅ Pattern matched:`, match);
-            let value = match[3];
-
-            // Clean up value for IN/NOT IN operators
-            if (pattern.operator === 'IN' || pattern.operator === 'NOT IN') {
-                value = value.replace(/'/g, '').replace(/\s*,\s*/g, ', ');
-            }
-
-            const result = {
-                field: match[1].trim(),
-                operator: pattern.operator,
-                value: value,
-                display: `${match[1].trim()} ${pattern.operator} ${value}`
-            };
-
-            console.log(`✅ Parsed condition result:`, result);
-            return result;
-        } else {
-            console.log(`❌ Pattern did not match`);
-        }
-    }
-
-    // If no pattern matches, return null
-    console.warn('❌ Could not parse condition:', conditionStr);
-    return null;
-}
 
 // Validate Rule Form Before Submission
 window.validateRuleForm = function(event) {
