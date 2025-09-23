@@ -50,7 +50,7 @@ ClaimsApp.utils = {
         document.querySelectorAll('[id^="dropdown-"]').forEach(dropdown => {
             if (dropdown.id !== dropdownId) {
                 dropdown.classList.add('hidden');
-                this.restoreDropdownToOriginalParent(dropdown);
+                ClaimsApp.utils.restoreDropdownToOriginalParent(dropdown);
             }
         });
 
@@ -62,7 +62,7 @@ ClaimsApp.utils = {
 
             if (isHidden) {
                 // Dropdown is being shown, fix positioning
-                this.positionDropdown(dropdown);
+                ClaimsApp.utils.positionDropdown(dropdown);
             }
         }
     },
