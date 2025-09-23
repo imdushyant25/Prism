@@ -1734,22 +1734,116 @@ function updateSQLPreview() {
     updateConditionsTextarea(sql);
 }
 
+// Complex rule builder functions (simplified approach)
 window.addFlag = function() {
-    console.log('Add flag function called - placeholder');
-    // This would add flags to complex rule expressions
-    // For now, users need to manually enter conditions
+    const flagSelector = document.getElementById('flag-selector');
+    const expressionBuilder = document.getElementById('expression-builder');
+
+    if (!flagSelector || !expressionBuilder) return;
+
+    const selectedFlag = flagSelector.value;
+    if (!selectedFlag) {
+        ClaimsApp.utils.showNotification('Please select a flag first', 'warning');
+        return;
+    }
+
+    // Add flag to expression builder
+    addElementToExpression(selectedFlag, 'flag');
+    flagSelector.value = ''; // Reset selector
 };
 
 window.addOperator = function(operator) {
-    console.log('Add operator function called:', operator);
-    // This would add operators to complex rule expressions
+    addElementToExpression(operator, 'operator');
+};
+
+window.addParenthesis = function(paren) {
+    addElementToExpression(paren, 'parenthesis');
 };
 
 window.clearExpression = function() {
-    console.log('Clear expression function called');
-    // Clear the expression builder and update textarea
+    const expressionBuilder = document.getElementById('expression-builder');
+    if (expressionBuilder) {
+        expressionBuilder.innerHTML = '<span id="empty-hint" class="text-blue-500 text-sm">Add flags below to build your expression...</span>';
+    }
+
+    // Clear SQL preview
+    const sqlPreview = document.getElementById('sql-preview');
+    if (sqlPreview) {
+        sqlPreview.textContent = '';
+    }
+
+    // Clear conditions textarea
     updateConditionsTextarea('');
 };
+
+// Helper function to add elements to complex expression builder
+function addElementToExpression(element, type) {
+    const expressionBuilder = document.getElementById('expression-builder');
+    if (!expressionBuilder) return;
+
+    // Remove empty hint if it exists
+    const emptyHint = document.getElementById('empty-hint');
+    if (emptyHint) {
+        emptyHint.remove();
+    }
+
+    // Create element span
+    const elementSpan = document.createElement('span');
+    elementSpan.className = getElementClass(type);
+    elementSpan.innerHTML = `${element} <button onclick="removeExpressionElement(this)" class="ml-1 text-red-500 hover:text-red-700">&times;</button>`;
+
+    expressionBuilder.appendChild(elementSpan);
+
+    // Update SQL preview
+    updateComplexRuleSQL();
+}
+
+// Helper function to get CSS classes for different element types
+function getElementClass(type) {
+    switch(type) {
+        case 'flag': return 'inline-flex items-center bg-green-100 text-green-800 px-2 py-1 rounded text-sm mr-1 mb-1';
+        case 'operator': return 'inline-flex items-center bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm mr-1 mb-1';
+        case 'parenthesis': return 'inline-flex items-center bg-gray-100 text-gray-800 px-2 py-1 rounded text-sm mr-1 mb-1';
+        default: return 'inline-flex items-center bg-gray-100 text-gray-700 px-2 py-1 rounded text-sm mr-1 mb-1';
+    }
+}
+
+// Function to remove elements from expression
+window.removeExpressionElement = function(button) {
+    const element = button.parentElement;
+    element.remove();
+
+    // Check if expression is empty and add hint back
+    const expressionBuilder = document.getElementById('expression-builder');
+    if (expressionBuilder && expressionBuilder.children.length === 0) {
+        expressionBuilder.innerHTML = '<span id="empty-hint" class="text-blue-500 text-sm">Add flags below to build your expression...</span>';
+    }
+
+    updateComplexRuleSQL();
+};
+
+// Function to update SQL preview for complex rules
+function updateComplexRuleSQL() {
+    const expressionBuilder = document.getElementById('expression-builder');
+    const sqlPreview = document.getElementById('sql-preview');
+
+    if (!expressionBuilder || !sqlPreview) return;
+
+    // Get all elements except the empty hint
+    const elements = Array.from(expressionBuilder.children).filter(child => child.id !== 'empty-hint');
+
+    if (elements.length === 0) {
+        sqlPreview.textContent = '';
+        updateConditionsTextarea('');
+        return;
+    }
+
+    // Build expression from elements (simplified)
+    const expression = elements.map(el => el.textContent.replace('×', '').trim()).join(' ');
+
+    sqlPreview.textContent = expression;
+    updateConditionsTextarea(expression);
+}
 
 window.clearAllConditions = function() {
     console.log('Clear all conditions function called');
@@ -1803,12 +1897,23 @@ window.populateConditionBuilder = function(conditionsSQL) {
         return;
     }
 
-    // Simply show the existing condition as informational text
+    // Show existing condition in simple rule builder
     const builtConditions = document.getElementById('built-conditions');
     if (builtConditions) {
         builtConditions.innerHTML = `
             <div class="bg-blue-50 border border-blue-200 rounded px-3 py-2">
                 <div class="text-xs text-blue-600 mb-1">Current Rule Condition:</div>
+                <div class="text-sm font-mono text-blue-900">${conditionsSQL}</div>
+            </div>
+        `;
+    }
+
+    // Show existing condition in complex rule builder
+    const expressionBuilder = document.getElementById('expression-builder');
+    if (expressionBuilder) {
+        expressionBuilder.innerHTML = `
+            <div class="bg-blue-50 border border-blue-200 rounded px-3 py-2 w-full">
+                <div class="text-xs text-blue-600 mb-1">Current Rule Expression:</div>
                 <div class="text-sm font-mono text-blue-900">${conditionsSQL}</div>
             </div>
         `;
