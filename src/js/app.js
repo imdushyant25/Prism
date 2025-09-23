@@ -1560,12 +1560,137 @@ window.updateConditionsTextarea = function(conditions) {
     }
 };
 
-// Placeholder functions for rule builders (to be implemented later if needed)
+// Visual Condition Builder Functions
 window.buildCondition = function() {
-    console.log('Build condition function called - placeholder');
-    // This would build conditions for simple rules
-    // For now, users need to manually enter conditions
+    const fieldSelect = document.getElementById('field-select');
+    const operatorSelect = document.getElementById('operator-select');
+    const valueInput = document.getElementById('value-input');
+
+    const field = fieldSelect.value;
+    const operator = operatorSelect.value;
+    const value = valueInput.value.trim();
+
+    if (!field || !operator || !value) {
+        ClaimsApp.utils.showNotification('Please fill in all condition fields', 'error');
+        return;
+    }
+
+    // Create condition object
+    const condition = {
+        field: field,
+        operator: operator,
+        value: value,
+        display: `${field} ${operator} ${value}`
+    };
+
+    // Add to built conditions
+    addConditionToBuilder(condition);
+
+    // Clear inputs
+    fieldSelect.value = '';
+    operatorSelect.value = '=';
+    valueInput.value = '';
+
+    console.log('Added condition:', condition);
 };
+
+// Function to add condition to the visual builder
+function addConditionToBuilder(condition) {
+    const builtConditions = document.getElementById('built-conditions');
+    const conditionCount = document.getElementById('condition-count');
+
+    // Create condition element
+    const conditionElement = document.createElement('div');
+    conditionElement.className = 'flex items-center justify-between bg-blue-50 border border-blue-200 rounded px-3 py-2 mb-2';
+    conditionElement.innerHTML = `
+        <span class="text-sm font-mono text-blue-900">${condition.display}</span>
+        <button type="button" onclick="removeCondition(this)" class="text-red-500 hover:text-red-700">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+        </button>
+    `;
+
+    // Store condition data
+    conditionElement.setAttribute('data-field', condition.field);
+    conditionElement.setAttribute('data-operator', condition.operator);
+    conditionElement.setAttribute('data-value', condition.value);
+
+    // If this is the first condition, clear the "no conditions" message
+    if (builtConditions.innerHTML.includes('No conditions yet...')) {
+        builtConditions.innerHTML = '';
+    }
+
+    builtConditions.appendChild(conditionElement);
+
+    // Update count
+    const currentConditions = builtConditions.querySelectorAll('[data-field]');
+    conditionCount.textContent = currentConditions.length;
+
+    // Update SQL preview
+    updateSQLPreview();
+}
+
+// Function to remove a condition
+window.removeCondition = function(button) {
+    const conditionElement = button.closest('[data-field]');
+    conditionElement.remove();
+
+    const builtConditions = document.getElementById('built-conditions');
+    const conditionCount = document.getElementById('condition-count');
+    const currentConditions = builtConditions.querySelectorAll('[data-field]');
+
+    // Update count
+    conditionCount.textContent = currentConditions.length;
+
+    // Show "no conditions" message if empty
+    if (currentConditions.length === 0) {
+        builtConditions.innerHTML = '<span class="text-gray-500 text-sm">No conditions yet...</span>';
+    }
+
+    // Update SQL preview
+    updateSQLPreview();
+};
+
+// Function to update SQL preview
+function updateSQLPreview() {
+    const builtConditions = document.getElementById('built-conditions');
+    const sqlPreview = document.getElementById('final-sql-preview');
+    const conditions = builtConditions.querySelectorAll('[data-field]');
+
+    if (conditions.length === 0) {
+        sqlPreview.textContent = 'No conditions defined';
+        updateConditionsTextarea('');
+        return;
+    }
+
+    // Build SQL WHERE clause
+    let sqlParts = [];
+    conditions.forEach(condition => {
+        const field = condition.getAttribute('data-field');
+        const operator = condition.getAttribute('data-operator');
+        let value = condition.getAttribute('data-value');
+
+        // Format value based on operator
+        if (operator === 'IN' || operator === 'NOT IN') {
+            // Handle comma-separated values for IN operator
+            const values = value.split(',').map(v => `'${v.trim()}'`).join(', ');
+            value = `(${values})`;
+        } else if (operator === 'LIKE' || operator === 'NOT LIKE') {
+            value = `'%${value}%'`;
+        } else {
+            value = `'${value}'`;
+        }
+
+        sqlParts.push(`${field} ${operator} ${value}`);
+    });
+
+    const sql = sqlParts.join(' AND ');
+    sqlPreview.textContent = sql;
+
+    // Update the hidden conditions textarea
+    updateConditionsTextarea(sql);
+}
 
 window.addFlag = function() {
     console.log('Add flag function called - placeholder');
@@ -1586,9 +1711,105 @@ window.clearExpression = function() {
 
 window.clearAllConditions = function() {
     console.log('Clear all conditions function called');
-    // Clear the condition builder and update textarea
+
+    // Clear built conditions
+    const builtConditions = document.getElementById('built-conditions');
+    const conditionCount = document.getElementById('condition-count');
+    const sqlPreview = document.getElementById('final-sql-preview');
+
+    if (builtConditions) {
+        builtConditions.innerHTML = '<span class="text-gray-500 text-sm">No conditions yet...</span>';
+    }
+
+    if (conditionCount) {
+        conditionCount.textContent = '0';
+    }
+
+    if (sqlPreview) {
+        sqlPreview.textContent = 'No conditions defined';
+    }
+
+    // Clear the conditions textarea
     updateConditionsTextarea('');
+
+    // Clear input fields
+    const fieldSelect = document.getElementById('field-select');
+    const operatorSelect = document.getElementById('operator-select');
+    const valueInput = document.getElementById('value-input');
+
+    if (fieldSelect) fieldSelect.value = '';
+    if (operatorSelect) operatorSelect.value = '=';
+    if (valueInput) valueInput.value = '';
 };
+
+// Function to populate condition builder with existing conditions (for edit mode)
+window.populateConditionBuilder = function(conditionsSQL) {
+    if (!conditionsSQL || conditionsSQL.trim() === '') {
+        return;
+    }
+
+    console.log('Populating condition builder with:', conditionsSQL);
+
+    // Clear existing conditions first
+    clearAllConditions();
+
+    // Parse SQL conditions - this is a basic parser for simple AND-separated conditions
+    try {
+        // Remove extra whitespace and split on AND (case insensitive)
+        const conditionParts = conditionsSQL.split(/\s+AND\s+/i);
+
+        conditionParts.forEach(part => {
+            const condition = parseConditionPart(part.trim());
+            if (condition) {
+                addConditionToBuilder(condition);
+            }
+        });
+    } catch (error) {
+        console.error('Error parsing conditions:', error);
+        // If parsing fails, just show the raw SQL
+        const sqlPreview = document.getElementById('final-sql-preview');
+        if (sqlPreview) {
+            sqlPreview.textContent = conditionsSQL;
+        }
+        updateConditionsTextarea(conditionsSQL);
+    }
+};
+
+// Helper function to parse individual condition parts
+function parseConditionPart(conditionStr) {
+    // Basic regex patterns for different operators
+    const patterns = [
+        { regex: /^(.+?)\s+(NOT\s+IN)\s+\((.+)\)$/i, operator: 'NOT IN' },
+        { regex: /^(.+?)\s+(IN)\s+\((.+)\)$/i, operator: 'IN' },
+        { regex: /^(.+?)\s+(NOT\s+LIKE)\s+'%(.+)%'$/i, operator: 'NOT LIKE' },
+        { regex: /^(.+?)\s+(LIKE)\s+'%(.+)%'$/i, operator: 'LIKE' },
+        { regex: /^(.+?)\s+(!=|<>)\s+'(.+)'$/i, operator: '!=' },
+        { regex: /^(.+?)\s+(=)\s+'(.+)'$/i, operator: '=' }
+    ];
+
+    for (const pattern of patterns) {
+        const match = conditionStr.match(pattern.regex);
+        if (match) {
+            let value = match[3];
+
+            // Clean up value for IN/NOT IN operators
+            if (pattern.operator === 'IN' || pattern.operator === 'NOT IN') {
+                value = value.replace(/'/g, '').replace(/\s*,\s*/g, ', ');
+            }
+
+            return {
+                field: match[1].trim(),
+                operator: pattern.operator,
+                value: value,
+                display: `${match[1].trim()} ${pattern.operator} ${value}`
+            };
+        }
+    }
+
+    // If no pattern matches, return null
+    console.warn('Could not parse condition:', conditionStr);
+    return null;
+}
 
 // Validate Rule Form Before Submission
 window.validateRuleForm = function(event) {
