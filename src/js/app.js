@@ -682,32 +682,43 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Restoring saved tab:', savedTab);
         sessionStorage.removeItem('activeTab'); // Clear it after use
 
-        setTimeout(() => {
+        // Try immediately and with retries
+        const attemptTabRestore = (attempt = 1) => {
             if (savedTab === 'price-models') {
-                console.log('Attempting to restore price models tab...');
+                console.log(`Attempt ${attempt}: Restoring price models tab...`);
 
-                // Try multiple approaches to find and activate the price models tab
+                // Look for common patterns for price model tabs
                 const selectors = [
-                    '[onclick*="showPriceModels"]',
-                    '[onclick*="price"]',
-                    '[onclick*="Price"]',
-                    '.tab-button[data-tab="price"]',
-                    '.tab-button[data-tab="price-models"]',
+                    'button[onclick*="showPriceModels"]',
+                    'button[onclick*="price"]',
+                    'a[onclick*="price"]',
+                    '.tab-button:contains("Price")',
+                    'button:contains("Price Models")',
                     'button:contains("Price")',
-                    '[href*="price"]',
-                    '.price-tab',
-                    '.price-models-tab',
-                    '#price-tab',
-                    '#price-models-tab'
+                    '[data-tab="price"]',
+                    '[data-target="price"]',
+                    '#price-models-tab',
+                    '.price-models-btn'
                 ];
 
                 let found = false;
                 for (const selector of selectors) {
                     try {
-                        const element = document.querySelector(selector);
-                        if (element) {
+                        // Handle :contains() pseudo-selector manually
+                        let elements;
+                        if (selector.includes(':contains(')) {
+                            const baseSelector = selector.split(':contains(')[0];
+                            const searchText = selector.match(/contains\("([^"]+)"\)/)?.[1];
+                            elements = Array.from(document.querySelectorAll(baseSelector))
+                                .filter(el => el.textContent?.includes(searchText));
+                        } else {
+                            const element = document.querySelector(selector);
+                            elements = element ? [element] : [];
+                        }
+
+                        if (elements.length > 0) {
                             console.log(`Found price models tab with selector: ${selector}`);
-                            element.click();
+                            elements[0].click();
                             found = true;
                             break;
                         }
@@ -716,32 +727,27 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }
 
-                if (!found) {
-                    // Try function calls
-                    const functions = ['showPriceModels', 'switchToPriceModels', 'activatePriceTab'];
-                    for (const funcName of functions) {
-                        if (window[funcName] && typeof window[funcName] === 'function') {
-                            console.log(`Calling function: ${funcName}`);
-                            window[funcName]();
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!found) {
-                    console.warn('Could not find price models tab to restore. Available buttons:',
-                        Array.from(document.querySelectorAll('button, a, [onclick]')).map(el => ({
-                            text: el.textContent?.trim(),
-                            onclick: el.getAttribute('onclick'),
-                            href: el.getAttribute('href'),
-                            id: el.id,
-                            className: el.className
-                        })).filter(el => el.text || el.onclick || el.href)
+                if (!found && attempt < 3) {
+                    // Retry after more delay
+                    setTimeout(() => attemptTabRestore(attempt + 1), 300 * attempt);
+                } else if (!found) {
+                    console.warn('Could not find price models tab after 3 attempts. Available buttons:',
+                        Array.from(document.querySelectorAll('button, a, [onclick]'))
+                            .filter(el => el.textContent?.toLowerCase().includes('price') ||
+                                         el.onclick?.toString().toLowerCase().includes('price'))
+                            .map(el => ({
+                                text: el.textContent?.trim(),
+                                onclick: el.getAttribute('onclick'),
+                                id: el.id,
+                                className: el.className
+                            }))
                     );
                 }
             }
-        }, 200); // Increased delay to ensure everything is loaded
+        };
+
+        // Start immediately
+        attemptTabRestore();
     }
 });
 
