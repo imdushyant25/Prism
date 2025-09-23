@@ -184,7 +184,7 @@ ClaimsApp.utils = {
     /**
      * Show custom confirmation dialog
      */
-    showConfirmDialog(title, message, onConfirm, onCancel = null) {
+    showConfirmDialog(title, message, onConfirm, onCancel = null, confirmText = 'Delete', confirmClass = 'bg-red-600 hover:bg-red-700 focus:ring-red-500') {
         // Create modal backdrop
         const backdrop = document.createElement('div');
         backdrop.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
@@ -204,8 +204,8 @@ ClaimsApp.utils = {
                 <button id="confirm-cancel" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     Cancel
                 </button>
-                <button id="confirm-delete" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
-                    Delete
+                <button id="confirm-action" class="px-4 py-2 text-sm font-medium text-white ${confirmClass} rounded-md focus:outline-none focus:ring-2">
+                    ${confirmText}
                 </button>
             </div>
         `;
@@ -215,7 +215,7 @@ ClaimsApp.utils = {
 
         // Handle button clicks
         const cancelBtn = modal.querySelector('#confirm-cancel');
-        const deleteBtn = modal.querySelector('#confirm-delete');
+        const actionBtn = modal.querySelector('#confirm-action');
 
         const cleanup = () => {
             if (backdrop.parentNode) {
@@ -228,7 +228,7 @@ ClaimsApp.utils = {
             if (onCancel) onCancel();
         });
 
-        deleteBtn.addEventListener('click', () => {
+        actionBtn.addEventListener('click', () => {
             cleanup();
             onConfirm();
         });
@@ -1486,7 +1486,7 @@ window.makeActiveRule = function(ruleId) {
         'Are you sure you want to make this rule active? This will restore the rule.',
         function() {
             // Make the rule active via HTMX
-            htmx.ajax('POST', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?action=makeActive&id=${ruleId}`, {
+            htmx.ajax('POST', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?action=makeactive&id=${ruleId}`, {
                 target: '#rules-container',
                 swap: 'innerHTML'
             }).then(() => {
@@ -1498,7 +1498,9 @@ window.makeActiveRule = function(ruleId) {
         },
         function() {
             // User cancelled - do nothing
-        }
+        },
+        'Make Active',
+        'bg-green-600 hover:bg-green-700 focus:ring-green-500'
     );
 };
 
