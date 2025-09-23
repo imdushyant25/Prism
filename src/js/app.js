@@ -71,8 +71,25 @@ ClaimsApp.utils = {
      * Smart dropdown positioning to avoid container and pagination clipping
      */
     positionDropdown(dropdown) {
-        // Get the trigger button (parent of dropdown)
-        const trigger = dropdown.parentElement;
+        // Get the trigger button - need to find it before potentially moving dropdown
+        let trigger = dropdown.parentElement;
+
+        // If dropdown is already moved to body, find the trigger by dropdown ID
+        if (trigger === document.body) {
+            // Extract the button index from dropdown ID (e.g., "dropdown-actions-1" -> "1")
+            const dropdownIdMatch = dropdown.id.match(/dropdown-actions-(\d+)/);
+            if (dropdownIdMatch) {
+                const buttonIndex = dropdownIdMatch[1];
+                // Find the corresponding trigger button
+                trigger = document.querySelector(`[onclick="ClaimsApp.utils.toggleDropdown('dropdown-actions-${buttonIndex}')"]`);
+            }
+        }
+
+        if (!trigger) {
+            console.error('Could not find trigger button for dropdown:', dropdown.id);
+            return;
+        }
+
         const triggerRect = trigger.getBoundingClientRect();
 
         // Move dropdown to body to escape container clipping
