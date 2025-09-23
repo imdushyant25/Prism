@@ -684,17 +684,64 @@ document.addEventListener('DOMContentLoaded', function() {
 
         setTimeout(() => {
             if (savedTab === 'price-models') {
-                // Try to find and click the price models tab
-                const priceModelTab = document.querySelector('[onclick*="showPriceModels"], [onclick*="price"], .tab-button[data-tab="price"]');
-                if (priceModelTab) {
-                    console.log('Clicking price models tab');
-                    priceModelTab.click();
-                } else if (window.showPriceModels) {
-                    console.log('Calling showPriceModels function');
-                    window.showPriceModels();
+                console.log('Attempting to restore price models tab...');
+
+                // Try multiple approaches to find and activate the price models tab
+                const selectors = [
+                    '[onclick*="showPriceModels"]',
+                    '[onclick*="price"]',
+                    '[onclick*="Price"]',
+                    '.tab-button[data-tab="price"]',
+                    '.tab-button[data-tab="price-models"]',
+                    'button:contains("Price")',
+                    '[href*="price"]',
+                    '.price-tab',
+                    '.price-models-tab',
+                    '#price-tab',
+                    '#price-models-tab'
+                ];
+
+                let found = false;
+                for (const selector of selectors) {
+                    try {
+                        const element = document.querySelector(selector);
+                        if (element) {
+                            console.log(`Found price models tab with selector: ${selector}`);
+                            element.click();
+                            found = true;
+                            break;
+                        }
+                    } catch (e) {
+                        // Continue to next selector
+                    }
+                }
+
+                if (!found) {
+                    // Try function calls
+                    const functions = ['showPriceModels', 'switchToPriceModels', 'activatePriceTab'];
+                    for (const funcName of functions) {
+                        if (window[funcName] && typeof window[funcName] === 'function') {
+                            console.log(`Calling function: ${funcName}`);
+                            window[funcName]();
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!found) {
+                    console.warn('Could not find price models tab to restore. Available buttons:',
+                        Array.from(document.querySelectorAll('button, a, [onclick]')).map(el => ({
+                            text: el.textContent?.trim(),
+                            onclick: el.getAttribute('onclick'),
+                            href: el.getAttribute('href'),
+                            id: el.id,
+                            className: el.className
+                        })).filter(el => el.text || el.onclick || el.href)
+                    );
                 }
             }
-        }, 100); // Small delay to ensure everything is loaded
+        }, 200); // Increased delay to ensure everything is loaded
     }
 });
 
@@ -717,13 +764,40 @@ if (document.readyState === 'loading') {
         sessionStorage.removeItem('activeTab');
 
         setTimeout(() => {
-            const priceModelTab = document.querySelector('[onclick*="showPriceModels"], [onclick*="price"], .tab-button[data-tab="price"]');
-            if (priceModelTab) {
-                priceModelTab.click();
-            } else if (window.showPriceModels) {
+            console.log('Attempting to restore price models tab (immediate)...');
+
+            // Same comprehensive approach
+            const selectors = [
+                '[onclick*="showPriceModels"]',
+                '[onclick*="price"]',
+                '[onclick*="Price"]',
+                '.tab-button[data-tab="price"]',
+                '.tab-button[data-tab="price-models"]',
+                '[href*="price"]',
+                '.price-tab',
+                '#price-tab'
+            ];
+
+            let found = false;
+            for (const selector of selectors) {
+                try {
+                    const element = document.querySelector(selector);
+                    if (element) {
+                        console.log(`Found price models tab (immediate): ${selector}`);
+                        element.click();
+                        found = true;
+                        break;
+                    }
+                } catch (e) {
+                    // Continue
+                }
+            }
+
+            if (!found && window.showPriceModels) {
+                console.log('Calling showPriceModels function (immediate)');
                 window.showPriceModels();
             }
-        }, 100);
+        }, 200);
     }
 }
 
