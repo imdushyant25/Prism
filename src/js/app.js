@@ -1693,7 +1693,8 @@ function addConditionToBuilder(condition) {
     conditionElement.setAttribute('data-value', condition.value);
 
     // If this is the first condition, clear the "no conditions" message
-    if (builtConditions.innerHTML.includes('No conditions yet...')) {
+    if (builtConditions.innerHTML.includes('No conditions yet...') ||
+        builtConditions.innerHTML.includes('No conditions added yet...')) {
         builtConditions.innerHTML = '';
     }
 
@@ -1721,7 +1722,7 @@ window.removeCondition = function(button) {
 
     // Show "no conditions" message if empty
     if (currentConditions.length === 0) {
-        builtConditions.innerHTML = '<span class="text-gray-500 text-sm">No conditions yet...</span>';
+        builtConditions.innerHTML = '<span class="text-gray-500 text-sm">No conditions added yet...</span>';
     }
 
     // Update SQL preview
@@ -1794,7 +1795,7 @@ window.clearAllConditions = function() {
     const sqlPreview = document.getElementById('final-sql-preview');
 
     if (builtConditions) {
-        builtConditions.innerHTML = '<span class="text-gray-500 text-sm">No conditions yet...</span>';
+        builtConditions.innerHTML = '<span class="text-gray-500 text-sm">No conditions added yet...</span>';
     }
 
     if (conditionCount) {
