@@ -1306,6 +1306,71 @@ const handler = async (event) => {
             }
         }
 
+        // Handle rule reactivation
+        if (method === 'POST' && event.queryStringParameters?.action === 'makeActive') {
+            console.log('🔄 Make active rule request received');
+            const ruleId = event.queryStringParameters?.id;
+
+            if (!ruleId) {
+                console.log('❌ No rule ID provided');
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: '<div class="text-red-600">Rule ID required for activation</div>'
+                };
+            }
+
+            try {
+                // Ensure client is connected
+                if (!client._connected) {
+                    await client.connect();
+                }
+
+                console.log('🔄 Attempting to activate rule:', ruleId);
+
+                // Update rule to set is_active = true
+                const updateResult = await client.query(
+                    'UPDATE application.prism_enrichment_rules SET is_active = true WHERE rule_id = $1 AND is_active = false',
+                    [ruleId]
+                );
+
+                if (updateResult.rowCount > 0) {
+                    console.log('✅ Rule activated successfully:', ruleId);
+
+                    // Return refreshed rules table
+                    const rulesHTML = await generateRulesHTML(client);
+                    await client.end();
+
+                    return {
+                        statusCode: 200,
+                        headers: { ...headers, 'HX-Trigger': 'ruleActivated' },
+                        body: rulesHTML
+                    };
+                } else {
+                    console.log('❌ Rule not found or already active:', ruleId);
+                    await client.end();
+                    return {
+                        statusCode: 400,
+                        headers,
+                        body: '<div class="text-red-600">Rule not found or already active</div>'
+                    };
+                }
+
+            } catch (error) {
+                console.error('❌ Make active error:', error);
+                try {
+                    await client.end();
+                } catch (e) {
+                    console.error('❌ Error closing connection:', e);
+                }
+                return {
+                    statusCode: 500,
+                    headers,
+                    body: `<div class="text-red-600">Error activating rule: ${error.message}</div>`
+                };
+            }
+        }
+
         // Handle dynamic field loading by data source
         if (method === 'GET' && event.queryStringParameters?.get_fields) {
             console.log('🔄 Dynamic fields request');
@@ -1520,7 +1585,8 @@ const handler = async (event) => {
                 PBM_CODE: rule.pbm_code,
                 RULE_TYPE: rule.rule_type,
                 TYPE_BADGE_CLASS: getBadgeClass(rule.rule_type),
-                CONDITIONS: rule.conditions?.substring(0, 50) + '...' || 'No condition'
+                CONDITIONS: rule.conditions?.substring(0, 50) + '...' || 'No condition',
+                IS_ACTIVE: rule.is_active
             };
             
             return renderTemplate(rowTemplate, rowData);

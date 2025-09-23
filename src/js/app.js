@@ -1478,6 +1478,30 @@ if (typeof window.deletePriceModel === 'undefined') {
     };
 }
 
+// Make Active Rule function
+window.makeActiveRule = function(ruleId) {
+    // Show custom confirmation dialog
+    ClaimsApp.utils.showConfirmDialog(
+        'Reactivate Rule',
+        'Are you sure you want to make this rule active? This will restore the rule.',
+        function() {
+            // Make the rule active via HTMX
+            htmx.ajax('POST', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?action=makeActive&id=${ruleId}`, {
+                target: '#rules-container',
+                swap: 'innerHTML'
+            }).then(() => {
+                ClaimsApp.utils.showNotification('Rule activated successfully! 🎉', 'success');
+            }).catch(error => {
+                console.error('Make active rule failed:', error);
+                ClaimsApp.utils.showNotification('Failed to activate rule. Please try again.', 'error');
+            });
+        },
+        function() {
+            // User cancelled - do nothing
+        }
+    );
+};
+
 // Make Active Price Model function
 window.makeActivePriceModel = function(modelId) {
     console.log('Make active price model:', modelId);
