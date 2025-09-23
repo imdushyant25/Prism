@@ -50,6 +50,7 @@ ClaimsApp.utils = {
         document.querySelectorAll('[id^="dropdown-"]').forEach(dropdown => {
             if (dropdown.id !== dropdownId) {
                 dropdown.classList.add('hidden');
+                this.restoreDropdownToOriginalParent(dropdown);
             }
         });
 
@@ -67,44 +68,74 @@ ClaimsApp.utils = {
     },
 
     /**
-     * Smart dropdown positioning to avoid being hidden by pagination
+     * Smart dropdown positioning to avoid container and pagination clipping
      */
     positionDropdown(dropdown) {
-        // Ensure dropdown has high z-index
-        dropdown.style.zIndex = '9999';
-        dropdown.style.position = 'absolute';
+        // Get the trigger button (parent of dropdown)
+        const trigger = dropdown.parentElement;
+        const triggerRect = trigger.getBoundingClientRect();
 
-        // Get dropdown and viewport dimensions
-        const rect = dropdown.getBoundingClientRect();
+        // Move dropdown to body to escape container clipping
+        if (dropdown.parentElement !== document.body) {
+            dropdown.setAttribute('data-original-parent', dropdown.parentElement.id || 'no-id');
+            document.body.appendChild(dropdown);
+        }
+
+        // Set up positioning
+        dropdown.style.zIndex = '9999';
+        dropdown.style.position = 'fixed'; // Use fixed to position relative to viewport
+        dropdown.style.left = triggerRect.left + 'px';
+        dropdown.style.minWidth = '150px';
+
+        // Get dropdown dimensions after positioning
+        const dropdownRect = dropdown.getBoundingClientRect();
         const viewportHeight = window.innerHeight;
-        const dropdownHeight = dropdown.offsetHeight;
 
         // Check if dropdown extends below viewport or pagination area
         const paginationBar = document.querySelector('.pagination, [class*="pagination"], .border-t');
-        let bottomThreshold = viewportHeight - 100; // Default bottom margin
+        let bottomThreshold = viewportHeight - 20; // Small bottom margin
 
         if (paginationBar) {
             const paginationRect = paginationBar.getBoundingClientRect();
             bottomThreshold = Math.min(bottomThreshold, paginationRect.top - 10);
         }
 
-        // If dropdown would be clipped, position it upward
-        if (rect.bottom > bottomThreshold) {
-            console.log('Dropdown would be clipped, positioning upward');
+        // Position dropdown above or below trigger
+        if (triggerRect.bottom + dropdownRect.height > bottomThreshold) {
+            // Position above trigger
+            console.log('Positioning dropdown above trigger to avoid clipping');
+            dropdown.style.top = (triggerRect.top - dropdownRect.height - 4) + 'px';
             dropdown.classList.add('dropdown-up');
-
-            // Add styles for upward positioning
-            const parentRect = dropdown.parentElement.getBoundingClientRect();
-            dropdown.style.bottom = '100%';
-            dropdown.style.top = 'auto';
-            dropdown.style.marginBottom = '4px';
-            dropdown.style.marginTop = '0';
         } else {
+            // Position below trigger
+            dropdown.style.top = (triggerRect.bottom + 4) + 'px';
             dropdown.classList.remove('dropdown-up');
-            dropdown.style.top = '100%';
-            dropdown.style.bottom = 'auto';
-            dropdown.style.marginTop = '4px';
-            dropdown.style.marginBottom = '0';
+        }
+
+        // Ensure dropdown doesn't go off-screen horizontally
+        if (triggerRect.left + dropdownRect.width > window.innerWidth) {
+            dropdown.style.left = (window.innerWidth - dropdownRect.width - 10) + 'px';
+        }
+    },
+
+    /**
+     * Restore dropdown to its original parent when closing
+     */
+    restoreDropdownToOriginalParent(dropdown) {
+        const originalParentId = dropdown.getAttribute('data-original-parent');
+        if (originalParentId && originalParentId !== 'no-id' && dropdown.parentElement === document.body) {
+            const originalParent = document.getElementById(originalParentId);
+            if (originalParent) {
+                originalParent.appendChild(dropdown);
+                dropdown.removeAttribute('data-original-parent');
+
+                // Reset positioning styles
+                dropdown.style.position = '';
+                dropdown.style.left = '';
+                dropdown.style.top = '';
+                dropdown.style.bottom = '';
+                dropdown.style.minWidth = '';
+            }
         }
     },
 
@@ -242,10 +273,11 @@ function initializeHTMXEventHandlers() {
 
     // Close dropdowns when clicking outside
     document.addEventListener('click', function(event) {
-        if (!event.target.closest('[onclick*="toggleDropdown"]') && 
+        if (!event.target.closest('[onclick*="toggleDropdown"]') &&
             !event.target.closest('[id^="dropdown-"]')) {
             document.querySelectorAll('[id^="dropdown-"]').forEach(dropdown => {
                 dropdown.classList.add('hidden');
+                ClaimsApp.utils.restoreDropdownToOriginalParent(dropdown);
             });
         }
         
