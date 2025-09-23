@@ -727,24 +727,45 @@ document.addEventListener('DOMContentLoaded', function() {
                             elements[0].click();
                             found = true;
 
-                            // After switching to price models tab, trigger data loading
+                            // After switching to price models tab, wait for it to fully load before triggering data
                             setTimeout(() => {
-                                console.log('Triggering price models data load...');
+                                console.log('Checking if price models tab is active...');
 
-                                // Look for and trigger price model filter apply or data load
-                                const priceFilterApply = document.querySelector('#apply-price-filters-btn, [onclick*="applyPriceFilters"], [hx-get*="price-models"]');
-                                if (priceFilterApply) {
-                                    console.log('Clicking price filter apply button');
-                                    priceFilterApply.click();
-                                } else {
-                                    // Try to find a PBM filter and trigger it
-                                    const pbmFilter = document.querySelector('#price-filters-container select[name*="pbm"], #price-filters-container select[name*="PBM"]');
-                                    if (pbmFilter && pbmFilter.value) {
-                                        console.log('Triggering change event on PBM filter to load data');
-                                        pbmFilter.dispatchEvent(new Event('change', { bubbles: true }));
+                                // Verify price models container is visible
+                                const priceModelsContainer = document.querySelector('#price-models-container');
+                                const priceFiltersContainer = document.querySelector('#price-filters-container');
+
+                                if (priceModelsContainer && priceFiltersContainer) {
+                                    console.log('Price models containers found, triggering data load...');
+
+                                    // Try to find price model filter apply button
+                                    const priceFilterApply = document.querySelector('#apply-price-filters-btn');
+                                    if (priceFilterApply) {
+                                        console.log('Found price filter apply button, clicking...');
+                                        priceFilterApply.click();
+                                    } else {
+                                        // Try to find PBM filter in price filters container
+                                        const pbmFilter = document.querySelector('#price-filters-container select[name*="pbm_filter"], #price-filters-container select');
+                                        if (pbmFilter && pbmFilter.value) {
+                                            console.log('Found PBM filter in price container, triggering change...');
+                                            pbmFilter.dispatchEvent(new Event('change', { bubbles: true }));
+                                        } else {
+                                            console.log('No price filter triggers found, containers may still be loading...');
+
+                                            // Try again after more delay
+                                            setTimeout(() => {
+                                                const retryApply = document.querySelector('#apply-price-filters-btn');
+                                                if (retryApply) {
+                                                    console.log('Retry: clicking price filter apply button');
+                                                    retryApply.click();
+                                                }
+                                            }, 1000);
+                                        }
                                     }
+                                } else {
+                                    console.log('Price models containers not found yet, tab switch may not be complete');
                                 }
-                            }, 500); // Wait for tab switch to complete
+                            }, 1000); // Increased delay to ensure tab switch completes
                             break;
                         }
                     } catch (e) {
