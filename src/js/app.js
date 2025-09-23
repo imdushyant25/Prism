@@ -299,6 +299,7 @@ function initializeHTMXEventHandlers() {
             // Initialize condition builder when edit modal loads
             if (evt.detail.target && evt.detail.target.id === 'modal-content') {
                 setTimeout(function() {
+                    // Check if this is an edit modal (has conditions textarea with existing content)
                     const conditionsTextarea = document.getElementById('conditions-textarea');
                     if (conditionsTextarea) {
                         const existingConditions = conditionsTextarea.value || conditionsTextarea.textContent || conditionsTextarea.innerHTML;
@@ -306,6 +307,12 @@ function initializeHTMXEventHandlers() {
                         if (existingConditions && existingConditions.trim() !== '' && existingConditions !== 'null') {
                             populateConditionBuilder(existingConditions);
                         }
+                    }
+
+                    // Check if this is an add modal (has add_rule_form)
+                    const addRuleForm = document.getElementById('add-rule-form');
+                    if (addRuleForm) {
+                        initializeAddRuleModal();
                     }
                 }, 500);
             }
@@ -1889,6 +1896,48 @@ window.initializeEditModalConditionBuilder = function() {
             }
         }
     }, 100);
+};
+
+// Function to initialize add rule modal with defaults
+window.initializeAddRuleModal = function() {
+    // Set current date as effective from date
+    const effectiveFromInput = document.getElementById('add_effective_from');
+    if (effectiveFromInput) {
+        const currentDate = new Date().toISOString().split('T')[0];
+        effectiveFromInput.value = currentDate;
+    }
+
+    // Generate priority based on rule type when rule type changes
+    const ruleTypeSelect = document.querySelector('#add-rule-form select[name="rule_type"]');
+    const priorityInput = document.getElementById('add_priority');
+
+    function updatePriorityBasedOnRuleType() {
+        if (ruleTypeSelect && priorityInput) {
+            const ruleType = ruleTypeSelect.value;
+            let priority;
+
+            if (ruleType === 'SIMPLE') {
+                // Random priority less than 800 (100-799)
+                priority = Math.floor(Math.random() * 700) + 100;
+            } else if (ruleType === 'COMPLEX') {
+                // Random priority greater than 800 (801-1000)
+                priority = Math.floor(Math.random() * 200) + 801;
+            } else {
+                // Default fallback
+                priority = 500;
+            }
+
+            priorityInput.value = priority;
+        }
+    }
+
+    // Set initial priority
+    updatePriorityBasedOnRuleType();
+
+    // Update priority when rule type changes
+    if (ruleTypeSelect) {
+        ruleTypeSelect.addEventListener('change', updatePriorityBasedOnRuleType);
+    }
 };
 
 // Function to show existing conditions when editing a rule
