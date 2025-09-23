@@ -263,17 +263,24 @@ ClaimsApp.actions = {
                     // Show success notification
                     ClaimsApp.utils.showNotification('Rule deleted successfully!', 'success');
 
-                    // Manually refresh the rules table by reapplying current filters
+                    // Preserve enrichment rules filter state and reload
                     setTimeout(() => {
-                        console.log('Refreshing rules table after deletion...');
-                        // Trigger a filter refresh which will reload the table with current filter state
-                        const applyButton = document.querySelector('#apply-filters-btn');
-                        if (applyButton) {
-                            applyButton.click();
-                        } else {
-                            // Fallback: reload page if filter apply button not found
-                            window.location.reload();
-                        }
+                        console.log('Preserving enrichment rules filter state...');
+
+                        const currentUrl = new URL(window.location.href);
+                        currentUrl.searchParams.set('activeTab', 'rules');
+
+                        // Capture current enrichment rules filter values
+                        const rulesFilters = document.querySelectorAll('#filters-container input, #filters-container select, #filter-body input, #filter-body select');
+                        rulesFilters.forEach(filter => {
+                            if (filter.value && filter.name) {
+                                currentUrl.searchParams.set(`rules_${filter.name}`, filter.value);
+                                console.log(`Preserving rules filter: ${filter.name} = ${filter.value}`);
+                            }
+                        });
+
+                        console.log('Reloading with preserved rules state:', currentUrl.toString());
+                        window.location.href = currentUrl.toString();
                     }, 1000); // Small delay to show the success message
                 })
                 .catch((error) => {
@@ -690,7 +697,43 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Try immediately and with retries
         const attemptTabRestore = (attempt = 1) => {
-            if (savedTab === 'price-models') {
+            if (savedTab === 'rules') {
+                console.log(`Attempt ${attempt}: Restoring enrichment rules tab...`);
+
+                // For rules, we don't need to click a tab since it's the default
+                // Just restore the filter values and trigger data loading
+                setTimeout(() => {
+                    console.log('Restoring enrichment rules filter state...');
+
+                    const urlParams = new URLSearchParams(window.location.search);
+                    let filtersRestored = false;
+
+                    // Restore enrichment rules filter values
+                    urlParams.forEach((value, key) => {
+                        if (key.startsWith('rules_')) {
+                            const filterName = key.replace('rules_', '');
+                            const filterElement = document.querySelector(`#filters-container [name="${filterName}"], #filter-body [name="${filterName}"]`);
+                            if (filterElement) {
+                                console.log(`Restoring rules filter: ${filterName} = ${value}`);
+                                filterElement.value = value;
+                                filtersRestored = true;
+                            }
+                        }
+                    });
+
+                    // After restoring filters, trigger data load
+                    if (filtersRestored) {
+                        setTimeout(() => {
+                            const applyButton = document.querySelector('#apply-filters-btn');
+                            if (applyButton) {
+                                console.log('Triggering rules data load with restored filters...');
+                                applyButton.click();
+                            }
+                        }, 500);
+                    }
+                }, 500);
+
+            } else if (savedTab === 'price-models') {
                 console.log(`Attempt ${attempt}: Restoring price models tab...`);
 
                 // Look for common patterns for price model tabs
@@ -736,35 +779,56 @@ document.addEventListener('DOMContentLoaded', function() {
                                 const priceFiltersContainer = document.querySelector('#price-filters-container');
 
                                 if (priceModelsContainer && priceFiltersContainer) {
-                                    console.log('Price models containers found, triggering data load...');
+                                    console.log('Price models containers found, restoring filter state...');
 
-                                    // Try to find price model filter apply button
-                                    const priceFilterApply = document.querySelector('#apply-price-filters-btn');
-                                    if (priceFilterApply) {
-                                        console.log('Found price filter apply button, clicking...');
-                                        priceFilterApply.click();
-                                    } else {
-                                        // Try direct HTMX request to load price models
-                                        const pbmFilter = document.querySelector('#price-filters-container select[name*="pbm_filter"], #price-filters-container select');
-                                        if (pbmFilter && pbmFilter.value) {
-                                            console.log('Found PBM filter with value:', pbmFilter.value);
-                                            console.log('Making direct HTMX request to load price models...');
+                                    // Restore price model filter values from URL parameters
+                                    const urlParams = new URLSearchParams(window.location.search);
+                                    let filtersRestored = false;
 
-                                            // Make direct request to price models endpoint with current filter
-                                            htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models?pbm_filter=${pbmFilter.value}`, {
-                                                target: '#price-models-container',
-                                                swap: 'innerHTML'
-                                            });
-                                        } else {
-                                            console.log('PBM filter not found or no value, trying default load...');
-
-                                            // Try loading without filters
-                                            htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models', {
-                                                target: '#price-models-container',
-                                                swap: 'innerHTML'
-                                            });
+                                    urlParams.forEach((value, key) => {
+                                        if (key.startsWith('price_')) {
+                                            const filterName = key.replace('price_', '');
+                                            const filterElement = document.querySelector(`#price-filters-container [name="${filterName}"]`);
+                                            if (filterElement) {
+                                                console.log(`Restoring price filter: ${filterName} = ${value}`);
+                                                filterElement.value = value;
+                                                filtersRestored = true;
+                                            }
                                         }
-                                    }
+                                    });
+
+                                    // After restoring filters, trigger data load
+                                    setTimeout(() => {
+                                        console.log('Triggering price models data load with restored filters...');
+
+                                        // Try to find price model filter apply button
+                                        const priceFilterApply = document.querySelector('#apply-price-filters-btn');
+                                        if (priceFilterApply) {
+                                            console.log('Found price filter apply button, clicking...');
+                                            priceFilterApply.click();
+                                        } else {
+                                            // Try direct HTMX request to load price models
+                                            const pbmFilter = document.querySelector('#price-filters-container select[name*="pbm_filter"], #price-filters-container select');
+                                            if (pbmFilter && pbmFilter.value) {
+                                                console.log('Found PBM filter with value:', pbmFilter.value);
+                                                console.log('Making direct HTMX request to load price models...');
+
+                                                // Make direct request to price models endpoint with current filter
+                                                htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models?pbm_filter=${pbmFilter.value}`, {
+                                                    target: '#price-models-container',
+                                                    swap: 'innerHTML'
+                                                });
+                                            } else {
+                                                console.log('PBM filter not found or no value, trying default load...');
+
+                                                // Try loading without filters
+                                                htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models', {
+                                                    target: '#price-models-container',
+                                                    swap: 'innerHTML'
+                                                });
+                                            }
+                                        }
+                                    }, 500); // Wait for filter restoration
                                 } else {
                                     console.log('Price models containers not found yet, tab switch may not be complete');
                                 }
@@ -1241,13 +1305,22 @@ if (typeof window.deletePriceModel === 'undefined') {
                     setTimeout(() => {
                         console.log('Refreshing price models after deletion...');
 
-                        // Add tab parameter to URL to preserve price models tab state
-                        console.log('Preserving price models tab state...');
+                        // Preserve price models tab and filter state
+                        console.log('Preserving price models tab and filter state...');
 
                         const currentUrl = new URL(window.location.href);
                         currentUrl.searchParams.set('activeTab', 'price-models');
 
-                        console.log('Reloading with price models tab parameter:', currentUrl.toString());
+                        // Capture current price model filter values
+                        const priceFilters = document.querySelectorAll('#price-filters-container input, #price-filters-container select');
+                        priceFilters.forEach(filter => {
+                            if (filter.value && filter.name) {
+                                currentUrl.searchParams.set(`price_${filter.name}`, filter.value);
+                                console.log(`Preserving price filter: ${filter.name} = ${filter.value}`);
+                            }
+                        });
+
+                        console.log('Reloading with preserved state:', currentUrl.toString());
                         window.location.href = currentUrl.toString();
                     }, 1000); // Small delay to show the success message
                 })
