@@ -3,6 +3,8 @@
  * Claims Enrichment Rules Management System
  */
 
+console.log('🚀 ClaimsApp JavaScript starting to load...');
+
 // Global namespace for the app
 window.ClaimsApp = window.ClaimsApp || {};
 
@@ -380,7 +382,20 @@ function initializeHTMXEventHandlers() {
 ClaimsApp.actions = {
     editRule(ruleId) {
         console.log('Edit rule:', ruleId);
+        console.log('About to open edit modal - testing condition builder');
+
+        // Open the modal first
         ClaimsApp.modal.openEditModal(ruleId);
+
+        // Try to initialize condition builder after modal loads
+        setTimeout(function() {
+            console.log('Attempting to initialize condition builder after modal load...');
+            if (typeof window.initializeEditModalConditionBuilder === 'function') {
+                window.initializeEditModalConditionBuilder();
+            } else {
+                console.log('initializeEditModalConditionBuilder function not found');
+            }
+        }, 1000);
     },
 
     cloneRule(ruleId) {
