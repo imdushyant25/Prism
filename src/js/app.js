@@ -297,17 +297,23 @@ function initializeHTMXEventHandlers() {
             }
 
             // Initialize condition builder when edit modal loads
-            if (evt.detail.target && evt.detail.target.id === 'modal-container') {
+            if (evt.detail.target && evt.detail.target.id === 'modal-content') {
+                console.log('Edit modal content loaded via HTMX, initializing condition builder...');
                 setTimeout(function() {
                     const conditionsTextarea = document.getElementById('conditions-textarea');
                     if (conditionsTextarea) {
                         const existingConditions = conditionsTextarea.value;
+                        console.log('Found conditions textarea with value:', existingConditions);
                         if (existingConditions && existingConditions.trim() !== '' && existingConditions !== 'null') {
                             console.log('HTMX modal loaded - populating condition builder with:', existingConditions);
                             populateConditionBuilder(existingConditions);
+                        } else {
+                            console.log('No existing conditions to populate or conditions are empty/null');
                         }
+                    } else {
+                        console.log('Conditions textarea not found in loaded modal');
                     }
-                }, 300); // Longer delay to ensure all modal elements are rendered
+                }, 500); // Longer delay to ensure all modal elements are rendered
             }
         } else {
             console.error('HTMX request failed:', evt.detail);
