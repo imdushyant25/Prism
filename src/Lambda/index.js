@@ -24,6 +24,19 @@ async function getTemplate(key) {
 }
 
 function renderTemplate(template, data) {
+    // Handle conditional blocks {{#KEY}} content {{/KEY}}
+    template = template.replace(/\{\{#(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (match, key, content) => {
+        const value = data[key];
+        return (value && value !== false && value !== 0 && value !== '' && value !== null && value !== undefined) ? content : '';
+    });
+
+    // Handle inverted conditional blocks {{^KEY}} content {{/KEY}}
+    template = template.replace(/\{\{\^(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (match, key, content) => {
+        const value = data[key];
+        return (!value || value === false || value === 0 || value === '' || value === null || value === undefined) ? content : '';
+    });
+
+    // Handle simple variable substitution {{KEY}}
     return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
         const value = data[key];
         // Handle null/undefined values gracefully
