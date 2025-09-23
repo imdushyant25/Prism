@@ -676,11 +676,17 @@ document.addEventListener('DOMContentLoaded', function() {
         ClaimsApp.filters.initializeFilters();
     }
 
-    // Check if we need to restore a specific tab after page reload
-    const savedTab = sessionStorage.getItem('activeTab');
+    // Check if we need to restore a specific tab from URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const savedTab = urlParams.get('activeTab');
+
     if (savedTab) {
-        console.log('Restoring saved tab:', savedTab);
-        sessionStorage.removeItem('activeTab'); // Clear it after use
+        console.log('Restoring tab from URL parameter:', savedTab);
+
+        // Remove the parameter from URL to clean it up
+        urlParams.delete('activeTab');
+        const cleanUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+        window.history.replaceState({}, '', cleanUrl);
 
         // Try immediately and with retries
         const attemptTabRestore = (attempt = 1) => {
@@ -763,11 +769,17 @@ if (document.readyState === 'loading') {
         ClaimsApp.filters.initializeFilters();
     }
 
-    // Check for tab restoration here too
-    const savedTab = sessionStorage.getItem('activeTab');
+    // Check for tab restoration from URL parameter here too
+    const urlParams = new URLSearchParams(window.location.search);
+    const savedTab = urlParams.get('activeTab');
+
     if (savedTab === 'price-models') {
-        console.log('Restoring saved tab immediately:', savedTab);
-        sessionStorage.removeItem('activeTab');
+        console.log('Restoring tab from URL parameter (immediate):', savedTab);
+
+        // Clean up URL
+        urlParams.delete('activeTab');
+        const cleanUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+        window.history.replaceState({}, '', cleanUrl);
 
         setTimeout(() => {
             console.log('Attempting to restore price models tab (immediate)...');
@@ -1169,24 +1181,14 @@ if (typeof window.deletePriceModel === 'undefined') {
                     setTimeout(() => {
                         console.log('Refreshing price models after deletion...');
 
-                        // Try to find and preserve the active tab state
-                        const priceModelTab = document.querySelector('[onclick*="showPriceModels"], [onclick*="price"], .tab-button[data-tab="price"]');
-                        const rulesTab = document.querySelector('[onclick*="showRules"], [onclick*="rules"], .tab-button[data-tab="rules"]');
+                        // Add tab parameter to URL to preserve price models tab state
+                        console.log('Preserving price models tab state...');
 
-                        if (priceModelTab) {
-                            // Ensure price model tab stays active
-                            console.log('Maintaining price model tab state');
+                        const currentUrl = new URL(window.location.href);
+                        currentUrl.searchParams.set('activeTab', 'price-models');
 
-                            // Store current state before reload
-                            sessionStorage.setItem('activeTab', 'price-models');
-                            window.location.reload();
-                        } else {
-                            // Fallback approach - try direct HTMX refresh
-                            htmx.ajax('GET', window.location.href, {
-                                target: 'body',
-                                swap: 'innerHTML'
-                            });
-                        }
+                        console.log('Reloading with price models tab parameter:', currentUrl.toString());
+                        window.location.href = currentUrl.toString();
                     }, 1000); // Small delay to show the success message
                 })
                 .catch((error) => {
