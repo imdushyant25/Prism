@@ -1258,6 +1258,67 @@ const handler = async (event) => {
             }
         }
 
+        // Handle make active request
+        if (method === 'POST' && event.queryStringParameters?.action === 'makeactive') {
+            console.log('✅ Make active request received');
+            const ruleId = event.queryStringParameters?.id;
+
+            if (!ruleId) {
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: '<div class="text-red-600">Rule ID required for activation</div>'
+                };
+            }
+
+            try {
+                // Ensure client is connected
+                if (!client._connected) {
+                    await client.connect();
+                }
+
+                console.log('🔄 Attempting to activate rule:', ruleId);
+
+                // Update rule to set is_active = true
+                const updateResult = await client.query(
+                    'UPDATE application.prism_enrichment_rules SET is_active = true WHERE rule_id = $1 AND is_active = false',
+                    [ruleId]
+                );
+
+                if (updateResult.rowCount > 0) {
+                    console.log('✅ Rule activated successfully:', ruleId);
+                    await client.end();
+
+                    return {
+                        statusCode: 200,
+                        headers: { ...headers, 'HX-Trigger': 'ruleActivated' },
+                        body: '<div class="text-green-600">Rule activated successfully!</div>'
+                    };
+                } else {
+                    console.log('❌ Rule not found or already active:', ruleId);
+                    await client.end();
+                    return {
+                        statusCode: 400,
+                        headers,
+                        body: '<div class="text-red-600">Rule not found or already active</div>'
+                    };
+                }
+
+            } catch (error) {
+                console.error('❌ Make active error:', error);
+                try {
+                    await client.end();
+                } catch (e) {
+                    console.error('Error closing client:', e);
+                }
+                return {
+                    statusCode: 500,
+                    headers,
+                    body: `<div class="text-red-600">Error activating rule: ${error.message}</div>`
+                };
+            }
+        }
+
         // Handle rule deletion
         if (method === 'POST' && (path.includes('/delete') || event.queryStringParameters?.action === 'delete')) {
             console.log('🗑️ Delete request received');
@@ -1315,71 +1376,6 @@ const handler = async (event) => {
                     statusCode: 400,
                     headers,
                     body: `<div class="text-red-600">Error deleting rule: ${error.message}</div>`
-                };
-            }
-        }
-
-        // Handle rule reactivation
-        if (method === 'POST' && event.queryStringParameters?.action === 'makeActive') {
-            console.log('🔄 Make active rule request received');
-            const ruleId = event.queryStringParameters?.id;
-
-            if (!ruleId) {
-                console.log('❌ No rule ID provided');
-                return {
-                    statusCode: 400,
-                    headers,
-                    body: '<div class="text-red-600">Rule ID required for activation</div>'
-                };
-            }
-
-            try {
-                // Ensure client is connected
-                if (!client._connected) {
-                    await client.connect();
-                }
-
-                console.log('🔄 Attempting to activate rule:', ruleId);
-
-                // Update rule to set is_active = true
-                const updateResult = await client.query(
-                    'UPDATE application.prism_enrichment_rules SET is_active = true WHERE rule_id = $1 AND is_active = false',
-                    [ruleId]
-                );
-
-                if (updateResult.rowCount > 0) {
-                    console.log('✅ Rule activated successfully:', ruleId);
-
-                    // Return refreshed rules table
-                    const rulesHTML = await generateRulesHTML(client);
-                    await client.end();
-
-                    return {
-                        statusCode: 200,
-                        headers: { ...headers, 'HX-Trigger': 'ruleActivated' },
-                        body: rulesHTML
-                    };
-                } else {
-                    console.log('❌ Rule not found or already active:', ruleId);
-                    await client.end();
-                    return {
-                        statusCode: 400,
-                        headers,
-                        body: '<div class="text-red-600">Rule not found or already active</div>'
-                    };
-                }
-
-            } catch (error) {
-                console.error('❌ Make active error:', error);
-                try {
-                    await client.end();
-                } catch (e) {
-                    console.error('❌ Error closing connection:', e);
-                }
-                return {
-                    statusCode: 500,
-                    headers,
-                    body: `<div class="text-red-600">Error activating rule: ${error.message}</div>`
                 };
             }
         }
@@ -1589,8 +1585,6 @@ const handler = async (event) => {
         
         // Generate rows using row template
         const rulesHTML = result.rows.map((rule, index) => {
-            console.log(`🔍 Rule ${rule.rule_id}: is_active = ${rule.is_active} (type: ${typeof rule.is_active})`);
-
             const rowData = {
                 ROW_CLASS: index % 2 === 0 ? 'bg-white' : 'bg-gray-50',
                 RULE_ID: rule.rule_id,
@@ -1604,17 +1598,7 @@ const handler = async (event) => {
                 IS_ACTIVE: rule.is_active
             };
 
-            console.log(`🔍 Rule ${rule.rule_id}: is_active = ${rule.is_active} (type: ${typeof rule.is_active})`);
-            console.log(`🔍 rowData.IS_ACTIVE = ${rowData.IS_ACTIVE} (type: ${typeof rowData.IS_ACTIVE})`);
-
-            const renderedRow = renderTemplate(rowTemplate, rowData);
-
-            // Log template conditional results
-            const hasEditDelete = renderedRow.includes('Edit Rule');
-            const hasMakeActive = renderedRow.includes('Make Active');
-            console.log(`🔍 Rule ${rule.rule_id}: Edit/Delete=${hasEditDelete}, Make Active=${hasMakeActive}`);
-
-            return renderedRow;
+            return renderTemplate(rowTemplate, rowData);
         }).join('');
         
         // Calculate pagination - handle zero results properly
