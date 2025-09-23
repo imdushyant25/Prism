@@ -744,22 +744,25 @@ document.addEventListener('DOMContentLoaded', function() {
                                         console.log('Found price filter apply button, clicking...');
                                         priceFilterApply.click();
                                     } else {
-                                        // Try to find PBM filter in price filters container
+                                        // Try direct HTMX request to load price models
                                         const pbmFilter = document.querySelector('#price-filters-container select[name*="pbm_filter"], #price-filters-container select');
                                         if (pbmFilter && pbmFilter.value) {
-                                            console.log('Found PBM filter in price container, triggering change...');
-                                            pbmFilter.dispatchEvent(new Event('change', { bubbles: true }));
-                                        } else {
-                                            console.log('No price filter triggers found, containers may still be loading...');
+                                            console.log('Found PBM filter with value:', pbmFilter.value);
+                                            console.log('Making direct HTMX request to load price models...');
 
-                                            // Try again after more delay
-                                            setTimeout(() => {
-                                                const retryApply = document.querySelector('#apply-price-filters-btn');
-                                                if (retryApply) {
-                                                    console.log('Retry: clicking price filter apply button');
-                                                    retryApply.click();
-                                                }
-                                            }, 1000);
+                                            // Make direct request to price models endpoint with current filter
+                                            htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models?pbm_filter=${pbmFilter.value}`, {
+                                                target: '#price-models-container',
+                                                swap: 'innerHTML'
+                                            });
+                                        } else {
+                                            console.log('PBM filter not found or no value, trying default load...');
+
+                                            // Try loading without filters
+                                            htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-models', {
+                                                target: '#price-models-container',
+                                                swap: 'innerHTML'
+                                            });
                                         }
                                     }
                                 } else {
