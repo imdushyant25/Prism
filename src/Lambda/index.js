@@ -1589,6 +1589,8 @@ const handler = async (event) => {
         
         // Generate rows using row template
         const rulesHTML = result.rows.map((rule, index) => {
+            console.log(`🔍 Rule ${rule.rule_id}: is_active = ${rule.is_active} (type: ${typeof rule.is_active})`);
+
             const rowData = {
                 ROW_CLASS: index % 2 === 0 ? 'bg-white' : 'bg-gray-50',
                 RULE_ID: rule.rule_id,
@@ -1601,8 +1603,18 @@ const handler = async (event) => {
                 CONDITIONS: rule.conditions?.substring(0, 50) + '...' || 'No condition',
                 IS_ACTIVE: rule.is_active
             };
-            
-            return renderTemplate(rowTemplate, rowData);
+
+            console.log(`🔍 Rule ${rule.rule_id}: is_active = ${rule.is_active} (type: ${typeof rule.is_active})`);
+            console.log(`🔍 rowData.IS_ACTIVE = ${rowData.IS_ACTIVE} (type: ${typeof rowData.IS_ACTIVE})`);
+
+            const renderedRow = renderTemplate(rowTemplate, rowData);
+
+            // Log template conditional results
+            const hasEditDelete = renderedRow.includes('Edit Rule');
+            const hasMakeActive = renderedRow.includes('Make Active');
+            console.log(`🔍 Rule ${rule.rule_id}: Edit/Delete=${hasEditDelete}, Make Active=${hasMakeActive}`);
+
+            return renderedRow;
         }).join('');
         
         // Calculate pagination - handle zero results properly
