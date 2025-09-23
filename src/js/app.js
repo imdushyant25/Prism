@@ -43,7 +43,7 @@ ClaimsApp.utils = {
     },
 
     /**
-     * Toggle dropdown menus
+     * Toggle dropdown menus with smart positioning
      */
     toggleDropdown(dropdownId) {
         // Close all other dropdowns first
@@ -52,11 +52,59 @@ ClaimsApp.utils = {
                 dropdown.classList.add('hidden');
             }
         });
-        
+
         // Toggle the clicked dropdown
         const dropdown = document.getElementById(dropdownId);
         if (dropdown) {
+            const isHidden = dropdown.classList.contains('hidden');
             dropdown.classList.toggle('hidden');
+
+            if (isHidden) {
+                // Dropdown is being shown, fix positioning
+                this.positionDropdown(dropdown);
+            }
+        }
+    },
+
+    /**
+     * Smart dropdown positioning to avoid being hidden by pagination
+     */
+    positionDropdown(dropdown) {
+        // Ensure dropdown has high z-index
+        dropdown.style.zIndex = '9999';
+        dropdown.style.position = 'absolute';
+
+        // Get dropdown and viewport dimensions
+        const rect = dropdown.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const dropdownHeight = dropdown.offsetHeight;
+
+        // Check if dropdown extends below viewport or pagination area
+        const paginationBar = document.querySelector('.pagination, [class*="pagination"], .border-t');
+        let bottomThreshold = viewportHeight - 100; // Default bottom margin
+
+        if (paginationBar) {
+            const paginationRect = paginationBar.getBoundingClientRect();
+            bottomThreshold = Math.min(bottomThreshold, paginationRect.top - 10);
+        }
+
+        // If dropdown would be clipped, position it upward
+        if (rect.bottom > bottomThreshold) {
+            console.log('Dropdown would be clipped, positioning upward');
+            dropdown.classList.add('dropdown-up');
+
+            // Add styles for upward positioning
+            const parentRect = dropdown.parentElement.getBoundingClientRect();
+            dropdown.style.bottom = '100%';
+            dropdown.style.top = 'auto';
+            dropdown.style.marginBottom = '4px';
+            dropdown.style.marginTop = '0';
+        } else {
+            dropdown.classList.remove('dropdown-up');
+            dropdown.style.top = '100%';
+            dropdown.style.bottom = 'auto';
+            dropdown.style.marginTop = '4px';
+            dropdown.style.marginBottom = '0';
         }
     },
 
