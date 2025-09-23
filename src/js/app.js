@@ -726,6 +726,25 @@ document.addEventListener('DOMContentLoaded', function() {
                             console.log(`Found price models tab with selector: ${selector}`);
                             elements[0].click();
                             found = true;
+
+                            // After switching to price models tab, trigger data loading
+                            setTimeout(() => {
+                                console.log('Triggering price models data load...');
+
+                                // Look for and trigger price model filter apply or data load
+                                const priceFilterApply = document.querySelector('#apply-price-filters-btn, [onclick*="applyPriceFilters"], [hx-get*="price-models"]');
+                                if (priceFilterApply) {
+                                    console.log('Clicking price filter apply button');
+                                    priceFilterApply.click();
+                                } else {
+                                    // Try to find a PBM filter and trigger it
+                                    const pbmFilter = document.querySelector('#price-filters-container select[name*="pbm"], #price-filters-container select[name*="PBM"]');
+                                    if (pbmFilter && pbmFilter.value) {
+                                        console.log('Triggering change event on PBM filter to load data');
+                                        pbmFilter.dispatchEvent(new Event('change', { bubbles: true }));
+                                    }
+                                }
+                            }, 500); // Wait for tab switch to complete
                             break;
                         }
                     } catch (e) {
@@ -804,6 +823,23 @@ if (document.readyState === 'loading') {
                         console.log(`Found price models tab (immediate): ${selector}`);
                         element.click();
                         found = true;
+
+                        // After switching to price models tab, trigger data loading
+                        setTimeout(() => {
+                            console.log('Triggering price models data load (immediate)...');
+
+                            const priceFilterApply = document.querySelector('#apply-price-filters-btn, [onclick*="applyPriceFilters"], [hx-get*="price-models"]');
+                            if (priceFilterApply) {
+                                console.log('Clicking price filter apply button (immediate)');
+                                priceFilterApply.click();
+                            } else {
+                                const pbmFilter = document.querySelector('#price-filters-container select[name*="pbm"], #price-filters-container select[name*="PBM"]');
+                                if (pbmFilter && pbmFilter.value) {
+                                    console.log('Triggering PBM filter change (immediate)');
+                                    pbmFilter.dispatchEvent(new Event('change', { bubbles: true }));
+                                }
+                            }
+                        }, 500);
                         break;
                     }
                 } catch (e) {
