@@ -271,6 +271,12 @@ function initializeHTMXEventHandlers() {
     });
 
     document.body.addEventListener('htmx:afterRequest', function(evt) {
+        console.log('HTMX afterRequest fired:', {
+            successful: evt.detail.successful,
+            target: evt.detail.target ? evt.detail.target.id : 'no target',
+            url: evt.detail.xhr ? evt.detail.xhr.responseURL : 'no URL'
+        });
+
         if (evt.detail.successful) {
             console.log('HTMX request successful');
             
@@ -1784,6 +1790,26 @@ window.clearAllConditions = function() {
     if (fieldSelect) fieldSelect.value = '';
     if (operatorSelect) operatorSelect.value = '=';
     if (valueInput) valueInput.value = '';
+};
+
+// Function to initialize edit modal condition builder (called directly from modal)
+window.initializeEditModalConditionBuilder = function() {
+    console.log('initializeEditModalConditionBuilder called directly');
+    setTimeout(function() {
+        const conditionsTextarea = document.getElementById('conditions-textarea');
+        if (conditionsTextarea) {
+            const existingConditions = conditionsTextarea.value;
+            console.log('Direct call - Found conditions textarea with value:', existingConditions);
+            if (existingConditions && existingConditions.trim() !== '' && existingConditions !== 'null') {
+                console.log('Direct call - populating condition builder with:', existingConditions);
+                populateConditionBuilder(existingConditions);
+            } else {
+                console.log('Direct call - No existing conditions to populate');
+            }
+        } else {
+            console.log('Direct call - Conditions textarea not found');
+        }
+    }, 100);
 };
 
 // Function to populate condition builder with existing conditions (for edit mode)

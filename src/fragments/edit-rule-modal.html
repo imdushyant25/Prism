@@ -306,4 +306,17 @@
         </div>
 </div>
 
+<script>
+// Initialize condition builder when modal template loads
+if (typeof initializeEditModalConditionBuilder === 'function') {
+    initializeEditModalConditionBuilder();
+} else {
+    // Fallback if function not yet available
+    setTimeout(function() {
+        if (typeof initializeEditModalConditionBuilder === 'function') {
+            initializeEditModalConditionBuilder();
+        }
+    }, 500);
+}
+</script>
 
