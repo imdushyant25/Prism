@@ -1,0 +1,75 @@
+<tr class="border-b hover:bg-blue-50 transition-colors">
+    <td class="px-4 py-4"><input type="checkbox" class="rounded" value="{{MODEL_ID}}"></td>
+    <td class="px-6 py-4">
+        <div class="text-sm font-medium text-gray-900">{{MODEL_NAME}}</div>
+        <div class="text-xs text-gray-500 mt-1">
+            {{STATUS_BADGE}} • Created {{CREATED_DATE}} {{#CREATED_BY}}by {{CREATED_BY}}{{/CREATED_BY}}
+        </div>
+        {{#MODEL_DESCRIPTION}}
+        <div class="text-xs text-gray-600 mt-2 max-w-md">{{MODEL_DESCRIPTION}}</div>
+        {{/MODEL_DESCRIPTION}}
+    </td>
+    <td class="px-6 py-4">
+        <div class="text-xs text-gray-700 leading-relaxed">
+            {{CRITERIA_SUMMARY}}
+        </div>
+    </td>
+    <td class="px-6 py-4">
+        <div class="text-sm text-gray-900 font-medium">{{RECORD_COUNT}}</div>
+        <div class="text-xs text-gray-500">NDCs</div>
+    </td>
+    <td class="px-6 py-4">
+        <div class="flex items-center justify-center">
+            <div class="relative inline-block text-left">
+                <button onclick="toggleDropdown('clinical-dropdown-{{MODEL_ID}}')" class="inline-flex items-center justify-center w-8 h-8 bg-white rounded-full border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <svg class="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
+                    </svg>
+                </button>
+
+                <!-- Dropdown menu -->
+                <div id="clinical-dropdown-{{MODEL_ID}}" class="hidden absolute right-0 z-10 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200">
+                    <div class="py-1">
+                        <button onclick="configureClinicalModel('{{MODEL_ID}}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <svg class="w-4 h-4 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            </svg>
+                            Configure Model
+                        </button>
+                        <button onclick="viewClinicalModel('{{MODEL_ID}}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <svg class="w-4 h-4 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
+                            View NDCs
+                        </button>
+                        <hr class="my-1">
+                        {{#IS_ACTIVE}}
+                        <button onclick="deactivateClinicalModel('{{MODEL_ID}}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <svg class="w-4 h-4 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728"></path>
+                            </svg>
+                            Deactivate
+                        </button>
+                        {{/IS_ACTIVE}}
+                        {{^IS_ACTIVE}}
+                        <button onclick="activateClinicalModel('{{MODEL_ID}}')" class="flex items-center w-full px-4 py-2 text-sm text-green-700 hover:bg-green-50">
+                            <svg class="w-4 h-4 mr-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Activate
+                        </button>
+                        {{/IS_ACTIVE}}
+                        <button onclick="deleteClinicalModel('{{MODEL_ID}}')" class="flex items-center w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50">
+                            <svg class="w-4 h-4 mr-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                            Delete Model
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </td>
+</tr>

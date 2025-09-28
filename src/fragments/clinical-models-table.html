@@ -1,0 +1,79 @@
+<!-- Clinical Models Table -->
+<div class="bg-white rounded-lg border overflow-hidden shadow-sm">
+
+    <!-- Table Header with Bulk Actions -->
+    <div class="px-6 py-4 border-b bg-gray-50 flex justify-between items-center">
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2">
+                <input type="checkbox" id="select-all-clinical-models" class="rounded">
+                <label for="select-all-clinical-models" class="text-sm font-medium text-gray-700">Select All</label>
+            </div>
+            <div id="clinical-bulk-actions" class="hidden flex items-center gap-2">
+                <button onclick="bulkDeleteClinicalModels()"
+                        class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                    Delete Selected
+                </button>
+                <button onclick="bulkActivateClinicalModels()"
+                        class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Activate Selected
+                </button>
+            </div>
+        </div>
+        <div>
+            <button onclick="openAddClinicalModelModal()"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Add New Model
+            </button>
+        </div>
+    </div>
+
+    <table class="min-w-full">
+        <thead class="bg-gray-50">
+            <tr class="border-b">
+                <th class="px-4 py-3 text-left w-12">
+                    <span class="sr-only">Select</span>
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Model Details
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Criteria Summary
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    NDC Count
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                </th>
+            </tr>
+        </thead>
+        <tbody id="clinical-models-tbody" class="bg-white divide-y divide-gray-200">
+            {{TABLE_ROWS}}
+        </tbody>
+    </table>
+
+    <!-- Table Footer with Pagination -->
+    <div class="bg-white px-6 py-3 border-t flex items-center justify-between">
+        <div class="text-sm text-gray-700">
+            Showing <span class="font-medium">{{START_RANGE}}</span> to <span class="font-medium">{{END_RANGE}}</span> of <span class="font-medium">{{TOTAL_COUNT}}</span> models
+        </div>
+        <div class="flex items-center gap-2">
+            <button class="px-3 py-1 border rounded text-sm text-gray-500 hover:bg-gray-50" disabled>
+                Previous
+            </button>
+            <span class="px-3 py-1 bg-blue-600 text-white rounded text-sm">1</span>
+            <button class="px-3 py-1 border rounded text-sm text-gray-500 hover:bg-gray-50" disabled>
+                Next
+            </button>
+        </div>
+    </div>
+</div>
