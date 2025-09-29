@@ -2147,7 +2147,26 @@ window.toggleDropdown = function(dropdownId) {
     // Toggle the clicked dropdown
     const dropdown = document.getElementById(dropdownId);
     if (dropdown) {
+        const isHidden = dropdown.classList.contains('hidden');
         dropdown.classList.toggle('hidden');
+
+        if (!isHidden) {
+            // Being hidden, reset positioning
+            dropdown.classList.remove('bottom-full', 'mb-2');
+            dropdown.classList.add('mt-2');
+        } else {
+            // Being shown, check positioning
+            setTimeout(() => {
+                const rect = dropdown.getBoundingClientRect();
+                const viewportHeight = window.innerHeight;
+
+                // If dropdown would overflow bottom of viewport, position it above
+                if (rect.bottom > viewportHeight - 20) {
+                    dropdown.classList.remove('mt-2');
+                    dropdown.classList.add('bottom-full', 'mb-2');
+                }
+            }, 10);
+        }
     }
 };
 
