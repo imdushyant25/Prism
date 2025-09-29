@@ -2248,44 +2248,65 @@ window.deleteClinicalModel = function(modelId) {
     }
 };
 
-// Clinical Model Modal Functions (already exist in modal.js but adding for completeness)
+// Clinical Model Modal Functions (using existing modal system)
 window.openAddClinicalModelModal = function() {
     console.log('Opening add clinical model modal...');
-    const modal = document.getElementById('clinical-model-modal');
-    if (modal) {
-        modal.style.display = 'flex';
-        document.body.classList.add('modal-open');
 
-        // Load the add model form
-        htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?component=add-model', {
-            target: '#clinical-model-modal .bg-white',
-            swap: 'innerHTML'
-        });
+    // Close any open dropdowns first
+    document.querySelectorAll('[id^="clinical-dropdown-"]').forEach(dropdown => {
+        dropdown.classList.add('hidden');
+    });
+
+    const modal = document.getElementById('rule-modal');
+    const modalContent = document.getElementById('modal-content');
+
+    // Clear previous content first
+    if (modalContent) {
+        console.log('🧹 Clearing previous modal content');
+        modalContent.innerHTML = `
+            <div class="p-8 text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p class="text-gray-600">Loading clinical model form...</p>
+            </div>
+        `;
     }
+
+    if (modal) {
+        modal.classList.add('show');
+        // Prevent background scroll
+        document.body.classList.add('modal-open');
+        document.body.style.overflow = 'hidden';
+    }
+
+    // Load the add clinical model form
+    htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?component=add-model', {
+        target: '#modal-content',
+        swap: 'innerHTML'
+    }).then(() => {
+        console.log('✅ Clinical model form loaded successfully');
+    }).catch((error) => {
+        console.error('❌ Failed to load clinical model form:', error);
+        if (modalContent) {
+            modalContent.innerHTML = `
+                <div class="p-8 text-center text-red-600">
+                    <p>Failed to load clinical model form. Please try again.</p>
+                    <button onclick="closeModal()" class="mt-4 px-4 py-2 bg-gray-500 text-white rounded">Close</button>
+                </div>
+            `;
+        }
+    });
 };
 
 window.closeClinicalModelModal = function() {
-    const modal = document.getElementById('clinical-model-modal');
+    const modal = document.getElementById('rule-modal');
     if (modal) {
-        modal.style.display = 'none';
+        modal.classList.remove('show');
         document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
     }
 };
 
-// Close clinical model modal when clicking outside
-document.addEventListener('click', function(event) {
-    const modal = document.getElementById('clinical-model-modal');
-    if (modal && event.target === modal) {
-        closeClinicalModelModal();
-    }
-});
-
-// Close clinical model modal with ESC key
-document.addEventListener('keydown', function(event) {
-    if (event.key === 'Escape') {
-        closeClinicalModelModal();
-    }
-});
+// Note: Modal close functionality is handled by the existing modal system in modal.js
 
 // Close all dropdowns when clicking outside
 document.addEventListener('click', function(event) {

@@ -524,8 +524,12 @@ const handler = async (event) => {
                     <script>
                         // Close modal and reload the clinical models list
                         setTimeout(() => {
-                            document.getElementById('clinical-model-modal').style.display = 'none';
-                            document.body.classList.remove('modal-open');
+                            const modal = document.getElementById('rule-modal');
+                            if (modal) {
+                                modal.classList.remove('show');
+                                document.body.classList.remove('modal-open');
+                                document.body.style.overflow = '';
+                            }
                             // Trigger reload of clinical models
                             htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models', {
                                 target: '#clinical-models-container',
