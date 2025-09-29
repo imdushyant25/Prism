@@ -2279,7 +2279,7 @@ window.openAddClinicalModelModal = function() {
     }
 
     // Load the add clinical model form
-    htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?component=add-model', {
+    htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?component=add', {
         target: '#modal-content',
         swap: 'innerHTML'
     }).then(() => {
