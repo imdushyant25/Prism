@@ -234,6 +234,85 @@ async function deactivateClinicalModel(client, modelId) {
     }
 }
 
+// Get system configuration data (PBM options)
+async function getSystemConfig(client) {
+    try {
+        const configQuery = `
+            SELECT config_type,
+                json_agg(
+                    json_build_object(
+                        'code', config_code,
+                        'name', display_name,
+                        'is_default', is_default
+                    ) ORDER BY display_order
+                ) as options
+            FROM application.prism_system_config
+            WHERE config_type = 'pbm'
+              AND is_active = true
+            GROUP BY config_type
+        `;
+
+        const result = await client.query(configQuery);
+        const configData = {};
+
+        result.rows.forEach(row => {
+            configData[row.config_type] = row.options;
+        });
+
+        return configData;
+
+    } catch (error) {
+        console.error('Failed to get system config:', error);
+        throw error;
+    }
+}
+
+// Generate PBM options HTML
+function generatePBMOptions(pbmOptions) {
+    if (!pbmOptions || pbmOptions.length === 0) {
+        return '<option value="">No PBMs available</option>';
+    }
+
+    return pbmOptions.map(pbm =>
+        `<option value="${pbm.code}">${pbm.name}</option>`
+    ).join('');
+}
+
+// Generate add clinical model modal HTML
+async function generateAddModelHTML(client) {
+    try {
+        console.log('🔄 Starting generateAddModelHTML...');
+
+        console.log('📄 Loading S3 template: clinical-model-add.html');
+        const addTemplate = await getTemplate('clinical-model-add.html');
+        console.log('✅ Template loaded, length:', addTemplate.length);
+
+        console.log('⚙️ Getting system config for PBM options...');
+        const systemConfig = await getSystemConfig(client);
+        console.log('✅ System config loaded:', Object.keys(systemConfig));
+        console.log('🔍 PBM data:', systemConfig.pbm);
+
+        const pbmOptions = generatePBMOptions(systemConfig.pbm || []);
+        console.log('✅ Generated PBM options HTML, length:', pbmOptions.length);
+        console.log('🔍 PBM options HTML:', pbmOptions);
+
+        const templateData = {
+            PBM_OPTIONS: pbmOptions
+        };
+        console.log('📋 Template data prepared:', templateData);
+
+        const renderedHTML = renderTemplate(addTemplate, templateData);
+        console.log('✅ Template rendered successfully, final length:', renderedHTML.length);
+
+        return renderedHTML;
+
+    } catch (error) {
+        console.error('💥 Failed to generate add model HTML:', error);
+        console.error('💥 Error stack:', error.stack);
+        throw error;
+    }
+}
+
 // Main Lambda handler
 const handler = async (event) => {
     console.log('🚀 Clinical Modeling Lambda Event:', JSON.stringify(event, null, 2));
@@ -373,8 +452,40 @@ const handler = async (event) => {
             }
         }
 
-        // Handle GET requests for clinical models list (simplified - handle all GETs)
+        // Handle GET requests
         if (method === 'GET') {
+            // Handle component requests
+            if (queryParams.component === 'add') {
+                console.log('🆕 Loading add model modal...');
+                try {
+                    const addHTML = await generateAddModelHTML(client);
+                    console.log('✅ Add modal HTML generated successfully, length:', addHTML.length);
+                    return {
+                        statusCode: 200,
+                        headers: {
+                            'Content-Type': 'text/html',
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                        },
+                        body: addHTML
+                    };
+                } catch (error) {
+                    console.error('💥 Error generating add modal HTML:', error);
+                    return {
+                        statusCode: 500,
+                        headers: {
+                            'Content-Type': 'text/html',
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                        },
+                        body: `<div class="text-red-600">Error loading modal: ${error.message}</div>`
+                    };
+                }
+            }
+
+            // Default: load clinical models list
             console.log('📊 Loading clinical models...');
 
             const models = await getClinicalModels(client);

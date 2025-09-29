@@ -228,6 +228,71 @@ async function deactivateClinicalModel(client, modelId) {
     }
 }
 
+// Get system configuration data (PBM options)
+async function getSystemConfig(client) {
+    try {
+        const configQuery = `
+            SELECT config_type,
+                json_agg(
+                    json_build_object(
+                        'code', config_code,
+                        'name', display_name,
+                        'is_default', is_default
+                    ) ORDER BY display_order
+                ) as options
+            FROM application.prism_system_config
+            WHERE config_type = 'pbm'
+              AND is_active = true
+            GROUP BY config_type
+        `;
+
+        const result = await client.query(configQuery);
+        const configData = {};
+
+        result.rows.forEach(row => {
+            configData[row.config_type] = row.options;
+        });
+
+        return configData;
+
+    } catch (error) {
+        console.error('Failed to get system config:', error);
+        throw error;
+    }
+}
+
+// Generate PBM options HTML
+function generatePBMOptions(pbmOptions) {
+    if (!pbmOptions || pbmOptions.length === 0) {
+        return '<option value="">No PBMs available</option>';
+    }
+
+    return pbmOptions.map(pbm =>
+        `<option value="${pbm.code}">${pbm.name}</option>`
+    ).join('');
+}
+
+// Generate add clinical model modal HTML
+async function generateAddModelHTML(client) {
+    try {
+        const addTemplate = await getTemplate('clinical-model-add.html');
+
+        // Get PBM options from system config
+        const systemConfig = await getSystemConfig(client);
+        const pbmOptions = generatePBMOptions(systemConfig.pbm || []);
+
+        const templateData = {
+            PBM_OPTIONS: pbmOptions
+        };
+
+        return renderTemplate(addTemplate, templateData);
+
+    } catch (error) {
+        console.error('Failed to generate add model HTML:', error);
+        throw error;
+    }
+}
+
 // Main Lambda handler
 const handler = async (event) => {
     console.log('🚀 Clinical Modeling Lambda Event:', JSON.stringify(event, null, 2));
@@ -341,10 +406,21 @@ const handler = async (event) => {
             }
         }
 
-        // Handle GET requests for clinical models list
+        // Handle GET requests
         if (method === 'GET') {
-            console.log('📊 Loading clinical models...');
+            // Handle component requests
+            if (queryParams.component === 'add') {
+                console.log('🆕 Loading add model modal...');
+                const addHTML = await generateAddModelHTML(client);
+                return {
+                    statusCode: 200,
+                    headers,
+                    body: addHTML
+                };
+            }
 
+            // Default: load clinical models list
+            console.log('📊 Loading clinical models...');
             const models = await getClinicalModels(client);
             const modelsHTML = await generateClinicalModelsHTML(client, models);
 

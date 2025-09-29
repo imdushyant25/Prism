@@ -1365,11 +1365,31 @@ window.openAddClinicalModelModal = function() {
         target: 'body',
         swap: 'beforeend'
     }).then(() => {
-        // Focus the modal for ESC key handling
+        console.log('Clinical model modal loaded successfully');
+
+        // Focus and show the modal
         const modal = document.getElementById('clinical-model-modal');
         if (modal) {
             modal.focus();
+            modal.style.display = 'flex';
+            console.log('Modal is now visible');
+
+            // Debug: Check if PBM dropdown has options
+            const pbmSelect = modal.querySelector('#pbm');
+            if (pbmSelect) {
+                console.log('PBM dropdown found with', pbmSelect.options.length, 'options');
+                for (let i = 0; i < pbmSelect.options.length; i++) {
+                    console.log('PBM option:', pbmSelect.options[i].value, pbmSelect.options[i].text);
+                }
+            } else {
+                console.error('PBM dropdown not found in modal');
+            }
+        } else {
+            console.error('Modal element not found after loading');
         }
+    }).catch(error => {
+        console.error('Error loading clinical model modal:', error);
+        document.body.style.overflow = '';
     });
 };
 
