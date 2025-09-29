@@ -2133,4 +2133,149 @@ window.cloneRule = function(ruleId) {
     });
 };
 
+// ==================== CLINICAL MODEL FUNCTIONS ====================
+
+// Global toggleDropdown function for clinical models
+window.toggleDropdown = function(dropdownId) {
+    // Close all other dropdowns first
+    document.querySelectorAll('[id^="clinical-dropdown-"]').forEach(dropdown => {
+        if (dropdown.id !== dropdownId) {
+            dropdown.classList.add('hidden');
+        }
+    });
+
+    // Toggle the clicked dropdown
+    const dropdown = document.getElementById(dropdownId);
+    if (dropdown) {
+        dropdown.classList.toggle('hidden');
+    }
+};
+
+// Clinical Model Action Functions
+window.configureClinicalModel = function(modelId) {
+    console.log('Configure clinical model:', modelId);
+    // Close dropdown
+    const dropdown = document.getElementById(`clinical-dropdown-${modelId}`);
+    if (dropdown) dropdown.classList.add('hidden');
+
+    // TODO: Implement configure model functionality
+    ClaimsApp.utils.showNotification('Configure model functionality coming soon...', 'info');
+};
+
+window.viewClinicalModel = function(modelId) {
+    console.log('View clinical model NDCs:', modelId);
+    // Close dropdown
+    const dropdown = document.getElementById(`clinical-dropdown-${modelId}`);
+    if (dropdown) dropdown.classList.add('hidden');
+
+    // TODO: Implement view NDCs functionality
+    ClaimsApp.utils.showNotification('View NDCs functionality coming soon...', 'info');
+};
+
+window.activateClinicalModel = function(modelId) {
+    console.log('Activate clinical model:', modelId);
+    // Close dropdown
+    const dropdown = document.getElementById(`clinical-dropdown-${modelId}`);
+    if (dropdown) dropdown.classList.add('hidden');
+
+    if (confirm('Are you sure you want to activate this clinical model?')) {
+        // Make HTMX request to activate
+        htmx.ajax('POST', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?action=activate&id=${modelId}`, {
+            target: '#clinical-models-container',
+            swap: 'innerHTML'
+        }).then(() => {
+            ClaimsApp.utils.showNotification('Clinical model activated successfully!', 'success');
+        }).catch(() => {
+            ClaimsApp.utils.showNotification('Failed to activate clinical model.', 'error');
+        });
+    }
+};
+
+window.deactivateClinicalModel = function(modelId) {
+    console.log('Deactivate clinical model:', modelId);
+    // Close dropdown
+    const dropdown = document.getElementById(`clinical-dropdown-${modelId}`);
+    if (dropdown) dropdown.classList.add('hidden');
+
+    if (confirm('Are you sure you want to deactivate this clinical model?')) {
+        // Make HTMX request to deactivate
+        htmx.ajax('POST', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?action=deactivate&id=${modelId}`, {
+            target: '#clinical-models-container',
+            swap: 'innerHTML'
+        }).then(() => {
+            ClaimsApp.utils.showNotification('Clinical model deactivated successfully!', 'success');
+        }).catch(() => {
+            ClaimsApp.utils.showNotification('Failed to deactivate clinical model.', 'error');
+        });
+    }
+};
+
+window.deleteClinicalModel = function(modelId) {
+    console.log('Delete clinical model:', modelId);
+    // Close dropdown
+    const dropdown = document.getElementById(`clinical-dropdown-${modelId}`);
+    if (dropdown) dropdown.classList.add('hidden');
+
+    if (confirm('Are you sure you want to delete this clinical model? This action cannot be undone.')) {
+        // Make HTMX request to delete
+        htmx.ajax('POST', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?action=delete&id=${modelId}`, {
+            target: '#clinical-models-container',
+            swap: 'innerHTML'
+        }).then(() => {
+            ClaimsApp.utils.showNotification('Clinical model deleted successfully!', 'success');
+        }).catch(() => {
+            ClaimsApp.utils.showNotification('Failed to delete clinical model.', 'error');
+        });
+    }
+};
+
+// Clinical Model Modal Functions (already exist in modal.js but adding for completeness)
+window.openAddClinicalModelModal = function() {
+    console.log('Opening add clinical model modal...');
+    const modal = document.getElementById('clinical-model-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.classList.add('modal-open');
+
+        // Load the add model form
+        htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?component=add-model', {
+            target: '#clinical-model-modal .bg-white',
+            swap: 'innerHTML'
+        });
+    }
+};
+
+window.closeClinicalModelModal = function() {
+    const modal = document.getElementById('clinical-model-modal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+};
+
+// Close clinical model modal when clicking outside
+document.addEventListener('click', function(event) {
+    const modal = document.getElementById('clinical-model-modal');
+    if (modal && event.target === modal) {
+        closeClinicalModelModal();
+    }
+});
+
+// Close clinical model modal with ESC key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeClinicalModelModal();
+    }
+});
+
+// Close all dropdowns when clicking outside
+document.addEventListener('click', function(event) {
+    // Check if click is outside any dropdown
+    if (!event.target.closest('.relative')) {
+        document.querySelectorAll('[id^="clinical-dropdown-"]').forEach(dropdown => {
+            dropdown.classList.add('hidden');
+        });
+    }
+});
+
 console.log('🚀 ClaimsApp utilities loaded');

@@ -278,6 +278,76 @@ function generatePBMOptions(pbmOptions) {
     ).join('');
 }
 
+// Get list types for a specific PBM
+async function getListTypes(client, pbm) {
+    try {
+        const listTypesQuery = `
+            SELECT config_code, display_name
+            FROM application.prism_system_config
+            WHERE config_level = 2
+              AND parent_code = $1
+              AND is_active = true
+            ORDER BY display_order
+        `;
+
+        const result = await client.query(listTypesQuery, [pbm]);
+        return result.rows;
+
+    } catch (error) {
+        console.error('Failed to get list types:', error);
+        throw error;
+    }
+}
+
+// Generate list type options HTML
+function generateListTypeOptions(listTypes) {
+    if (!listTypes || listTypes.length === 0) {
+        return '<option value="">No list types available</option>';
+    }
+
+    const defaultOption = '<option value="">Select list type...</option>';
+    const options = listTypes.map(listType =>
+        `<option value="${listType.config_code}">${listType.display_name}</option>`
+    ).join('');
+
+    return defaultOption + options;
+}
+
+// Get specific lists for a list type (like individual formularies)
+async function getSpecificLists(client, listType) {
+    try {
+        const specificListsQuery = `
+            SELECT config_code, display_name
+            FROM application.prism_system_config
+            WHERE config_level = 3
+              AND parent_code = $1
+              AND is_active = true
+            ORDER BY display_order
+        `;
+
+        const result = await client.query(specificListsQuery, [listType]);
+        return result.rows;
+
+    } catch (error) {
+        console.error('Failed to get specific lists:', error);
+        throw error;
+    }
+}
+
+// Generate specific list options HTML
+function generateSpecificListOptions(specificLists) {
+    if (!specificLists || specificLists.length === 0) {
+        return '<option value="">No specific lists available</option>';
+    }
+
+    const defaultOption = '<option value="">Select specific list...</option>';
+    const options = specificLists.map(list =>
+        `<option value="${list.config_code}">${list.display_name}</option>`
+    ).join('');
+
+    return defaultOption + options;
+}
+
 // Generate add clinical model modal HTML
 async function generateAddModelHTML(client) {
     try {
@@ -360,21 +430,135 @@ const handler = async (event) => {
             };
         }
 
-        // Handle add model form request
-        if (queryParams.component === 'add') {
-            console.log('➕ Loading add clinical model form...');
-            const addHTML = await generateAddModelHTML(client);
 
-            return {
-                statusCode: 200,
-                headers: {
-                    'Content-Type': 'text/html',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
-                },
-                body: addHTML
-            };
+        // Handle create model (POST request)
+        if (method === 'POST' && queryParams.action === 'create') {
+            console.log('🆕 Creating new clinical model...');
+            try {
+                // Parse form data from body
+                let formData = {};
+                if (event.body) {
+                    const params = new URLSearchParams(event.body);
+                    for (const [key, value] of params) {
+                        formData[key] = value;
+                    }
+                }
+                console.log('📋 Form data received:', formData);
+
+                // Extract model information
+                const modelName = formData.model_name;
+                const description = formData.description || null;
+                const pbm = formData.pbm;
+                const listType = formData.list_type;
+                const specificList = formData.specific_list || listType; // Use specific list if available, otherwise list type
+                const isActive = true; // All new models are active by default
+
+                if (!modelName || !pbm || !listType) {
+                    throw new Error('Model name, PBM, and list type are required');
+                }
+
+                // Extract criteria
+                const criteria = [];
+                let criteriaIndex = 0;
+                while (formData[`criteria[${criteriaIndex}][field_name]`]) {
+                    const fieldName = formData[`criteria[${criteriaIndex}][field_name]`];
+                    const operator = formData[`criteria[${criteriaIndex}][operator]`];
+                    const criteriaValue = formData[`criteria[${criteriaIndex}][criteria_value]`];
+                    const action = formData[`criteria[${criteriaIndex}][action]`];
+
+                    if (fieldName && operator && criteriaValue) {
+                        criteria.push({
+                            field_name: fieldName,
+                            operator: operator,
+                            criteria_value: criteriaValue,
+                            action: action || 'A'
+                        });
+                    }
+                    criteriaIndex++;
+                }
+
+                console.log('📝 Extracted criteria:', criteria);
+
+                // Insert model into database (only basic info)
+                const insertModelQuery = `
+                    INSERT INTO application.prism_clinical_models
+                    (model_name, description, is_active, created_at, updated_at)
+                    VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    RETURNING model_id
+                `;
+
+                const modelResult = await client.query(insertModelQuery, [
+                    modelName, description, isActive
+                ]);
+
+                const modelId = modelResult.rows[0].model_id;
+                console.log('✅ Model created with ID:', modelId);
+
+                // Insert criteria (includes PBM and formulary info)
+                for (const criterion of criteria) {
+                    const insertCriteriaQuery = `
+                        INSERT INTO application.prism_model_criteria
+                        (model_id, source_type, pbm, formulary_name, field_name, operator, criteria_value, action, created_at)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+                    `;
+
+                    await client.query(insertCriteriaQuery, [
+                        modelId,
+                        listType, // source_type (formulary, biosimilar, etc.)
+                        pbm, // pbm (CVS, ESI, etc.)
+                        specificList || listType, // formulary_name (specific formulary or list type)
+                        criterion.field_name,
+                        criterion.operator,
+                        criterion.criteria_value,
+                        criterion.action
+                    ]);
+                }
+
+                console.log('✅ All criteria inserted for model:', modelId);
+
+                // Return success message with redirect trigger
+                const successMessage = `
+                    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                        <strong>Success!</strong> Clinical model "${modelName}" has been created successfully.
+                    </div>
+                    <script>
+                        // Close modal and reload the clinical models list
+                        setTimeout(() => {
+                            document.getElementById('clinical-model-modal').style.display = 'none';
+                            document.body.classList.remove('modal-open');
+                            // Trigger reload of clinical models
+                            htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models', {
+                                target: '#clinical-models-container',
+                                swap: 'innerHTML'
+                            });
+                        }, 1500);
+                    </script>
+                `;
+
+                return {
+                    statusCode: 200,
+                    headers: {
+                        'Content-Type': 'text/html',
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                    },
+                    body: successMessage
+                };
+
+            } catch (error) {
+                console.error('💥 Error creating clinical model:', error);
+                return {
+                    statusCode: 500,
+                    headers: {
+                        'Content-Type': 'text/html',
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                    },
+                    body: `<div class="text-red-600">Error creating model: ${error.message}</div>`
+                };
+            }
         }
 
         // Handle delete model (POST request)
@@ -485,6 +669,70 @@ const handler = async (event) => {
                 }
             }
 
+            // Handle list-types component request
+            if (queryParams.component === 'list-types' && queryParams.pbm) {
+                console.log('📋 Loading list types for PBM:', queryParams.pbm);
+                try {
+                    const listTypes = await getListTypes(client, queryParams.pbm);
+                    const listTypeOptions = generateListTypeOptions(listTypes);
+                    console.log('✅ List type options generated, count:', listTypes.length);
+                    return {
+                        statusCode: 200,
+                        headers: {
+                            'Content-Type': 'text/html',
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                        },
+                        body: listTypeOptions
+                    };
+                } catch (error) {
+                    console.error('💥 Error loading list types:', error);
+                    return {
+                        statusCode: 500,
+                        headers: {
+                            'Content-Type': 'text/html',
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                        },
+                        body: '<option value="">Error loading list types</option>'
+                    };
+                }
+            }
+
+            // Handle specific-lists component request
+            if (queryParams.component === 'specific-lists' && queryParams.list_type) {
+                console.log('📋 Loading specific lists for list type:', queryParams.list_type);
+                try {
+                    const specificLists = await getSpecificLists(client, queryParams.list_type);
+                    const specificListOptions = generateSpecificListOptions(specificLists);
+                    console.log('✅ Specific list options generated, count:', specificLists.length);
+                    return {
+                        statusCode: 200,
+                        headers: {
+                            'Content-Type': 'text/html',
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                        },
+                        body: specificListOptions
+                    };
+                } catch (error) {
+                    console.error('💥 Error loading specific lists:', error);
+                    return {
+                        statusCode: 500,
+                        headers: {
+                            'Content-Type': 'text/html',
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                        },
+                        body: '<option value="">Error loading specific lists</option>'
+                    };
+                }
+            }
+
             // Default: load clinical models list
             console.log('📊 Loading clinical models...');
 
@@ -533,58 +781,6 @@ const handler = async (event) => {
     }
 };
 
-// Generate PBM options for dropdown
-async function generatePBMOptions(client) {
-    try {
-        const pbmQuery = `
-            SELECT DISTINCT pbm
-            FROM application.prism_pbm_formulary
-            ORDER BY pbm
-        `;
 
-        const result = await client.query(pbmQuery);
-
-        return result.rows.map(row =>
-            `<option value="${row.pbm}">${row.pbm}</option>`
-        ).join('');
-
-    } catch (error) {
-        console.error('Failed to get PBM options:', error);
-        return '<option value="">Error loading PBMs</option>';
-    }
-}
-
-// Generate add clinical model form HTML
-async function generateAddModelHTML(client) {
-    try {
-        const addTemplate = await getTemplate('clinical-model-add.html');
-        const pbmOptions = await generatePBMOptions(client);
-
-        const addData = {
-            PBM_OPTIONS: pbmOptions
-        };
-
-        return renderTemplate(addTemplate, addData);
-
-    } catch (error) {
-        console.error('Failed to generate add model form:', error);
-        // Return a simple fallback form if template fails
-        return `
-            <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-auto p-6">
-                <h2 class="text-xl font-bold mb-4">Add New Clinical Model</h2>
-                <form hx-post="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?action=create">
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Model Name</label>
-                        <input type="text" name="model_name" required class="w-full px-3 py-2 border border-gray-300 rounded-md">
-                    </div>
-                    <div class="flex justify-end space-x-3">
-                        <button type="button" onclick="closeModal()" class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md">Cancel</button>
-                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md">Create Model</button>
-                    </div>
-                </form>
-            </div>
-        `;
-    }
-}
 
 exports.handler = handler;
