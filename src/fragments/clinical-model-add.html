@@ -1,0 +1,257 @@
+<!-- Add Clinical Model Modal -->
+<div id="clinical-model-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-auto max-h-[90vh] overflow-y-auto">
+    <!-- Modal Header -->
+    <div class="px-6 py-4 border-b bg-gray-50 rounded-t-lg">
+        <div class="flex items-center justify-between">
+            <h2 class="text-xl font-bold text-gray-900">Add New Clinical Model</h2>
+            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 focus:outline-none">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal Content -->
+    <form hx-post="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?action=create"
+          hx-target="#clinical-models-container"
+          hx-swap="innerHTML">
+
+        <div class="px-6 py-4 space-y-6">
+
+            <!-- Basic Model Information -->
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Model Information</h3>
+
+                <!-- Model Name -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="model_name" class="block text-sm font-medium text-gray-700 mb-1">
+                            Model Name <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text"
+                               id="model_name"
+                               name="model_name"
+                               required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="e.g., Diabetes Model 2024">
+                    </div>
+
+                    <!-- Active Status -->
+                    <div class="flex items-center pt-6">
+                        <input type="checkbox"
+                               id="is_active"
+                               name="is_active"
+                               value="1"
+                               class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        <label for="is_active" class="ml-2 text-sm text-gray-700">
+                            Set as Active
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div class="mb-4">
+                    <label for="description" class="block text-sm font-medium text-gray-700 mb-1">
+                        Description
+                    </label>
+                    <textarea id="description"
+                              name="description"
+                              rows="3"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Optional description of the clinical model"></textarea>
+                </div>
+            </div>
+
+            <!-- Source Selection -->
+            <div class="bg-blue-50 p-4 rounded-lg">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Data Source</h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- PBM Selection -->
+                    <div>
+                        <label for="pbm" class="block text-sm font-medium text-gray-700 mb-1">
+                            PBM <span class="text-red-500">*</span>
+                        </label>
+                        <select id="pbm"
+                                name="pbm"
+                                required
+                                onchange="loadFormularies(this.value)"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select PBM...</option>
+                            {{PBM_OPTIONS}}
+                        </select>
+                    </div>
+
+                    <!-- Formulary Selection -->
+                    <div>
+                        <label for="formulary_name" class="block text-sm font-medium text-gray-700 mb-1">
+                            Formulary <span class="text-red-500">*</span>
+                        </label>
+                        <select id="formulary_name"
+                                name="formulary_name"
+                                required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select formulary...</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Criteria Section -->
+            <div class="bg-green-50 p-4 rounded-lg">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Initial Criteria</h3>
+                <p class="text-sm text-gray-600 mb-4">
+                    Define filtering criteria to select NDCs from the chosen formulary. You can add more criteria after creating the model.
+                </p>
+
+                <div id="criteria-container">
+                    <!-- First Criteria Row -->
+                    <div class="criteria-row grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Field</label>
+                            <select name="criteria[0][field_name]"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="gpi14">GPI 14</option>
+                                <option value="ndc11">NDC 11</option>
+                                <option value="drug_class">Drug Class</option>
+                                <option value="drug_name">Drug Name</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Operator</label>
+                            <select name="criteria[0][operator]"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="starts_with">Starts With</option>
+                                <option value="equals">Equals</option>
+                                <option value="contains">Contains</option>
+                                <option value="in">In List</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Value</label>
+                            <input type="text"
+                                   name="criteria[0][criteria_value]"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="e.g., 4">
+                        </div>
+
+                        <div class="flex items-end">
+                            <button type="button"
+                                    onclick="removeCriteriaRow(this)"
+                                    class="px-3 py-2 text-red-600 hover:text-red-800 focus:outline-none">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button"
+                        onclick="addCriteriaRow()"
+                        class="text-blue-600 hover:text-blue-800 text-sm flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Add Another Criteria
+                </button>
+            </div>
+
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-6 py-4 border-t bg-gray-50 rounded-b-lg flex justify-end space-x-3">
+            <button type="button"
+                    onclick="closeModal()"
+                    class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                Cancel
+            </button>
+            <button type="submit"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                Create Model
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+// Add criteria row functionality
+function addCriteriaRow() {
+    const container = document.getElementById('criteria-container');
+    const rowCount = container.querySelectorAll('.criteria-row').length;
+
+    const newRow = document.createElement('div');
+    newRow.className = 'criteria-row grid grid-cols-1 md:grid-cols-4 gap-4 mb-4';
+    newRow.innerHTML = `
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Field</label>
+            <select name="criteria[${rowCount}][field_name]"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="gpi14">GPI 14</option>
+                <option value="ndc11">NDC 11</option>
+                <option value="drug_class">Drug Class</option>
+                <option value="drug_name">Drug Name</option>
+            </select>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Operator</label>
+            <select name="criteria[${rowCount}][operator]"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="starts_with">Starts With</option>
+                <option value="equals">Equals</option>
+                <option value="contains">Contains</option>
+                <option value="in">In List</option>
+            </select>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Value</label>
+            <input type="text"
+                   name="criteria[${rowCount}][criteria_value]"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   placeholder="e.g., 4">
+        </div>
+
+        <div class="flex items-end">
+            <button type="button"
+                    onclick="removeCriteriaRow(this)"
+                    class="px-3 py-2 text-red-600 hover:text-red-800 focus:outline-none">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+            </button>
+        </div>
+    `;
+
+    container.appendChild(newRow);
+}
+
+function removeCriteriaRow(button) {
+    const container = document.getElementById('criteria-container');
+    if (container.querySelectorAll('.criteria-row').length > 1) {
+        button.closest('.criteria-row').remove();
+    }
+}
+
+// Load formularies based on selected PBM
+function loadFormularies(pbm) {
+    const formularySelect = document.getElementById('formulary_name');
+    formularySelect.innerHTML = '<option value="">Loading...</option>';
+
+    if (!pbm) {
+        formularySelect.innerHTML = '<option value="">Select formulary...</option>';
+        return;
+    }
+
+    // Make HTMX request to load formularies for the selected PBM
+    htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models/formularies?pbm=${pbm}`, {
+        target: '#formulary_name',
+        swap: 'innerHTML'
+    });
+}
+</script>

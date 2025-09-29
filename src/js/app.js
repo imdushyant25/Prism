@@ -1353,6 +1353,36 @@ window.closeAddModelModal = function() {
     document.body.style.overflow = '';
 };
 
+// Clinical Modeling Modal Functions
+window.openAddClinicalModelModal = function() {
+    console.log('Opening add clinical model modal');
+
+    // Prevent background scrolling
+    document.body.style.overflow = 'hidden';
+
+    // Load the add clinical model form via HTMX
+    htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?component=add', {
+        target: 'body',
+        swap: 'beforeend'
+    }).then(() => {
+        // Focus the modal for ESC key handling
+        const modal = document.getElementById('clinical-model-modal');
+        if (modal) {
+            modal.focus();
+        }
+    });
+};
+
+window.closeClinicalModelModal = function() {
+    const modal = document.getElementById('clinical-model-modal');
+    if (modal) {
+        modal.remove();
+    }
+
+    // Restore background scrolling
+    document.body.style.overflow = '';
+};
+
 window.editPriceModel = function(modelId) {
     console.log('Edit price model:', modelId);
 

@@ -105,9 +105,10 @@ async function getClinicalModels(client) {
 // Generate clinical models table HTML
 async function generateClinicalModelsHTML(client, models) {
     try {
-        const tableTemplate = await getTemplate('clinical-models-table.html');
+        console.log('🔍 generateClinicalModelsHTML called with', models.length, 'models');
 
         if (models.length === 0) {
+            console.log('🔍 No models found, returning empty state HTML');
             return `
                 <div class="bg-white rounded-lg border p-8">
                     <div class="text-center text-gray-500">
@@ -123,6 +124,10 @@ async function generateClinicalModelsHTML(client, models) {
                 </div>
             `;
         }
+
+        console.log('🔍 Models found, attempting to load S3 template...');
+        const tableTemplate = await getTemplate('clinical-models-table.html');
+        console.log('✅ S3 template loaded successfully');
 
         // Load the row template
         const rowTemplate = await getTemplate('clinical-models-row.html');
@@ -255,17 +260,41 @@ const handler = async (event) => {
         const method = event.httpMethod || event.requestContext?.http?.method || 'GET';
         const path = event.path || event.rawPath || event.resource || '/clinical-models';
         const queryParams = event.queryStringParameters || {};
+        const headers = event.headers || {};
 
         console.log(`🔍 Debug - Method: ${method}, Path: "${path}", Resource: "${event.resource}"`);
         console.log(`🔍 Debug - Full event keys:`, Object.keys(event));
+        console.log(`🔍 Debug - Headers:`, headers);
         console.log(`🔍 Query params:`, queryParams);
 
         // Handle CORS preflight requests
         if (method === 'OPTIONS') {
             return {
                 statusCode: 200,
-                headers,
+                headers: {
+                    'Content-Type': 'text/html',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                },
                 body: ''
+            };
+        }
+
+        // Handle add model form request
+        if (queryParams.component === 'add') {
+            console.log('➕ Loading add clinical model form...');
+            const addHTML = await generateAddModelHTML(client);
+
+            return {
+                statusCode: 200,
+                headers: {
+                    'Content-Type': 'text/html',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                },
+                body: addHTML
             };
         }
 
@@ -349,13 +378,24 @@ const handler = async (event) => {
             console.log('📊 Loading clinical models...');
 
             const models = await getClinicalModels(client);
-            const modelsHTML = await generateClinicalModelsHTML(client, models);
+            console.log('🔍 Got models from database, count:', models.length);
 
-            return {
+            console.log('🔍 Attempting to generate HTML...');
+            const modelsHTML = await generateClinicalModelsHTML(client, models);
+            console.log('✅ HTML generated successfully, length:', modelsHTML.length);
+
+            const response = {
                 statusCode: 200,
-                headers,
+                headers: {
+                    'Content-Type': 'text/html',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                },
                 body: modelsHTML
             };
+            console.log('🔍 Returning response with headers:', Object.keys(response.headers));
+            return response;
         }
 
         // Default response for unhandled routes
@@ -381,5 +421,59 @@ const handler = async (event) => {
         }
     }
 };
+
+// Generate PBM options for dropdown
+async function generatePBMOptions(client) {
+    try {
+        const pbmQuery = `
+            SELECT DISTINCT pbm
+            FROM application.prism_pbm_formulary
+            ORDER BY pbm
+        `;
+
+        const result = await client.query(pbmQuery);
+
+        return result.rows.map(row =>
+            `<option value="${row.pbm}">${row.pbm}</option>`
+        ).join('');
+
+    } catch (error) {
+        console.error('Failed to get PBM options:', error);
+        return '<option value="">Error loading PBMs</option>';
+    }
+}
+
+// Generate add clinical model form HTML
+async function generateAddModelHTML(client) {
+    try {
+        const addTemplate = await getTemplate('clinical-model-add.html');
+        const pbmOptions = await generatePBMOptions(client);
+
+        const addData = {
+            PBM_OPTIONS: pbmOptions
+        };
+
+        return renderTemplate(addTemplate, addData);
+
+    } catch (error) {
+        console.error('Failed to generate add model form:', error);
+        // Return a simple fallback form if template fails
+        return `
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-auto p-6">
+                <h2 class="text-xl font-bold mb-4">Add New Clinical Model</h2>
+                <form hx-post="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?action=create">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Model Name</label>
+                        <input type="text" name="model_name" required class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="closeModal()" class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md">Cancel</button>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md">Create Model</button>
+                    </div>
+                </form>
+            </div>
+        `;
+    }
+}
 
 exports.handler = handler;
