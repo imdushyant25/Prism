@@ -6,8 +6,11 @@ const s3 = new AWS.S3();
 // Cache templates
 let templateCache = {};
 
-async function getTemplate(key) {
-    if (templateCache[key]) return templateCache[key];
+async function getTemplate(key, bypassCache = false) {
+    // Check cache unless bypass is requested
+    if (!bypassCache && templateCache[key]) {
+        return templateCache[key];
+    }
 
     try {
         const obj = await s3.getObject({
@@ -23,12 +26,26 @@ async function getTemplate(key) {
     }
 }
 
+// Function to clear template cache (useful for development)
+function clearTemplateCache() {
+    templateCache = {};
+}
+
 function renderTemplate(template, data) {
     // Handle conditional blocks {{#KEY}} content {{/KEY}}
-    template = template.replace(/\{\{#(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (match, key, content) => {
-        const value = data[key];
-        return (value && value !== false && value !== 0 && value !== '' && value !== null && value !== undefined) ? content : '';
-    });
+    // Process multiple times to handle nested conditionals
+    let previousTemplate = '';
+    let iterations = 0;
+    const maxIterations = 5; // Prevent infinite loops
+
+    while (template !== previousTemplate && iterations < maxIterations) {
+        previousTemplate = template;
+        template = template.replace(/\{\{#(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (match, key, content) => {
+            const value = data[key];
+            return (value && value !== false && value !== 0 && value !== '' && value !== null && value !== undefined) ? content : '';
+        });
+        iterations++;
+    }
 
     // Handle inverted conditional blocks {{^KEY}} content {{/KEY}}
     template = template.replace(/\{\{\^(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (match, key, content) => {
@@ -36,8 +53,14 @@ function renderTemplate(template, data) {
         return (!value || value === false || value === 0 || value === '' || value === null || value === undefined) ? content : '';
     });
 
-    // Handle simple variable replacements {{KEY}}
-    template = template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+    // Handle triple-brace (unescaped) variable replacements {{{KEY}}}
+    template = template.replace(/\{\{\{(\w+)\}\}\}/g, (match, key) => {
+        const value = data[key];
+        return value !== undefined && value !== null ? String(value) : '';
+    });
+
+    // Handle simple variable replacements {{KEY}} - but NOT {{#KEY}} or {{/KEY}} or {{^KEY}}
+    template = template.replace(/\{\{([^#/^][\w]*)\}\}/g, (match, key) => {
         const value = data[key];
         return value !== undefined && value !== null ? String(value) : '';
     });
@@ -307,7 +330,8 @@ async function generateClinicalModelsHTML(client, models, filterOptions = null, 
                 MODEL_DESCRIPTION: modelDescription,
                 CRITERIA_SUMMARY: criteriaSummary,
                 LAST_EXECUTED_AT: model.last_executed_at ? new Date(model.last_executed_at).toLocaleDateString() : null,
-                IS_ACTIVE: model.is_active
+                IS_ACTIVE: model.is_active,
+                IS_EXECUTED: model.is_executed
             };
 
             return renderTemplate(rowTemplate, rowData);
@@ -1225,6 +1249,12 @@ const handler = async (event) => {
 
         // Handle GET requests
         if (method === 'GET') {
+            // Check for cache clear request
+            if (queryParams.clearCache === 'true') {
+                console.log('🗑️ Cache clear requested');
+                clearTemplateCache();
+            }
+
             // Handle component requests
             if (queryParams.component === 'add') {
                 console.log('🆕 Loading add model modal...');

@@ -2492,7 +2492,9 @@ window.activateClinicalModel = function(modelId) {
         },
         () => {
             console.log('User cancelled clinical model activation');
-        }
+        },
+        'Activate',  // confirmText
+        'bg-green-600 hover:bg-green-700 focus:ring-green-500'  // confirmClass
     );
 };
 
