@@ -2336,10 +2336,7 @@ window.deleteClinicalModel = function(modelId) {
 
             // Send delete request via fetch instead of HTMX to avoid targeting issues
             fetch(`https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?action=delete&id=${modelId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+                method: 'POST'
             })
             .then(response => response.json())
             .then(data => {
