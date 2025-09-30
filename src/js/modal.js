@@ -62,15 +62,18 @@ ClaimsApp.modal = {
      * Close the modal and clean up state
      */
     closeModal() {
+        console.log('🚪 closeModal() called in modal.js');
+        console.log('🔍 Refresh flag status:', window.clinicalModelNeedsRefresh);
+
         const modal = document.getElementById('rule-modal');
         const modalContent = document.getElementById('modal-content');
-        
+
         if (modal) {
             modal.classList.remove('show');
             // Re-enable body scroll
             document.body.classList.remove('modal-open');
             document.body.style.overflow = 'auto';
-            
+
             // Clear modal content to prevent caching issues
             if (modalContent) {
                 console.log('🧹 Clearing modal content to prevent cache issues');
@@ -80,12 +83,43 @@ ClaimsApp.modal = {
                     </div>
                 `;
             }
-            
+
             // Clear any global modal state
             if (window.modalState) {
                 console.log('🧹 Clearing modal state');
                 window.modalState = {};
             }
+        }
+
+        // Check if clinical models list needs refresh after configure modal actions
+        if (window.clinicalModelNeedsRefresh) {
+            console.log('🔄 Refreshing clinical models table...');
+
+            // Get current filter values to preserve them
+            const currentFilters = new URLSearchParams();
+            const form = document.getElementById('clinical-models-filters');
+            if (form) {
+                const formData = new FormData(form);
+                for (const [key, value] of formData.entries()) {
+                    if (value.trim() !== '') {
+                        currentFilters.append(key, value);
+                    }
+                }
+            }
+
+            // Refresh with current filters
+            const url = currentFilters.toString()
+                ? `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?${currentFilters.toString()}`
+                : 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models';
+
+            console.log('🌐 Refreshing URL:', url);
+            htmx.ajax('GET', url, {
+                target: '#clinical-models-container',
+                swap: 'innerHTML'
+            });
+            window.clinicalModelNeedsRefresh = false;
+        } else {
+            console.log('⏭️ No refresh needed (flag not set)');
         }
     },
 
