@@ -2384,6 +2384,71 @@ window.deleteClinicalModel = function(modelId) {
     );
 };
 
+// Activate clinical model function
+window.activateClinicalModel = function(modelId) {
+    console.log('Activate clinical model:', modelId);
+
+    // Close dropdown
+    const dropdown = document.getElementById(`clinical-dropdown-${modelId}`);
+    if (dropdown) dropdown.classList.add('hidden');
+
+    // Use custom confirmation dialog like delete
+    ClaimsApp.utils.showConfirmDialog(
+        'Confirm Activation',
+        'Are you sure you want to activate this clinical model? This will make it available for use.',
+        () => {
+            console.log('User confirmed activation for model:', modelId);
+
+            // Send activate request via fetch
+            fetch(`https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?action=activate&id=${modelId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Clinical model activate request completed successfully');
+
+                if (data.success) {
+                    // Show success notification
+                    ClaimsApp.utils.showNotification('Clinical model activated successfully!', 'success');
+
+                    // Refresh the clinical models table while preserving filters
+                    setTimeout(() => {
+                        console.log('Refreshing clinical models after activation...');
+
+                        // Get current filter values to preserve them
+                        const currentFilters = new URLSearchParams();
+                        const form = document.getElementById('clinical-models-filters');
+                        if (form) {
+                            const formData = new FormData(form);
+                            for (const [key, value] of formData.entries()) {
+                                if (value.trim() !== '') {
+                                    currentFilters.append(key, value);
+                                }
+                            }
+                        }
+
+                        // Refresh with current filters
+                        const url = `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?${currentFilters.toString()}`;
+                        htmx.ajax('GET', url, {
+                            target: '#clinical-models-container',
+                            swap: 'innerHTML'
+                        });
+                    }, 500);
+                } else {
+                    throw new Error(data.message || 'Activation failed');
+                }
+            })
+            .catch((error) => {
+                console.error('Failed to activate clinical model:', error);
+                ClaimsApp.utils.showNotification('Failed to activate clinical model. Please try again.', 'error');
+            });
+        },
+        () => {
+            console.log('User cancelled clinical model activation');
+        }
+    );
+};
+
 // Clinical Model Modal Functions (using existing modal system)
 window.openAddClinicalModelModal = function() {
     console.log('Opening add clinical model modal...');

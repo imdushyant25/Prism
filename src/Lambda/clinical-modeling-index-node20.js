@@ -1066,8 +1066,13 @@ const handler = async (event) => {
                     console.log('✅ Activated model:', modelId);
                     return {
                         statusCode: 200,
-                        headers,
-                        body: '<div class="text-green-600">Clinical model activated successfully!</div>'
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                        },
+                        body: JSON.stringify({ success: true, message: 'Clinical model activated successfully!' })
                     };
                 } else {
                     throw new Error('Model not found or already active');
@@ -1075,8 +1080,13 @@ const handler = async (event) => {
             } catch (error) {
                 return {
                     statusCode: 400,
-                    headers,
-                    body: `<div class="text-red-600">Error activating model: ${error.message}</div>`
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                    },
+                    body: JSON.stringify({ success: false, message: `Error activating model: ${error.message}` })
                 };
             }
         }
