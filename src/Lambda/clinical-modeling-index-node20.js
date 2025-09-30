@@ -622,6 +622,98 @@ async function generateAddModelHTML(client) {
     }
 }
 
+// Generate clone clinical model modal HTML
+async function generateCloneModelHTML(client, modelId) {
+    try {
+        console.log('🔄 Starting generateCloneModelHTML for model ID:', modelId);
+
+        // Get the original model with all its criteria
+        const modelQuery = `
+            SELECT
+                cm.*,
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'criteria_id', mc.criteria_id,
+                            'field_name', mc.field_name,
+                            'operator', mc.operator,
+                            'criteria_value', mc.criteria_value,
+                            'action', mc.action,
+                            'source_type', mc.source_type,
+                            'pbm', mc.pbm,
+                            'formulary_name', mc.formulary_name
+                        ) ORDER BY mc.created_at
+                    ) FILTER (WHERE mc.criteria_id IS NOT NULL),
+                    '[]'::json
+                ) as criteria
+            FROM application.prism_clinical_models cm
+            LEFT JOIN application.prism_model_criteria mc ON cm.model_id = mc.model_id
+            WHERE cm.model_id = $1
+            GROUP BY cm.model_id, cm.model_name, cm.description, cm.created_by,
+                     cm.created_at, cm.updated_at, cm.is_active, cm.last_executed_at, cm.is_executed
+        `;
+
+        console.log('🔍 Executing model query for clone...');
+        const modelResult = await client.query(modelQuery, [modelId]);
+
+        if (modelResult.rows.length === 0) {
+            throw new Error(`Model with ID ${modelId} not found`);
+        }
+
+        const originalModel = modelResult.rows[0];
+        console.log('✅ Original model loaded:', originalModel.model_name);
+        console.log('📋 Criteria count:', originalModel.criteria.length);
+
+        // Load the add template
+        console.log('📄 Loading S3 template: clinical-model-add.html');
+        const addTemplate = await getTemplate('clinical-model-add.html');
+
+        // Get system config for PBM options
+        console.log('⚙️ Getting system config for PBM options...');
+        const systemConfig = await getSystemConfig(client);
+        const pbmOptions = generatePBMOptions(systemConfig.pbm || []);
+
+        // Prepare template data with cloned model info
+        const clonedModelName = `${originalModel.model_name} (Copy)`;
+        const clonedDescription = originalModel.description || '';
+
+        const templateData = {
+            PBM_OPTIONS: pbmOptions,
+            MODEL_NAME: clonedModelName,
+            MODEL_DESCRIPTION: clonedDescription,
+            IS_CLONE: true,
+            ORIGINAL_MODEL_ID: modelId
+        };
+
+        console.log('📋 Template data prepared for clone:', templateData);
+
+        let renderedHTML = renderTemplate(addTemplate, templateData);
+
+        // If the original model has criteria, we need to pre-populate them in the modal
+        // Store them in a hidden script that will be executed when modal loads
+        if (originalModel.criteria && originalModel.criteria.length > 0) {
+            const criteriaJSON = JSON.stringify(originalModel.criteria);
+            const preloadScript = `
+                <script>
+                    // Pre-load cloned criteria data
+                    window.clonedCriteriaData = ${criteriaJSON};
+                    console.log('📋 Cloned criteria data loaded:', window.clonedCriteriaData.length, 'criteria');
+                </script>
+            `;
+            // Insert script before closing body or modal div
+            renderedHTML = renderedHTML.replace('</div>\n</div>', `${preloadScript}\n</div>\n</div>`);
+        }
+
+        console.log('✅ Clone template rendered successfully');
+        return renderedHTML;
+
+    } catch (error) {
+        console.error('💥 Failed to generate clone model HTML:', error);
+        console.error('💥 Error stack:', error.stack);
+        throw error;
+    }
+}
+
 // Generate configure model HTML
 async function generateConfigureModelHTML(client, modelId) {
     try {
@@ -689,7 +781,7 @@ async function generateConfigureModelHTML(client, modelId) {
 
         // Generate data sources HTML
         let dataSourcesHTML = '';
-        for (const [key, dataSource] of Object.entries(dataSourcesMap)) {
+        for (const [, dataSource] of Object.entries(dataSourcesMap)) {
             // Generate criteria HTML for this data source
             let criteriaHTML = '';
             dataSource.criteria.forEach(criterion => {
@@ -1282,6 +1374,37 @@ const handler = async (event) => {
                             'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
                         },
                         body: `<div class="text-red-600">Error loading modal: ${error.message}</div>`
+                    };
+                }
+            }
+
+            // Handle clone model requests
+            if (queryParams.component === 'clone' && queryParams.id) {
+                console.log('📋 Loading clone model modal for ID:', queryParams.id);
+                try {
+                    const cloneHTML = await generateCloneModelHTML(client, queryParams.id);
+                    console.log('✅ Clone modal HTML generated successfully, length:', cloneHTML.length);
+                    return {
+                        statusCode: 200,
+                        headers: {
+                            'Content-Type': 'text/html',
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                        },
+                        body: cloneHTML
+                    };
+                } catch (error) {
+                    console.error('💥 Error generating clone modal HTML:', error);
+                    return {
+                        statusCode: 500,
+                        headers: {
+                            'Content-Type': 'text/html',
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                        },
+                        body: `<div class="text-red-600">Error loading clone modal: ${error.message}</div>`
                     };
                 }
             }

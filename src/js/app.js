@@ -2431,6 +2431,30 @@ window.deleteClinicalModel = function(modelId) {
     );
 };
 
+// Clone clinical model function
+window.cloneClinicalModel = function(modelId) {
+    console.log('Clone clinical model:', modelId);
+
+    // Close dropdown
+    const dropdown = document.getElementById(`clinical-dropdown-${modelId}`);
+    if (dropdown) dropdown.classList.add('hidden');
+
+    // Prevent background scrolling
+    document.body.style.overflow = 'hidden';
+
+    // Load the add model form with pre-filled data from the model being cloned
+    htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?component=clone&id=${modelId}`, {
+        target: 'body',
+        swap: 'beforeend'
+    }).then(() => {
+        // Focus the modal for ESC key handling
+        const modal = document.getElementById('clinical-model-modal');
+        if (modal) {
+            modal.focus();
+        }
+    });
+};
+
 // Activate clinical model function
 window.activateClinicalModel = function(modelId) {
     console.log('Activate clinical model:', modelId);
