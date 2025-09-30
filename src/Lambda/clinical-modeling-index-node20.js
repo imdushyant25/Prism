@@ -45,22 +45,42 @@ function renderTemplate(template, data) {
     return template;
 }
 
-// Generate criteria summary for display
+// Generate criteria summary for display (Primary + Count approach)
 function generateCriteriaSummary(criteria) {
     if (!criteria || criteria.length === 0) return 'No criteria defined';
 
-    const summary = criteria.map(criterion => {
-        const operatorText = {
-            'starts_with': 'starts with',
-            'equals': 'equals',
-            'in': 'in',
-            'contains': 'contains'
-        }[criterion.operator] || criterion.operator;
-
-        return `${criterion.field_name} ${operatorText} ${criterion.criteria_value}`;
+    // Group criteria by data source (pbm + source_type + formulary_name)
+    const dataSourcesMap = {};
+    criteria.forEach(criterion => {
+        const key = `${criterion.pbm}|${criterion.source_type}|${criterion.formulary_name}`;
+        if (!dataSourcesMap[key]) {
+            dataSourcesMap[key] = {
+                pbm: criterion.pbm,
+                source_type: criterion.source_type,
+                formulary_name: criterion.formulary_name,
+                criteria: []
+            };
+        }
+        dataSourcesMap[key].criteria.push(criterion);
     });
 
-    return summary.join('<br>• ');
+    const dataSources = Object.values(dataSourcesMap);
+    const totalCriteria = criteria.length;
+
+    if (dataSources.length === 0) return 'No criteria defined';
+
+    // Get primary data source (first one)
+    const primarySource = dataSources[0];
+    const primaryDisplay = `${primarySource.pbm} ${primarySource.source_type}`;
+
+    if (dataSources.length === 1) {
+        // Single source: "CVS Formulary • 3 criteria"
+        return `${primaryDisplay} • ${totalCriteria} criteria`;
+    } else {
+        // Multiple sources: "CVS Formulary + 2 more • 8 criteria"
+        const additionalCount = dataSources.length - 1;
+        return `${primaryDisplay} + ${additionalCount} more • ${totalCriteria} criteria`;
+    }
 }
 
 // Get clinical models from database
@@ -450,22 +470,48 @@ async function generateConfigureModelHTML(client, modelId) {
         // Generate data sources HTML
         let dataSourcesHTML = '';
         for (const [key, dataSource] of Object.entries(dataSourcesMap)) {
-            const criteriaHTML = dataSource.criteria.map(criterion => ({
-                CRITERIA_ID: criterion.criteria_id,
-                FIELD_NAME: criterion.field_name.toUpperCase(),
-                OPERATOR: criterion.operator,
-                CRITERIA_VALUE: criterion.criteria_value,
-                ACTION_ADD: criterion.action === 'A',
-                ACTION_REMOVE: criterion.action === 'R'
-            }));
+            // Generate criteria HTML for this data source
+            let criteriaHTML = '';
+            dataSource.criteria.forEach(criterion => {
+                const actionClass = criterion.action === 'A' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+                const actionText = criterion.action === 'A' ? 'Add' : 'Remove';
 
+                criteriaHTML += `
+                    <div class="flex items-center justify-between bg-gray-50 px-3 py-2 rounded">
+                        <div class="flex items-center space-x-2 text-sm">
+                            <span class="font-medium text-gray-700">${criterion.field_name.toUpperCase()}</span>
+                            <span class="text-gray-500">${criterion.operator}</span>
+                            <span class="font-medium text-gray-900">${criterion.criteria_value}</span>
+                            <span class="px-2 py-1 text-xs rounded ${actionClass}">
+                                ${actionText}
+                            </span>
+                        </div>
+                        <div class="flex items-center space-x-1">
+                            <button onclick="editCriteria('${criterion.criteria_id}')"
+                                    class="text-blue-600 hover:text-blue-800 p-1" title="Edit">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                </svg>
+                            </button>
+                            <button onclick="deleteCriteria('${criterion.criteria_id}')"
+                                    class="text-red-600 hover:text-red-800 p-1" title="Delete">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Process each data source
             const dataSourceData = {
                 DATA_SOURCE_ID: dataSource.id,
                 PBM: dataSource.pbm,
                 SOURCE_TYPE: dataSource.source_type,
                 FORMULARY_NAME: dataSource.formulary_name,
                 CRITERIA_COUNT: dataSource.criteria.length,
-                CRITERIA: criteriaHTML
+                CRITERIA_HTML: criteriaHTML
             };
 
             dataSourcesHTML += renderTemplate(dataSourceTemplate, dataSourceData);
@@ -680,6 +726,120 @@ const handler = async (event) => {
                         'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
                     },
                     body: `<div class="text-red-600">Error creating model: ${error.message}</div>`
+                };
+            }
+        }
+
+        // Handle add data source to existing model (POST request)
+        if (method === 'POST' && queryParams.action === 'add-source') {
+            console.log('➕ Adding data source to existing model...');
+            try {
+                // Parse form data from body
+                let formData = {};
+                if (event.body) {
+                    const params = new URLSearchParams(event.body);
+                    for (const [key, value] of params) {
+                        formData[key] = value;
+                    }
+                }
+                console.log('📋 Add source form data received:', formData);
+
+                // Extract model ID and new source information
+                const modelId = formData.model_id;
+                const pbm = formData.new_pbm;
+                const listType = formData.new_list_type;
+                const specificList = formData.new_specific_list || listType;
+
+                if (!modelId || !pbm || !listType) {
+                    throw new Error('Model ID, PBM, and list type are required');
+                }
+
+                // Extract new criteria
+                const criteria = [];
+                let criteriaIndex = 0;
+                while (formData[`new_criteria[${criteriaIndex}][field_name]`]) {
+                    const fieldName = formData[`new_criteria[${criteriaIndex}][field_name]`];
+                    const operator = formData[`new_criteria[${criteriaIndex}][operator]`];
+                    const criteriaValue = formData[`new_criteria[${criteriaIndex}][criteria_value]`];
+                    const action = formData[`new_criteria[${criteriaIndex}][action]`];
+
+                    if (fieldName && operator && criteriaValue) {
+                        criteria.push({
+                            field_name: fieldName,
+                            operator: operator,
+                            criteria_value: criteriaValue,
+                            action: action || 'A'
+                        });
+                    }
+                    criteriaIndex++;
+                }
+
+                console.log('📝 Extracted new criteria for model:', modelId, criteria);
+
+                if (criteria.length === 0) {
+                    throw new Error('At least one criteria is required');
+                }
+
+                // Insert new criteria into database
+                for (const criterion of criteria) {
+                    const insertCriteriaQuery = `
+                        INSERT INTO application.prism_model_criteria
+                        (model_id, source_type, pbm, formulary_name, field_name, operator, criteria_value, action, created_at)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+                    `;
+
+                    await client.query(insertCriteriaQuery, [
+                        modelId,
+                        listType, // source_type
+                        pbm, // pbm
+                        specificList, // formulary_name
+                        criterion.field_name,
+                        criterion.operator,
+                        criterion.criteria_value,
+                        criterion.action
+                    ]);
+                }
+
+                console.log('✅ All new criteria inserted for model:', modelId);
+
+                // Return success message and reload configure modal
+                const successMessage = `
+                    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                        <strong>Success!</strong> New data source added successfully.
+                    </div>
+                    <script>
+                        setTimeout(() => {
+                            // Reload the configure modal with updated data
+                            htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?component=configure&id=${modelId}', {
+                                target: '#modal-content',
+                                swap: 'innerHTML'
+                            });
+                        }, 1000);
+                    </script>
+                `;
+
+                return {
+                    statusCode: 200,
+                    headers: {
+                        'Content-Type': 'text/html',
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                    },
+                    body: successMessage
+                };
+
+            } catch (error) {
+                console.error('💥 Error adding data source:', error);
+                return {
+                    statusCode: 500,
+                    headers: {
+                        'Content-Type': 'text/html',
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                    },
+                    body: `<div class="text-red-600">Error adding data source: ${error.message}</div>`
                 };
             }
         }

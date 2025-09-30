@@ -2270,6 +2270,27 @@ window.deactivateClinicalModel = function(modelId) {
     }
 };
 
+window.executeClinicalModel = function(modelId) {
+    console.log('Execute clinical model:', modelId);
+    // Close dropdown
+    const dropdown = document.getElementById(`clinical-dropdown-${modelId}`);
+    if (dropdown) dropdown.classList.add('hidden');
+
+    if (confirm('Are you sure you want to execute this clinical model? This will run all queries and update the results.')) {
+        ClaimsApp.utils.showNotification('Executing clinical model...', 'info');
+
+        // TODO: Make HTMX request to execute model
+        htmx.ajax('POST', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?action=execute&id=${modelId}`, {
+            target: '#clinical-models-container',
+            swap: 'innerHTML'
+        }).then(() => {
+            ClaimsApp.utils.showNotification('Clinical model executed successfully!', 'success');
+        }).catch(() => {
+            ClaimsApp.utils.showNotification('Failed to execute clinical model.', 'error');
+        });
+    }
+};
+
 window.deleteClinicalModel = function(modelId) {
     console.log('Delete clinical model:', modelId);
     // Close dropdown
