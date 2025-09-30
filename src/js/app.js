@@ -2401,4 +2401,46 @@ document.addEventListener('click', function(event) {
     }
 });
 
+// Clinical Models Filter Functions
+window.applyClinicalModelFilters = function() {
+    const form = document.getElementById('clinical-models-filters');
+    const formData = new FormData(form);
+
+    // Build query parameters
+    const params = new URLSearchParams();
+    for (const [key, value] of formData.entries()) {
+        if (value.trim() !== '') {
+            params.append(key, value);
+        }
+    }
+
+    // Make HTMX request with filters
+    const url = `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?${params.toString()}`;
+
+    htmx.ajax('GET', url, {
+        target: '#clinical-models-container',
+        swap: 'innerHTML'
+    });
+};
+
+window.clearClinicalModelFilters = function() {
+    // Reset form
+    document.getElementById('clinical-models-filters').reset();
+
+    // Apply empty filters (reload all models)
+    htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models', {
+        target: '#clinical-models-container',
+        swap: 'innerHTML'
+    });
+};
+
+// Debounced search function
+let searchTimeout;
+window.debounceSearch = function(searchTerm) {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        applyClinicalModelFilters();
+    }, 500); // Wait 500ms after user stops typing
+};
+
 console.log('🚀 ClaimsApp utilities loaded');

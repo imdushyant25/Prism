@@ -45,6 +45,45 @@ function renderTemplate(template, data) {
     return template;
 }
 
+// Format criteria value as proper SQL expression
+function formatCriteriaValue(operator, value) {
+    if (!value) return value;
+
+    // Clean the value
+    const cleanValue = value.trim();
+
+    switch (operator.toUpperCase()) {
+        case 'IN':
+        case 'NOT IN':
+            // Handle comma-separated values for IN/NOT IN
+            if (cleanValue.startsWith('(') && cleanValue.endsWith(')')) {
+                // Already formatted as (val1, val2, val3)
+                return cleanValue;
+            } else {
+                // Split by comma and format as ('val1', 'val2', 'val3')
+                const values = cleanValue.split(',').map(v => `'${v.trim()}'`).join(', ');
+                return `(${values})`;
+            }
+        case 'LIKE':
+        case 'NOT LIKE':
+            // Ensure LIKE values have wildcards and are quoted
+            if (!cleanValue.includes('%') && !cleanValue.includes('_')) {
+                return `'%${cleanValue}%'`;  // Add wildcards for partial matching
+            } else {
+                return `'${cleanValue}'`;     // User provided wildcards
+            }
+        case '=':
+        case '!=':
+        default:
+            // For exact matches, add single quotes if not already present
+            if (cleanValue.startsWith("'") && cleanValue.endsWith("'")) {
+                return cleanValue;  // Already quoted
+            } else {
+                return `'${cleanValue}'`;  // Add quotes
+            }
+    }
+}
+
 // Generate criteria summary for display (Primary + Count approach)
 function generateCriteriaSummary(criteria) {
     if (!criteria || criteria.length === 0) return 'No criteria defined';
@@ -84,8 +123,54 @@ function generateCriteriaSummary(criteria) {
 }
 
 // Get clinical models from database
-async function getClinicalModels(client) {
+async function getClinicalModels(client, filters = {}) {
     try {
+        let whereConditions = [];
+        let queryParams = [];
+        let paramIndex = 1;
+
+        // Status filter
+        if (filters.status === 'active') {
+            whereConditions.push(`cm.is_active = $${paramIndex}`);
+            queryParams.push(true);
+            paramIndex++;
+        } else if (filters.status === 'inactive') {
+            whereConditions.push(`cm.is_active = $${paramIndex}`);
+            queryParams.push(false);
+            paramIndex++;
+        }
+
+        // PBM filter (check in criteria since models can have multiple PBMs)
+        if (filters.pbm) {
+            whereConditions.push(`EXISTS (
+                SELECT 1 FROM application.prism_model_criteria mc2
+                WHERE mc2.model_id = cm.model_id AND mc2.pbm = $${paramIndex}
+            )`);
+            queryParams.push(filters.pbm);
+            paramIndex++;
+        }
+
+        // List type filter (check in criteria)
+        if (filters.list_type) {
+            whereConditions.push(`EXISTS (
+                SELECT 1 FROM application.prism_model_criteria mc3
+                WHERE mc3.model_id = cm.model_id AND mc3.source_type = $${paramIndex}
+            )`);
+            queryParams.push(filters.list_type);
+            paramIndex++;
+        }
+
+        // Name search filter
+        if (filters.name_search) {
+            whereConditions.push(`(cm.model_name ILIKE $${paramIndex} OR cm.description ILIKE $${paramIndex})`);
+            queryParams.push(`%${filters.name_search}%`);
+            paramIndex++;
+        }
+
+        // Build WHERE clause
+        const whereClause = whereConditions.length > 0 ?
+            `WHERE ${whereConditions.join(' AND ')}` : '';
+
         const modelsQuery = `
             SELECT
                 cm.*,
@@ -105,14 +190,15 @@ async function getClinicalModels(client) {
                 ) as criteria
             FROM application.prism_clinical_models cm
             LEFT JOIN application.prism_model_criteria mc ON cm.model_id = mc.model_id
+            ${whereClause}
             GROUP BY cm.model_id, cm.model_name, cm.description, cm.created_by,
                      cm.created_at, cm.updated_at, cm.is_active, cm.last_executed_at, cm.is_executed
             ORDER BY cm.created_at DESC
         `;
 
-        console.log('Executing clinical models query:', modelsQuery);
+        console.log('Executing clinical models query with filters:', modelsQuery, queryParams);
 
-        const result = await client.query(modelsQuery);
+        const result = await client.query(modelsQuery, queryParams);
         return result.rows;
 
     } catch (error) {
@@ -121,8 +207,43 @@ async function getClinicalModels(client) {
     }
 }
 
+// Get filter options for dropdowns
+async function getFilterOptions(client) {
+    try {
+        // Get PBM options from system config
+        const pbmQuery = `
+            SELECT DISTINCT config_code as pbm
+            FROM application.prism_system_config
+            WHERE config_type = 'PBM' AND config_level = 1
+            ORDER BY config_code
+        `;
+
+        // Get List Type options from system config
+        const listTypeQuery = `
+            SELECT DISTINCT config_code as list_type
+            FROM application.prism_system_config
+            WHERE config_type = 'LIST_TYPE' AND config_level = 2
+            ORDER BY config_code
+        `;
+
+        const [pbmResult, listTypeResult] = await Promise.all([
+            client.query(pbmQuery),
+            client.query(listTypeQuery)
+        ]);
+
+        return {
+            pbms: pbmResult.rows,
+            listTypes: listTypeResult.rows
+        };
+
+    } catch (error) {
+        console.error('Failed to get filter options:', error);
+        return { pbms: [], listTypes: [] };
+    }
+}
+
 // Generate clinical models table HTML
-async function generateClinicalModelsHTML(client, models) {
+async function generateClinicalModelsHTML(client, models, filterOptions = null) {
     try {
         console.log('🔍 generateClinicalModelsHTML called with', models.length, 'models');
 
@@ -181,11 +302,27 @@ async function generateClinicalModelsHTML(client, models) {
             return renderTemplate(rowTemplate, rowData);
         }).join('');
 
+        // Generate filter options HTML
+        let pbmOptionsHTML = '';
+        let listTypeOptionsHTML = '';
+
+        if (filterOptions) {
+            pbmOptionsHTML = filterOptions.pbms.map(pbm =>
+                `<option value="${pbm.pbm}">${pbm.pbm}</option>`
+            ).join('');
+
+            listTypeOptionsHTML = filterOptions.listTypes.map(listType =>
+                `<option value="${listType.list_type}">${listType.list_type}</option>`
+            ).join('');
+        }
+
         const tableData = {
             TABLE_ROWS: tableRows,
             TOTAL_COUNT: models.length,
             START_RANGE: models.length > 0 ? 1 : 0,
-            END_RANGE: models.length
+            END_RANGE: models.length,
+            PBM_OPTIONS: pbmOptionsHTML,
+            LIST_TYPE_OPTIONS: listTypeOptionsHTML
         };
 
         return renderTemplate(tableTemplate, tableData);
@@ -637,10 +774,13 @@ const handler = async (event) => {
                     const action = formData[`criteria[${criteriaIndex}][action]`];
 
                     if (fieldName && operator && criteriaValue) {
+                        // Format the criteria value as proper SQL expression
+                        const formattedValue = formatCriteriaValue(operator, criteriaValue);
+
                         criteria.push({
                             field_name: fieldName,
                             operator: operator,
-                            criteria_value: criteriaValue,
+                            criteria_value: formattedValue,
                             action: action || 'A'
                         });
                     }
@@ -769,10 +909,13 @@ const handler = async (event) => {
                     const action = formData[`new_criteria[${criteriaIndex}][action]`];
 
                     if (fieldName && operator && criteriaValue) {
+                        // Format the criteria value as proper SQL expression
+                        const formattedValue = formatCriteriaValue(operator, criteriaValue);
+
                         criteria.push({
                             field_name: fieldName,
                             operator: operator,
-                            criteria_value: criteriaValue,
+                            criteria_value: formattedValue,
                             action: action || 'A'
                         });
                     }
@@ -815,7 +958,7 @@ const handler = async (event) => {
                     <script>
                         setTimeout(() => {
                             // Reload the configure modal with updated data
-                            htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?component=configure&id=${modelId}', {
+                            htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?component=configure&id=${formData.model_id}', {
                                 target: '#modal-content',
                                 swap: 'innerHTML'
                             });
@@ -1058,11 +1201,24 @@ const handler = async (event) => {
             // Default: load clinical models list
             console.log('📊 Loading clinical models...');
 
-            const models = await getClinicalModels(client);
+            // Extract filter parameters from query string
+            const filters = {
+                status: queryParams.status || null,
+                pbm: queryParams.pbm || null,
+                list_type: queryParams.list_type || null,
+                name_search: queryParams.name_search || null
+            };
+
+            console.log('🔍 Filters applied:', filters);
+
+            // Get filter options for dropdowns
+            const filterOptions = await getFilterOptions(client);
+
+            const models = await getClinicalModels(client, filters);
             console.log('🔍 Got models from database, count:', models.length);
 
             console.log('🔍 Attempting to generate HTML...');
-            const modelsHTML = await generateClinicalModelsHTML(client, models);
+            const modelsHTML = await generateClinicalModelsHTML(client, models, filterOptions);
             console.log('✅ HTML generated successfully, length:', modelsHTML.length);
 
             const response = {
