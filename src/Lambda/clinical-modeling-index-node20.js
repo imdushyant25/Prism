@@ -378,6 +378,38 @@ async function deleteClinicalModel(client, modelId) {
     }
 }
 
+// Delete individual criteria
+async function deleteCriteria(client, criteriaId) {
+    try {
+        const deleteQuery = `
+            DELETE FROM application.prism_model_criteria
+            WHERE criteria_id = $1
+        `;
+        const result = await client.query(deleteQuery, [criteriaId]);
+        return result.rowCount > 0;
+    } catch (error) {
+        console.error('Failed to delete criteria:', error);
+        throw error;
+    }
+}
+
+// Update individual criteria
+async function updateCriteria(client, criteriaId, criteriaValue) {
+    try {
+        // Format the criteria value as proper SQL expression
+        const updateQuery = `
+            UPDATE application.prism_model_criteria
+            SET criteria_value = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE criteria_id = $2
+        `;
+        const result = await client.query(updateQuery, [criteriaValue, criteriaId]);
+        return result.rowCount > 0;
+    } catch (error) {
+        console.error('Failed to update criteria:', error);
+        throw error;
+    }
+}
+
 // Activate clinical model (set is_active to true)
 async function activateClinicalModel(client, modelId) {
     try {
@@ -640,7 +672,12 @@ async function generateConfigureModelHTML(client, modelId) {
                 const actionText = criterion.action === 'A' ? 'Add' : 'Remove';
 
                 criteriaHTML += `
-                    <div class="flex items-center justify-between bg-gray-50 px-3 py-2 rounded">
+                    <div class="flex items-center justify-between bg-gray-50 px-3 py-2 rounded"
+                         data-criteria-id="${criterion.criteria_id}"
+                         data-field-name="${criterion.field_name}"
+                         data-operator="${criterion.operator}"
+                         data-value="${criterion.criteria_value}"
+                         data-action="${criterion.action}">
                         <div class="flex items-center space-x-2 text-sm">
                             <span class="font-medium text-gray-700">${criterion.field_name.toUpperCase()}</span>
                             <span class="text-gray-500">${criterion.operator}</span>
@@ -1052,6 +1089,91 @@ const handler = async (event) => {
                         'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
                     },
                     body: `<div class="text-red-600">Error deleting model: ${error.message}</div>`
+                };
+            }
+        }
+
+        // Handle delete criteria (POST request)
+        if (method === 'POST' && queryParams.action === 'delete-criteria') {
+            const criteriaId = queryParams.criteria_id;
+            console.log('🗑️ Deleting criteria:', criteriaId);
+            try {
+                const success = await deleteCriteria(client, criteriaId);
+                if (success) {
+                    console.log('✅ Deleted criteria:', criteriaId);
+                    return {
+                        statusCode: 200,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                        },
+                        body: JSON.stringify({ success: true, message: 'Criteria deleted successfully!' })
+                    };
+                } else {
+                    throw new Error('Criteria not found');
+                }
+            } catch (error) {
+                return {
+                    statusCode: 400,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                    },
+                    body: JSON.stringify({ success: false, message: `Error deleting criteria: ${error.message}` })
+                };
+            }
+        }
+
+        // Handle update criteria (POST request)
+        if (method === 'POST' && queryParams.action === 'update-criteria') {
+            console.log('✏️ Updating criteria...');
+            try {
+                // Parse form data from body
+                let formData = {};
+                if (event.body) {
+                    const params = new URLSearchParams(event.body);
+                    for (const [key, value] of params) {
+                        formData[key] = value;
+                    }
+                }
+
+                const criteriaId = formData.criteria_id;
+                const criteriaValue = formData.criteria_value;
+
+                if (!criteriaId || !criteriaValue) {
+                    throw new Error('Criteria ID and value are required');
+                }
+
+                const success = await updateCriteria(client, criteriaId, criteriaValue);
+                if (success) {
+                    console.log('✅ Updated criteria:', criteriaId);
+                    return {
+                        statusCode: 200,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                        },
+                        body: JSON.stringify({ success: true, message: 'Criteria updated successfully!' })
+                    };
+                } else {
+                    throw new Error('Criteria not found');
+                }
+            } catch (error) {
+                return {
+                    statusCode: 400,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                    },
+                    body: JSON.stringify({ success: false, message: `Error updating criteria: ${error.message}` })
                 };
             }
         }
