@@ -1031,8 +1031,13 @@ const handler = async (event) => {
                     console.log('✅ Deleted model:', modelId);
                     return {
                         statusCode: 200,
-                        headers,
-                        body: '<div class="text-green-600">Clinical model deleted successfully!</div>'
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                        },
+                        body: JSON.stringify({ success: true, message: 'Clinical model deleted successfully!' })
                     };
                 } else {
                     throw new Error('Model not found or already deleted');
@@ -1040,7 +1045,12 @@ const handler = async (event) => {
             } catch (error) {
                 return {
                     statusCode: 400,
-                    headers,
+                    headers: {
+                        'Content-Type': 'text/html',
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                    },
                     body: `<div class="text-red-600">Error deleting model: ${error.message}</div>`
                 };
             }
