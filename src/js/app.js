@@ -2225,6 +2225,10 @@ window.configureClinicalModel = function(modelId) {
         dropdown.classList.add('hidden');
     });
 
+    // Set flag to always refresh when configure modal is opened
+    // This ensures table refreshes when modal closes to show any changes
+    window.clinicalModelNeedsRefresh = true;
+
     const modal = document.getElementById('rule-modal');
     const modalContent = document.getElementById('modal-content');
 
