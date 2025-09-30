@@ -2322,21 +2322,59 @@ window.executeClinicalModel = function(modelId) {
 
 window.deleteClinicalModel = function(modelId) {
     console.log('Delete clinical model:', modelId);
+
     // Close dropdown
     const dropdown = document.getElementById(`clinical-dropdown-${modelId}`);
     if (dropdown) dropdown.classList.add('hidden');
 
-    if (confirm('Are you sure you want to delete this clinical model? This action cannot be undone.')) {
-        // Make HTMX request to delete
-        htmx.ajax('POST', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?action=delete&id=${modelId}`, {
-            target: '#clinical-models-container',
-            swap: 'innerHTML'
-        }).then(() => {
-            ClaimsApp.utils.showNotification('Clinical model deleted successfully!', 'success');
-        }).catch(() => {
-            ClaimsApp.utils.showNotification('Failed to delete clinical model.', 'error');
-        });
-    }
+    // Use custom confirmation dialog like price models
+    ClaimsApp.utils.showConfirmDialog(
+        'Confirm Deletion',
+        'Are you sure you want to delete this clinical model? This action cannot be undone.',
+        () => {
+            console.log('User confirmed deletion for model:', modelId);
+
+            // Send delete request via HTMX
+            htmx.ajax('POST', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?action=delete&id=${modelId}`)
+            .then((response) => {
+                console.log('Clinical model delete request completed successfully');
+
+                // Show success notification
+                ClaimsApp.utils.showNotification('Clinical model deleted successfully!', 'success');
+
+                // Refresh the clinical models table while preserving filters
+                setTimeout(() => {
+                    console.log('Refreshing clinical models after deletion...');
+
+                    // Get current filter values to preserve them
+                    const currentFilters = new URLSearchParams();
+                    const form = document.getElementById('clinical-models-filters');
+                    if (form) {
+                        const formData = new FormData(form);
+                        for (const [key, value] of formData.entries()) {
+                            if (value.trim() !== '') {
+                                currentFilters.append(key, value);
+                            }
+                        }
+                    }
+
+                    // Refresh with current filters
+                    const url = `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?${currentFilters.toString()}`;
+                    htmx.ajax('GET', url, {
+                        target: '#clinical-models-container',
+                        swap: 'innerHTML'
+                    });
+                }, 500);
+            })
+            .catch((error) => {
+                console.error('Failed to delete clinical model:', error);
+                ClaimsApp.utils.showNotification('Failed to delete clinical model. Please try again.', 'error');
+            });
+        },
+        () => {
+            console.log('User cancelled clinical model deletion');
+        }
+    );
 };
 
 // Clinical Model Modal Functions (using existing modal system)

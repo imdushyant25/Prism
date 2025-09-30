@@ -210,19 +210,23 @@ async function getClinicalModels(client, filters = {}) {
 // Get filter options for dropdowns
 async function getFilterOptions(client) {
     try {
-        // Get PBM options from system config
+        // Get PBM options from system config (level 1, active, type = pbm)
         const pbmQuery = `
-            SELECT DISTINCT config_code as pbm
+            SELECT config_code, display_name
             FROM application.prism_system_config
-            WHERE config_type = 'PBM' AND config_level = 1
-            ORDER BY config_code
+            WHERE config_level = 1
+              AND config_type = 'pbm'
+              AND is_active = true
+            ORDER BY display_order, config_code
         `;
 
-        // Get List Type options from system config
+        // Get all List Type options from system config (level 2, active)
+        // This gets all list types across all PBMs for filtering
         const listTypeQuery = `
-            SELECT DISTINCT config_code as list_type
+            SELECT DISTINCT config_code, display_name
             FROM application.prism_system_config
-            WHERE config_type = 'LIST_TYPE' AND config_level = 2
+            WHERE config_level = 2
+              AND is_active = true
             ORDER BY config_code
         `;
 
@@ -243,37 +247,44 @@ async function getFilterOptions(client) {
 }
 
 // Generate clinical models table HTML
-async function generateClinicalModelsHTML(client, models, filterOptions = null) {
+async function generateClinicalModelsHTML(client, models, filterOptions = null, currentFilters = {}) {
     try {
         console.log('🔍 generateClinicalModelsHTML called with', models.length, 'models');
 
-        if (models.length === 0) {
-            console.log('🔍 No models found, returning empty state HTML');
-            return `
-                <div class="bg-white rounded-lg border p-8">
-                    <div class="text-center text-gray-500">
-                        <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
-                        </svg>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">No Clinical Models Found</h3>
-                        <p class="text-gray-500">Create your first clinical model to get started</p>
-                        <button onclick="openAddClinicalModelModal()" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
-                            Add New Model
-                        </button>
-                    </div>
-                </div>
-            `;
-        }
-
-        console.log('🔍 Models found, attempting to load S3 template...');
+        // Always load the table template to preserve filters
+        console.log('🔍 Loading table template...');
         const tableTemplate = await getTemplate('clinical-models-table.html');
-        console.log('✅ S3 template loaded successfully');
+        console.log('✅ Table template loaded successfully');
 
-        // Load the row template
-        const rowTemplate = await getTemplate('clinical-models-row.html');
+        let tableRows = '';
 
-        // Generate table rows using template
-        const tableRows = models.map(model => {
+        if (models.length === 0) {
+            console.log('🔍 No models found, showing empty state in table');
+            // Show empty state inside the table structure to preserve filters
+            tableRows = `
+                <tr>
+                    <td colspan="4" class="px-6 py-16 text-center">
+                        <div class="text-gray-500">
+                            <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
+                            </svg>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">No Clinical Models Found</h3>
+                            <p class="text-gray-600 mb-4">Try adjusting your filters or create a new clinical model.</p>
+                            <button onclick="openAddClinicalModelModal()"
+                                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                                Add New Model
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        } else {
+            console.log('🔍 Models found, generating table rows...');
+            // Load the row template
+            const rowTemplate = await getTemplate('clinical-models-row.html');
+
+            // Generate table rows using template
+            tableRows = models.map(model => {
             // Create status badge
             const statusBadge = model.is_active
                 ? '<span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Active</span>'
@@ -301,19 +312,31 @@ async function generateClinicalModelsHTML(client, models, filterOptions = null) 
 
             return renderTemplate(rowTemplate, rowData);
         }).join('');
+        }
 
-        // Generate filter options HTML
+        // Generate filter options HTML with selected values preserved
+        let statusOptionsHTML = '';
         let pbmOptionsHTML = '';
         let listTypeOptionsHTML = '';
 
-        if (filterOptions) {
-            pbmOptionsHTML = filterOptions.pbms.map(pbm =>
-                `<option value="${pbm.pbm}">${pbm.pbm}</option>`
-            ).join('');
+        // Generate status options
+        const activeSelected = currentFilters.status === 'active' ? ' selected' : '';
+        const inactiveSelected = currentFilters.status === 'inactive' ? ' selected' : '';
+        statusOptionsHTML = `
+            <option value="active"${activeSelected}>Active</option>
+            <option value="inactive"${inactiveSelected}>Inactive</option>
+        `;
 
-            listTypeOptionsHTML = filterOptions.listTypes.map(listType =>
-                `<option value="${listType.list_type}">${listType.list_type}</option>`
-            ).join('');
+        if (filterOptions) {
+            pbmOptionsHTML = filterOptions.pbms.map(pbm => {
+                const selected = currentFilters.pbm === pbm.config_code ? ' selected' : '';
+                return `<option value="${pbm.config_code}"${selected}>${pbm.display_name || pbm.config_code}</option>`;
+            }).join('');
+
+            listTypeOptionsHTML = filterOptions.listTypes.map(listType => {
+                const selected = currentFilters.list_type === listType.config_code ? ' selected' : '';
+                return `<option value="${listType.config_code}"${selected}>${listType.display_name || listType.config_code}</option>`;
+            }).join('');
         }
 
         const tableData = {
@@ -321,8 +344,11 @@ async function generateClinicalModelsHTML(client, models, filterOptions = null) 
             TOTAL_COUNT: models.length,
             START_RANGE: models.length > 0 ? 1 : 0,
             END_RANGE: models.length,
+            STATUS_OPTIONS: statusOptionsHTML,
             PBM_OPTIONS: pbmOptionsHTML,
-            LIST_TYPE_OPTIONS: listTypeOptionsHTML
+            LIST_TYPE_OPTIONS: listTypeOptionsHTML,
+            // Current filter values for search input
+            CURRENT_NAME_SEARCH: currentFilters.name_search || ''
         };
 
         return renderTemplate(tableTemplate, tableData);
@@ -1218,7 +1244,7 @@ const handler = async (event) => {
             console.log('🔍 Got models from database, count:', models.length);
 
             console.log('🔍 Attempting to generate HTML...');
-            const modelsHTML = await generateClinicalModelsHTML(client, models, filterOptions);
+            const modelsHTML = await generateClinicalModelsHTML(client, models, filterOptions, filters);
             console.log('✅ HTML generated successfully, length:', modelsHTML.length);
 
             const response = {
