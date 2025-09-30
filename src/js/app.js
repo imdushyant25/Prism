@@ -1414,9 +1414,13 @@ window.closeClinicalModelModal = function() {
 
 // Global modal close function used by configure modal
 window.closeModal = function() {
+    console.log('🚪 closeModal() called');
+    console.log('🔍 Refresh flag status:', window.clinicalModelNeedsRefresh);
+
     // Try to find and close the rule-modal (used by configure modal)
     const ruleModal = document.getElementById('rule-modal');
     if (ruleModal) {
+        console.log('✅ Found rule-modal, closing it');
         ruleModal.classList.remove('show');
         document.body.classList.remove('modal-open');
         // Clear modal content
@@ -1424,22 +1428,46 @@ window.closeModal = function() {
         if (modalContent) {
             modalContent.innerHTML = '';
         }
+    } else {
+        console.log('⚠️ rule-modal not found');
     }
 
     // Also check for clinical-model-modal
     const clinicalModal = document.getElementById('clinical-model-modal');
     if (clinicalModal) {
+        console.log('✅ Found clinical-model-modal, removing it');
         clinicalModal.remove();
     }
 
     // Check if list needs refresh after configure modal actions
     if (window.clinicalModelNeedsRefresh) {
         console.log('🔄 Refreshing clinical models table...');
-        htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models', {
+
+        // Get current filter values to preserve them
+        const currentFilters = new URLSearchParams();
+        const form = document.getElementById('clinical-models-filters');
+        if (form) {
+            const formData = new FormData(form);
+            for (const [key, value] of formData.entries()) {
+                if (value.trim() !== '') {
+                    currentFilters.append(key, value);
+                }
+            }
+        }
+
+        // Refresh with current filters (similar to delete function)
+        const url = currentFilters.toString()
+            ? `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?${currentFilters.toString()}`
+            : 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models';
+
+        console.log('🌐 Refreshing URL:', url);
+        htmx.ajax('GET', url, {
             target: '#clinical-models-container',
             swap: 'innerHTML'
         });
         window.clinicalModelNeedsRefresh = false;
+    } else {
+        console.log('⏭️ No refresh needed (flag not set)');
     }
 
     // Restore background scrolling
@@ -2215,7 +2243,7 @@ window.toggleDropdown = function(dropdownId) {
 
 // Clinical Model Action Functions
 window.configureClinicalModel = function(modelId) {
-    console.log('Configure clinical model:', modelId);
+    console.log('⚙️ Configure clinical model:', modelId);
     // Close dropdown
     const dropdown = document.getElementById(`clinical-dropdown-${modelId}`);
     if (dropdown) dropdown.classList.add('hidden');
@@ -2228,6 +2256,7 @@ window.configureClinicalModel = function(modelId) {
     // Set flag to always refresh when configure modal is opened
     // This ensures table refreshes when modal closes to show any changes
     window.clinicalModelNeedsRefresh = true;
+    console.log('✅ Set refresh flag to true');
 
     const modal = document.getElementById('rule-modal');
     const modalContent = document.getElementById('modal-content');
