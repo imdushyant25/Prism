@@ -673,36 +673,37 @@ async function generateCloneModelHTML(client, modelId) {
         const systemConfig = await getSystemConfig(client);
         const pbmOptions = generatePBMOptions(systemConfig.pbm || []);
 
-        // Prepare template data with cloned model info
-        const clonedModelName = `${originalModel.model_name} (Copy)`;
-        const clonedDescription = originalModel.description || '';
-
+        // Prepare template data with cloned model info - keep name and description blank
         const templateData = {
             PBM_OPTIONS: pbmOptions,
-            MODEL_NAME: clonedModelName,
-            MODEL_DESCRIPTION: clonedDescription,
+            MODEL_NAME: '',  // Keep blank so user is forced to fill it
+            MODEL_DESCRIPTION: '',  // Keep blank so user is forced to fill it
             IS_CLONE: true,
-            ORIGINAL_MODEL_ID: modelId
+            ORIGINAL_MODEL_ID: modelId,
+            MODAL_TITLE: `Clone ${originalModel.model_name}`
         };
 
         console.log('📋 Template data prepared for clone:', templateData);
 
         let renderedHTML = renderTemplate(addTemplate, templateData);
 
-        // If the original model has criteria, we need to pre-populate them in the modal
-        // Store them in a hidden script that will be executed when modal loads
-        if (originalModel.criteria && originalModel.criteria.length > 0) {
-            const criteriaJSON = JSON.stringify(originalModel.criteria);
-            const preloadScript = `
-                <script>
-                    // Pre-load cloned criteria data
-                    window.clonedCriteriaData = ${criteriaJSON};
-                    console.log('📋 Cloned criteria data loaded:', window.clonedCriteriaData.length, 'criteria');
-                </script>
-            `;
-            // Insert script before closing body or modal div
-            renderedHTML = renderedHTML.replace('</div>\n</div>', `${preloadScript}\n</div>\n</div>`);
-        }
+        // Pre-populate data source and criteria information
+        const cloneDataJSON = {
+            criteria: originalModel.criteria || [],
+            pbm: originalModel.criteria && originalModel.criteria.length > 0 ? originalModel.criteria[0].pbm : null,
+            source_type: originalModel.criteria && originalModel.criteria.length > 0 ? originalModel.criteria[0].source_type : null,
+            formulary_name: originalModel.criteria && originalModel.criteria.length > 0 ? originalModel.criteria[0].formulary_name : null
+        };
+
+        const preloadScript = `
+            <script>
+                // Pre-load cloned model data
+                window.clonedModelData = ${JSON.stringify(cloneDataJSON)};
+                console.log('📋 Cloned model data loaded:', window.clonedModelData);
+            </script>
+        `;
+        // Insert script before closing div
+        renderedHTML = renderedHTML.replace('</div>\n</div>', `${preloadScript}\n</div>\n</div>`);
 
         console.log('✅ Clone template rendered successfully');
         return renderedHTML;

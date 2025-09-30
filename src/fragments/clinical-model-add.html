@@ -4,7 +4,7 @@
     <!-- Modal Header -->
     <div class="px-6 py-4 border-b bg-gray-50 rounded-t-lg">
         <div class="flex items-center justify-between">
-            <h2 class="text-xl font-bold text-gray-900">Add New Clinical Model</h2>
+            <h2 class="text-xl font-bold text-gray-900">{{#MODAL_TITLE}}{{MODAL_TITLE}}{{/MODAL_TITLE}}{{^MODAL_TITLE}}Add New Clinical Model{{/MODAL_TITLE}}</h2>
             <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 focus:outline-none">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -331,17 +331,57 @@ function loadSpecificLists(listType) {
     }
 }
 
-// Handle cloned criteria data if present
+// Handle cloned model data if present
 document.addEventListener('DOMContentLoaded', function() {
-    if (window.clonedCriteriaData && window.clonedCriteriaData.length > 0) {
-        console.log('📋 Populating cloned criteria data...');
-        const container = document.getElementById('criteria-container');
+    if (window.clonedModelData) {
+        console.log('📋 Populating cloned model data...');
 
-        // Clear existing criteria rows first
-        container.innerHTML = '';
+        // Pre-populate data source fields
+        if (window.clonedModelData.pbm) {
+            const pbmSelect = document.getElementById('pbm');
+            const listTypeSelect = document.getElementById('list_type');
+            const specificListSelect = document.getElementById('specific_list');
 
-        // Populate with cloned criteria
-        window.clonedCriteriaData.forEach((criterion, index) => {
+            // Set PBM and trigger load
+            pbmSelect.value = window.clonedModelData.pbm;
+            loadListTypes(window.clonedModelData.pbm);
+
+            // Wait for list types to load using HTMX events
+            if (window.clonedModelData.source_type) {
+                const listTypeLoadHandler = function(event) {
+                    if (event.detail.target.id === 'list_type') {
+                        console.log('✅ List types loaded, setting value:', window.clonedModelData.source_type);
+                        listTypeSelect.value = window.clonedModelData.source_type;
+                        loadSpecificLists(window.clonedModelData.source_type);
+
+                        // Wait for specific lists to load
+                        if (window.clonedModelData.formulary_name) {
+                            const specificListLoadHandler = function(event) {
+                                if (event.detail.target.id === 'specific_list') {
+                                    console.log('✅ Specific lists loaded, setting value:', window.clonedModelData.formulary_name);
+                                    specificListSelect.value = window.clonedModelData.formulary_name;
+                                    document.body.removeEventListener('htmx:afterSwap', specificListLoadHandler);
+                                }
+                            };
+                            document.body.addEventListener('htmx:afterSwap', specificListLoadHandler);
+                        }
+
+                        document.body.removeEventListener('htmx:afterSwap', listTypeLoadHandler);
+                    }
+                };
+                document.body.addEventListener('htmx:afterSwap', listTypeLoadHandler);
+            }
+        }
+
+        // Populate cloned criteria
+        if (window.clonedModelData.criteria && window.clonedModelData.criteria.length > 0) {
+            const container = document.getElementById('criteria-container');
+
+            // Clear existing criteria rows first
+            container.innerHTML = '';
+
+            // Populate with cloned criteria
+            window.clonedModelData.criteria.forEach((criterion, index) => {
             const newRow = document.createElement('div');
             newRow.className = 'criteria-row grid grid-cols-1 md:grid-cols-5 gap-4 mb-4';
             newRow.innerHTML = `
@@ -403,12 +443,13 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
 
             container.appendChild(newRow);
-        });
+            });
 
-        console.log('✅ Cloned criteria populated successfully');
+            console.log('✅ Cloned criteria populated successfully');
+        }
 
         // Clean up the global variable
-        delete window.clonedCriteriaData;
+        delete window.clonedModelData;
     }
 });
 </script>
