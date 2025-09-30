@@ -14,8 +14,14 @@
         </div>
     </td>
     <td class="px-6 py-4">
-        <div class="text-sm text-gray-900 font-medium">{{RECORD_COUNT}}</div>
-        <div class="text-xs text-gray-500">NDCs</div>
+        {{#LAST_EXECUTED_AT}}
+        <div class="text-sm text-gray-900 font-medium">{{LAST_EXECUTED_AT}}</div>
+        <div class="text-xs text-gray-500">Executed</div>
+        {{/LAST_EXECUTED_AT}}
+        {{^LAST_EXECUTED_AT}}
+        <div class="text-sm text-gray-500">Not executed</div>
+        <div class="text-xs text-gray-400">Pending</div>
+        {{/LAST_EXECUTED_AT}}
     </td>
     <td class="px-6 py-4">
         <div class="flex items-center justify-center">

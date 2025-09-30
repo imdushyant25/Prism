@@ -2177,8 +2177,49 @@ window.configureClinicalModel = function(modelId) {
     const dropdown = document.getElementById(`clinical-dropdown-${modelId}`);
     if (dropdown) dropdown.classList.add('hidden');
 
-    // TODO: Implement configure model functionality
-    ClaimsApp.utils.showNotification('Configure model functionality coming soon...', 'info');
+    // Close any other dropdowns first
+    document.querySelectorAll('[id^="clinical-dropdown-"]').forEach(dropdown => {
+        dropdown.classList.add('hidden');
+    });
+
+    const modal = document.getElementById('rule-modal');
+    const modalContent = document.getElementById('modal-content');
+
+    // Clear previous content first
+    if (modalContent) {
+        console.log('🧹 Clearing previous modal content for configure');
+        modalContent.innerHTML = `
+            <div class="p-8 text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p class="text-gray-600">Loading model configuration...</p>
+            </div>
+        `;
+    }
+
+    if (modal) {
+        modal.classList.add('show');
+        // Prevent background scroll
+        document.body.classList.add('modal-open');
+        document.body.style.overflow = 'hidden';
+    }
+
+    // Load the configure model form
+    htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?component=configure&id=${modelId}`, {
+        target: '#modal-content',
+        swap: 'innerHTML'
+    }).then(() => {
+        console.log('✅ Configure model form loaded successfully');
+    }).catch((error) => {
+        console.error('❌ Failed to load configure model form:', error);
+        if (modalContent) {
+            modalContent.innerHTML = `
+                <div class="p-8 text-center text-red-600">
+                    <p>Failed to load model configuration. Please try again.</p>
+                    <button onclick="closeModal()" class="mt-4 px-4 py-2 bg-gray-500 text-white rounded">Close</button>
+                </div>
+            `;
+        }
+    });
 };
 
 window.viewClinicalModel = function(modelId) {

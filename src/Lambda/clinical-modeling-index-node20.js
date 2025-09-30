@@ -69,7 +69,6 @@ async function getClinicalModels(client) {
         const modelsQuery = `
             SELECT
                 cm.*,
-                COALESCE(cm.record_count, 0) as record_count,
                 -- Get criteria for each model
                 COALESCE(
                     json_agg(
@@ -87,7 +86,7 @@ async function getClinicalModels(client) {
             FROM application.prism_clinical_models cm
             LEFT JOIN application.prism_model_criteria mc ON cm.model_id = mc.model_id
             GROUP BY cm.model_id, cm.model_name, cm.description, cm.created_by,
-                     cm.created_at, cm.updated_at, cm.is_active, cm.record_count
+                     cm.created_at, cm.updated_at, cm.is_active, cm.last_executed_at, cm.is_executed
             ORDER BY cm.created_at DESC
         `;
 
@@ -155,7 +154,7 @@ async function generateClinicalModelsHTML(client, models) {
                 CREATED_BY: createdBy,
                 MODEL_DESCRIPTION: modelDescription,
                 CRITERIA_SUMMARY: criteriaSummary,
-                RECORD_COUNT: model.record_count || 0,
+                LAST_EXECUTED_AT: model.last_executed_at ? new Date(model.last_executed_at).toLocaleDateString() : null,
                 IS_ACTIVE: model.is_active
             };
 
@@ -378,6 +377,126 @@ async function generateAddModelHTML(client) {
 
     } catch (error) {
         console.error('💥 Failed to generate add model HTML:', error);
+        console.error('💥 Error stack:', error.stack);
+        throw error;
+    }
+}
+
+// Generate configure model HTML
+async function generateConfigureModelHTML(client, modelId) {
+    try {
+        console.log('🔄 Starting generateConfigureModelHTML for model ID:', modelId);
+
+        // Get model details with criteria
+        const modelQuery = `
+            SELECT
+                cm.*,
+                -- Get criteria for each model grouped by data source
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'criteria_id', mc.criteria_id,
+                            'field_name', mc.field_name,
+                            'operator', mc.operator,
+                            'criteria_value', mc.criteria_value,
+                            'action', mc.action,
+                            'source_type', mc.source_type,
+                            'pbm', mc.pbm,
+                            'formulary_name', mc.formulary_name
+                        ) ORDER BY mc.created_at
+                    ) FILTER (WHERE mc.criteria_id IS NOT NULL),
+                    '[]'::json
+                ) as criteria
+            FROM application.prism_clinical_models cm
+            LEFT JOIN application.prism_model_criteria mc ON cm.model_id = mc.model_id
+            WHERE cm.model_id = $1
+            GROUP BY cm.model_id, cm.model_name, cm.description, cm.created_by,
+                     cm.created_at, cm.updated_at, cm.is_active, cm.last_executed_at, cm.is_executed
+        `;
+
+        console.log('🔍 Executing model query for ID:', modelId);
+        const modelResult = await client.query(modelQuery, [modelId]);
+
+        if (modelResult.rows.length === 0) {
+            throw new Error(`Model with ID ${modelId} not found`);
+        }
+
+        const model = modelResult.rows[0];
+        console.log('✅ Model loaded:', model.model_name);
+        console.log('📋 Criteria count:', model.criteria.length);
+
+        // Group criteria by data source (pbm + source_type + formulary_name)
+        const dataSourcesMap = {};
+        model.criteria.forEach(criterion => {
+            const key = `${criterion.pbm}|${criterion.source_type}|${criterion.formulary_name}`;
+            if (!dataSourcesMap[key]) {
+                dataSourcesMap[key] = {
+                    id: key.replace(/\|/g, '-').toLowerCase(),
+                    pbm: criterion.pbm,
+                    source_type: criterion.source_type,
+                    formulary_name: criterion.formulary_name,
+                    criteria: []
+                };
+            }
+            dataSourcesMap[key].criteria.push(criterion);
+        });
+
+        console.log('📊 Data sources grouped:', Object.keys(dataSourcesMap).length);
+
+        // Load templates
+        const configureTemplate = await getTemplate('clinical-model-configure.html');
+        const dataSourceTemplate = await getTemplate('clinical-model-data-source.html');
+
+        // Generate data sources HTML
+        let dataSourcesHTML = '';
+        for (const [key, dataSource] of Object.entries(dataSourcesMap)) {
+            const criteriaHTML = dataSource.criteria.map(criterion => ({
+                CRITERIA_ID: criterion.criteria_id,
+                FIELD_NAME: criterion.field_name.toUpperCase(),
+                OPERATOR: criterion.operator,
+                CRITERIA_VALUE: criterion.criteria_value,
+                ACTION_ADD: criterion.action === 'A',
+                ACTION_REMOVE: criterion.action === 'R'
+            }));
+
+            const dataSourceData = {
+                DATA_SOURCE_ID: dataSource.id,
+                PBM: dataSource.pbm,
+                SOURCE_TYPE: dataSource.source_type,
+                FORMULARY_NAME: dataSource.formulary_name,
+                CRITERIA_COUNT: dataSource.criteria.length,
+                CRITERIA: criteriaHTML
+            };
+
+            dataSourcesHTML += renderTemplate(dataSourceTemplate, dataSourceData);
+        }
+
+        // Get system config for PBM options
+        const systemConfig = await getSystemConfig(client);
+        const pbmOptions = generatePBMOptions(systemConfig.pbm || []);
+
+        // Prepare template data
+        const templateData = {
+            MODEL_ID: model.model_id,
+            MODEL_NAME: model.model_name,
+            MODEL_DESCRIPTION: model.description,
+            IS_ACTIVE: model.is_active,
+            LAST_EXECUTED_AT: model.last_executed_at ? new Date(model.last_executed_at).toLocaleDateString() : 'Never',
+            CREATED_DATE: new Date(model.created_at).toLocaleDateString(),
+            CREATED_BY: model.created_by,
+            DATA_SOURCE_COUNT: Object.keys(dataSourcesMap).length,
+            DATA_SOURCES_HTML: dataSourcesHTML,
+            PBM_OPTIONS: pbmOptions
+        };
+
+        console.log('📋 Template data prepared for configure modal');
+        const renderedHTML = renderTemplate(configureTemplate, templateData);
+        console.log('✅ Configure template rendered successfully, length:', renderedHTML.length);
+
+        return renderedHTML;
+
+    } catch (error) {
+        console.error('💥 Failed to generate configure model HTML:', error);
         console.error('💥 Error stack:', error.stack);
         throw error;
     }
@@ -669,6 +788,37 @@ const handler = async (event) => {
                             'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
                         },
                         body: `<div class="text-red-600">Error loading modal: ${error.message}</div>`
+                    };
+                }
+            }
+
+            // Handle configure model requests
+            if (queryParams.component === 'configure' && queryParams.id) {
+                console.log('⚙️ Loading configure model modal for ID:', queryParams.id);
+                try {
+                    const configureHTML = await generateConfigureModelHTML(client, queryParams.id);
+                    console.log('✅ Configure modal HTML generated successfully, length:', configureHTML.length);
+                    return {
+                        statusCode: 200,
+                        headers: {
+                            'Content-Type': 'text/html',
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                        },
+                        body: configureHTML
+                    };
+                } catch (error) {
+                    console.error('💥 Error generating configure modal HTML:', error);
+                    return {
+                        statusCode: 500,
+                        headers: {
+                            'Content-Type': 'text/html',
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                            'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                        },
+                        body: `<div class="text-red-600">Error loading configure model form: ${error.message}</div>`
                     };
                 }
             }

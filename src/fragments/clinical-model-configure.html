@@ -1,0 +1,341 @@
+<!-- Configure Clinical Model Modal -->
+<div class="bg-white rounded-lg shadow-xl w-full max-w-6xl mx-auto my-8">
+    <!-- Modal Header -->
+    <div class="px-6 py-4 border-b bg-gray-50 rounded-t-lg">
+        <div class="flex items-center justify-between">
+            <h2 class="text-xl font-bold text-gray-900">Configure Model: {{MODEL_NAME}}</h2>
+            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 focus:outline-none">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal Content -->
+    <div class="px-6 py-4 max-h-[80vh] overflow-y-auto">
+
+        <!-- Model Information -->
+        <div class="mb-6 bg-blue-50 p-4 rounded-lg">
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Model Information</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                    <span class="font-medium text-gray-700">Status:</span>
+                    <span class="{{#IS_ACTIVE}}text-green-600{{/IS_ACTIVE}}{{^IS_ACTIVE}}text-gray-500{{/IS_ACTIVE}}">
+                        {{#IS_ACTIVE}}Active{{/IS_ACTIVE}}{{^IS_ACTIVE}}Inactive{{/IS_ACTIVE}}
+                    </span>
+                </div>
+                <div>
+                    <span class="font-medium text-gray-700">Last Executed:</span>
+                    <span class="text-gray-600">{{LAST_EXECUTED_AT}}</span>
+                </div>
+                <div>
+                    <span class="font-medium text-gray-700">Created:</span>
+                    <span class="text-gray-600">{{CREATED_DATE}} {{#CREATED_BY}}by {{CREATED_BY}}{{/CREATED_BY}}</span>
+                </div>
+                {{#MODEL_DESCRIPTION}}
+                <div class="md:col-span-2">
+                    <span class="font-medium text-gray-700">Description:</span>
+                    <span class="text-gray-600">{{MODEL_DESCRIPTION}}</span>
+                </div>
+                {{/MODEL_DESCRIPTION}}
+            </div>
+        </div>
+
+        <!-- Current Data Sources -->
+        <div class="mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">Data Sources</h3>
+                <span class="text-sm text-gray-500">{{DATA_SOURCE_COUNT}} source(s)</span>
+            </div>
+
+            <div id="data-sources-container">
+                {{DATA_SOURCES_HTML}}
+            </div>
+        </div>
+
+        <!-- Add New Data Source -->
+        <div class="mb-6 border-2 border-dashed border-gray-300 rounded-lg p-6">
+            <div class="text-center">
+                <svg class="w-8 h-8 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                <h4 class="text-lg font-medium text-gray-900 mb-2">Add Another Data Source</h4>
+                <p class="text-gray-600 mb-4">Include additional PBM lists and criteria in this model</p>
+                <button onclick="showAddDataSourceForm()"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                    Add Data Source
+                </button>
+            </div>
+
+            <!-- Add Data Source Form (initially hidden) -->
+            <div id="add-data-source-form" class="hidden mt-6 border-t pt-6">
+                <form id="add-source-form" onsubmit="addDataSource(event)">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <!-- PBM Selection -->
+                        <div>
+                            <label for="new_pbm" class="block text-sm font-medium text-gray-700 mb-1">
+                                PBM <span class="text-red-500">*</span>
+                            </label>
+                            <select id="new_pbm" name="new_pbm" required
+                                    onchange="loadNewListTypes(this.value)"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Select PBM...</option>
+                                {{PBM_OPTIONS}}
+                            </select>
+                        </div>
+
+                        <!-- List Type Selection -->
+                        <div>
+                            <label for="new_list_type" class="block text-sm font-medium text-gray-700 mb-1">
+                                List Type <span class="text-red-500">*</span>
+                            </label>
+                            <select id="new_list_type" name="new_list_type" required
+                                    onchange="loadNewSpecificLists(this.value)"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Select list type...</option>
+                            </select>
+                        </div>
+
+                        <!-- Specific List Selection -->
+                        <div id="new-specific-list-container" style="display: none;">
+                            <label for="new_specific_list" class="block text-sm font-medium text-gray-700 mb-1">
+                                <span id="new-specific-list-label">Specific List</span> <span class="text-red-500">*</span>
+                            </label>
+                            <select id="new_specific_list" name="new_specific_list"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Select specific list...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Initial Criteria -->
+                    <div class="mb-4">
+                        <h4 class="text-sm font-medium text-gray-700 mb-2">Initial Criteria</h4>
+                        <div id="new-criteria-container">
+                            <!-- First Criteria Row -->
+                            <div class="new-criteria-row grid grid-cols-1 md:grid-cols-5 gap-2 mb-2">
+                                <div>
+                                    <select name="new_criteria[0][field_name]"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="gpi2">GPI 2</option>
+                                        <option value="gpi4">GPI 4</option>
+                                        <option value="gpi6">GPI 6</option>
+                                        <option value="gpi8">GPI 8</option>
+                                        <option value="gpi10">GPI 10</option>
+                                        <option value="gpi12">GPI 12</option>
+                                        <option value="gpi14">GPI 14</option>
+                                        <option value="ndc11">NDC 11</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <select name="new_criteria[0][operator]"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="=">=</option>
+                                        <option value="!=">!=</option>
+                                        <option value="IN">IN</option>
+                                        <option value="NOT IN">NOT IN</option>
+                                        <option value="LIKE">LIKE</option>
+                                        <option value="NOT LIKE">NOT LIKE</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <input type="text" name="new_criteria[0][criteria_value]"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                           placeholder="Value">
+                                </div>
+                                <div>
+                                    <select name="new_criteria[0][action]"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="A">Add (+)</option>
+                                        <option value="R">Remove (-)</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center">
+                                    <button type="button" onclick="removeNewCriteriaRow(this)"
+                                            class="px-2 py-1 text-red-600 hover:text-red-800 text-sm">
+                                        Remove
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" onclick="addNewCriteriaRow()"
+                                class="text-blue-600 hover:text-blue-800 text-sm">
+                            + Add Criteria
+                        </button>
+                    </div>
+
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="cancelAddDataSource()"
+                                class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                                class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                            Add Data Source
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="px-6 py-4 border-t bg-gray-50 rounded-b-lg flex justify-between">
+        <div>
+            <button onclick="executeModel('{{MODEL_ID}}')"
+                    class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1M9 16h6m-7 4h8a2 2 0 002-2V6a2 2 0 00-2-2H8a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                Execute Model
+            </button>
+        </div>
+        <div class="flex space-x-3">
+            <button type="button" onclick="closeModal()"
+                    class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                Close
+            </button>
+            <button onclick="saveModelConfiguration('{{MODEL_ID}}')"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                Save Changes
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Configure modal JavaScript functions
+function showAddDataSourceForm() {
+    document.getElementById('add-data-source-form').classList.remove('hidden');
+}
+
+function cancelAddDataSource() {
+    document.getElementById('add-data-source-form').classList.add('hidden');
+    document.getElementById('add-source-form').reset();
+}
+
+function addDataSource(event) {
+    event.preventDefault();
+    // TODO: Implement add data source logic
+    console.log('Adding new data source...');
+}
+
+function executeModel(modelId) {
+    // TODO: Implement execute model logic
+    console.log('Executing model:', modelId);
+}
+
+function saveModelConfiguration(modelId) {
+    // TODO: Implement save configuration logic
+    console.log('Saving model configuration:', modelId);
+}
+
+// New criteria management for add data source form
+function addNewCriteriaRow() {
+    const container = document.getElementById('new-criteria-container');
+    const rowCount = container.querySelectorAll('.new-criteria-row').length;
+
+    const newRow = document.createElement('div');
+    newRow.className = 'new-criteria-row grid grid-cols-1 md:grid-cols-5 gap-2 mb-2';
+    newRow.innerHTML = `
+        <div>
+            <select name="new_criteria[${rowCount}][field_name]"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="gpi2">GPI 2</option>
+                <option value="gpi4">GPI 4</option>
+                <option value="gpi6">GPI 6</option>
+                <option value="gpi8">GPI 8</option>
+                <option value="gpi10">GPI 10</option>
+                <option value="gpi12">GPI 12</option>
+                <option value="gpi14">GPI 14</option>
+                <option value="ndc11">NDC 11</option>
+            </select>
+        </div>
+        <div>
+            <select name="new_criteria[${rowCount}][operator]"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="=">=</option>
+                <option value="!=">!=</option>
+                <option value="IN">IN</option>
+                <option value="NOT IN">NOT IN</option>
+                <option value="LIKE">LIKE</option>
+                <option value="NOT LIKE">NOT LIKE</option>
+            </select>
+        </div>
+        <div>
+            <input type="text" name="new_criteria[${rowCount}][criteria_value]"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   placeholder="Value">
+        </div>
+        <div>
+            <select name="new_criteria[${rowCount}][action]"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="A">Add (+)</option>
+                <option value="R">Remove (-)</option>
+            </select>
+        </div>
+        <div class="flex items-center">
+            <button type="button" onclick="removeNewCriteriaRow(this)"
+                    class="px-2 py-1 text-red-600 hover:text-red-800 text-sm">
+                Remove
+            </button>
+        </div>
+    `;
+    container.appendChild(newRow);
+}
+
+function removeNewCriteriaRow(button) {
+    const container = document.getElementById('new-criteria-container');
+    if (container.querySelectorAll('.new-criteria-row').length > 1) {
+        button.closest('.new-criteria-row').remove();
+    }
+}
+
+// Dropdown loading functions for new data source
+function loadNewListTypes(pbm) {
+    const listTypeSelect = document.getElementById('new_list_type');
+    const specificListContainer = document.getElementById('new-specific-list-container');
+
+    listTypeSelect.innerHTML = '<option value="">Loading...</option>';
+    specificListContainer.style.display = 'none';
+
+    if (!pbm) {
+        listTypeSelect.innerHTML = '<option value="">Select list type...</option>';
+        return;
+    }
+
+    htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?component=list-types&pbm=${pbm}`, {
+        target: '#new_list_type',
+        swap: 'innerHTML'
+    });
+}
+
+function loadNewSpecificLists(listType) {
+    const specificListContainer = document.getElementById('new-specific-list-container');
+    const specificListSelect = document.getElementById('new_specific_list');
+    const specificListLabel = document.getElementById('new-specific-list-label');
+
+    if (!listType) {
+        specificListContainer.style.display = 'none';
+        return;
+    }
+
+    if (listType.includes('FORMULARY')) {
+        specificListContainer.style.display = 'block';
+        specificListLabel.textContent = 'Formulary';
+        specificListSelect.innerHTML = '<option value="">Loading...</option>';
+        specificListSelect.setAttribute('required', 'required');
+
+        htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?component=specific-lists&list_type=${listType}`, {
+            target: '#new_specific_list',
+            swap: 'innerHTML'
+        });
+    } else {
+        specificListContainer.style.display = 'none';
+        specificListSelect.removeAttribute('required');
+        specificListSelect.value = '';
+    }
+}
+</script>
