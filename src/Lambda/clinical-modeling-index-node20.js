@@ -378,6 +378,24 @@ async function deleteClinicalModel(client, modelId) {
     }
 }
 
+// Hard delete clinical model (completely remove from database)
+async function hardDeleteClinicalModel(client, modelId) {
+    try {
+        // Delete the model - this will cascade delete criteria and lists due to foreign keys
+        const deleteQuery = `
+            DELETE FROM application.prism_clinical_models
+            WHERE model_id = $1
+        `;
+
+        const result = await client.query(deleteQuery, [modelId]);
+        return result.rowCount > 0;
+
+    } catch (error) {
+        console.error('Failed to hard delete clinical model:', error);
+        throw error;
+    }
+}
+
 // Delete individual criteria
 async function deleteCriteria(client, criteriaId) {
     try {
@@ -389,23 +407,6 @@ async function deleteCriteria(client, criteriaId) {
         return result.rowCount > 0;
     } catch (error) {
         console.error('Failed to delete criteria:', error);
-        throw error;
-    }
-}
-
-// Update individual criteria
-async function updateCriteria(client, criteriaId, criteriaValue) {
-    try {
-        // Format the criteria value as proper SQL expression
-        const updateQuery = `
-            UPDATE application.prism_model_criteria
-            SET criteria_value = $1, updated_at = CURRENT_TIMESTAMP
-            WHERE criteria_id = $2
-        `;
-        const result = await client.query(updateQuery, [criteriaValue, criteriaId]);
-        return result.rowCount > 0;
-    } catch (error) {
-        console.error('Failed to update criteria:', error);
         throw error;
     }
 }
@@ -687,12 +688,6 @@ async function generateConfigureModelHTML(client, modelId) {
                             </span>
                         </div>
                         <div class="flex items-center space-x-1">
-                            <button onclick="editCriteria('${criterion.criteria_id}')"
-                                    class="text-blue-600 hover:text-blue-800 p-1" title="Edit">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                </svg>
-                            </button>
                             <button onclick="deleteCriteria('${criterion.criteria_id}')"
                                     class="text-red-600 hover:text-red-800 p-1" title="Delete">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1096,23 +1091,62 @@ const handler = async (event) => {
         // Handle delete criteria (POST request)
         if (method === 'POST' && queryParams.action === 'delete-criteria') {
             const criteriaId = queryParams.criteria_id;
-            console.log('🗑️ Deleting criteria:', criteriaId);
+            const isLastCriteria = queryParams.is_last === 'true';
+            console.log('🗑️ Deleting criteria:', criteriaId, 'Is last:', isLastCriteria);
+
             try {
-                const success = await deleteCriteria(client, criteriaId);
-                if (success) {
-                    console.log('✅ Deleted criteria:', criteriaId);
-                    return {
-                        statusCode: 200,
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Access-Control-Allow-Origin': '*',
-                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                            'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
-                        },
-                        body: JSON.stringify({ success: true, message: 'Criteria deleted successfully!' })
-                    };
+                if (isLastCriteria) {
+                    // Get the model ID from the criteria before deleting
+                    const modelQuery = `
+                        SELECT DISTINCT pcm.model_id
+                        FROM application.prism_model_criteria pmc
+                        JOIN application.prism_clinical_models pcm ON pmc.model_id = pcm.model_id
+                        WHERE pmc.criteria_id = $1
+                    `;
+                    const modelResult = await client.query(modelQuery, [criteriaId]);
+
+                    if (modelResult.rows.length === 0) {
+                        throw new Error('Model not found for criteria');
+                    }
+
+                    const modelId = modelResult.rows[0].model_id;
+                    console.log('💥 Deleting entire model:', modelId, 'after deleting last criteria');
+
+                    // Hard delete the model - this will cascade delete all criteria including this one
+                    const modelDeleted = await hardDeleteClinicalModel(client, modelId);
+                    if (modelDeleted) {
+                        console.log('✅ Deleted model and all criteria:', modelId);
+                        return {
+                            statusCode: 200,
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Access-Control-Allow-Origin': '*',
+                                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                                'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                            },
+                            body: JSON.stringify({ success: true, message: 'Clinical model deleted successfully!' })
+                        };
+                    } else {
+                        throw new Error('Failed to delete model');
+                    }
                 } else {
-                    throw new Error('Criteria not found');
+                    // Normal criteria deletion
+                    const success = await deleteCriteria(client, criteriaId);
+                    if (success) {
+                        console.log('✅ Deleted criteria:', criteriaId);
+                        return {
+                            statusCode: 200,
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Access-Control-Allow-Origin': '*',
+                                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                                'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
+                            },
+                            body: JSON.stringify({ success: true, message: 'Criteria deleted successfully!' })
+                        };
+                    } else {
+                        throw new Error('Criteria not found');
+                    }
                 }
             } catch (error) {
                 return {
@@ -1128,55 +1162,6 @@ const handler = async (event) => {
             }
         }
 
-        // Handle update criteria (POST request)
-        if (method === 'POST' && queryParams.action === 'update-criteria') {
-            console.log('✏️ Updating criteria...');
-            try {
-                // Parse form data from body
-                let formData = {};
-                if (event.body) {
-                    const params = new URLSearchParams(event.body);
-                    for (const [key, value] of params) {
-                        formData[key] = value;
-                    }
-                }
-
-                const criteriaId = formData.criteria_id;
-                const criteriaValue = formData.criteria_value;
-
-                if (!criteriaId || !criteriaValue) {
-                    throw new Error('Criteria ID and value are required');
-                }
-
-                const success = await updateCriteria(client, criteriaId, criteriaValue);
-                if (success) {
-                    console.log('✅ Updated criteria:', criteriaId);
-                    return {
-                        statusCode: 200,
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Access-Control-Allow-Origin': '*',
-                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                            'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
-                        },
-                        body: JSON.stringify({ success: true, message: 'Criteria updated successfully!' })
-                    };
-                } else {
-                    throw new Error('Criteria not found');
-                }
-            } catch (error) {
-                return {
-                    statusCode: 400,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                        'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
-                    },
-                    body: JSON.stringify({ success: false, message: `Error updating criteria: ${error.message}` })
-                };
-            }
-        }
 
         // Handle activate model
         if (method === 'POST' && queryParams.action === 'activate') {

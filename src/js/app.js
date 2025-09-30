@@ -1414,13 +1414,27 @@ window.closeClinicalModelModal = function() {
 
 // Global modal close function used by configure modal
 window.closeModal = function() {
-    const modal = document.getElementById('clinical-model-modal');
-    if (modal) {
-        modal.remove();
+    // Try to find and close the rule-modal (used by configure modal)
+    const ruleModal = document.getElementById('rule-modal');
+    if (ruleModal) {
+        ruleModal.classList.remove('show');
+        document.body.classList.remove('modal-open');
+        // Clear modal content
+        const modalContent = document.getElementById('modal-content');
+        if (modalContent) {
+            modalContent.innerHTML = '';
+        }
+    }
+
+    // Also check for clinical-model-modal
+    const clinicalModal = document.getElementById('clinical-model-modal');
+    if (clinicalModal) {
+        clinicalModal.remove();
     }
 
     // Check if list needs refresh after configure modal actions
     if (window.clinicalModelNeedsRefresh) {
+        console.log('🔄 Refreshing clinical models table...');
         htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models', {
             target: '#clinical-models-container',
             swap: 'innerHTML'

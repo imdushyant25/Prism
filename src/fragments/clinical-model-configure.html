@@ -73,7 +73,8 @@
                 <form id="add-source-form"
                       hx-post="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?action=add-source"
                       hx-target="#add-data-source-form"
-                      hx-swap="innerHTML">
+                      hx-swap="innerHTML"
+                      onsubmit="handleAddSourceSubmit()">
                     <!-- Hidden field for model ID -->
                     <input type="hidden" name="model_id" value="{{MODEL_ID}}">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -200,12 +201,41 @@
 // Configure modal JavaScript functions
 function showAddDataSourceForm() {
     document.getElementById('add-data-source-form').classList.remove('hidden');
+    // Hide remove button initially since there's only one row
+    updateRemoveButtonVisibility();
 }
 
 function cancelAddDataSource() {
     document.getElementById('add-data-source-form').classList.add('hidden');
     document.getElementById('add-source-form').reset();
 }
+
+function handleAddSourceSubmit() {
+    // Set refresh flag so main table refreshes when modal closes
+    window.clinicalModelNeedsRefresh = true;
+}
+
+// Listen for successful HTMX responses
+document.addEventListener('htmx:afterRequest', function(event) {
+    if (event.detail.requestConfig.path.includes('action=add-source')) {
+        // Check if request was successful
+        if (event.detail.xhr.status === 200) {
+            console.log('✅ Data source added successfully, setting refresh flag');
+            window.clinicalModelNeedsRefresh = true;
+
+            // Optionally reload the configure modal to show the new data source
+            const modelId = document.querySelector('[name="model_id"]')?.value;
+            if (modelId) {
+                setTimeout(() => {
+                    htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?component=configure&id=${modelId}`, {
+                        target: '#modal-content',
+                        swap: 'innerHTML'
+                    });
+                }, 500);
+            }
+        }
+    }
+});
 
 // This function is no longer needed - HTMX handles form submission directly
 
@@ -271,13 +301,31 @@ function addNewCriteriaRow() {
         </div>
     `;
     container.appendChild(newRow);
+    // Update remove button visibility after adding new row
+    updateRemoveButtonVisibility();
 }
 
 function removeNewCriteriaRow(button) {
     const container = document.getElementById('new-criteria-container');
-    if (container.querySelectorAll('.new-criteria-row').length > 1) {
+    const rows = container.querySelectorAll('.new-criteria-row');
+
+    if (rows.length > 1) {
         button.closest('.new-criteria-row').remove();
+        // Update remove button visibility after removal
+        updateRemoveButtonVisibility();
     }
+}
+
+// Show/hide remove buttons based on number of criteria rows
+function updateRemoveButtonVisibility() {
+    const container = document.getElementById('new-criteria-container');
+    const rows = container.querySelectorAll('.new-criteria-row');
+    const removeButtons = container.querySelectorAll('button[onclick*="removeNewCriteriaRow"]');
+
+    // Show remove buttons only if there's more than one row
+    removeButtons.forEach(button => {
+        button.style.display = rows.length > 1 ? 'block' : 'none';
+    });
 }
 
 // Dropdown loading functions for new data source
