@@ -521,6 +521,10 @@ async function generateConfigureModelHTML(client, modelId) {
         const systemConfig = await getSystemConfig(client);
         const pbmOptions = generatePBMOptions(systemConfig.pbm || []);
 
+        // Get primary PBM from first data source
+        const dataSourcesList = Object.values(dataSourcesMap);
+        const primaryPBM = dataSourcesList.length > 0 ? dataSourcesList[0].pbm : '';
+
         // Prepare template data
         const templateData = {
             MODEL_ID: model.model_id,
@@ -532,7 +536,8 @@ async function generateConfigureModelHTML(client, modelId) {
             CREATED_BY: model.created_by,
             DATA_SOURCE_COUNT: Object.keys(dataSourcesMap).length,
             DATA_SOURCES_HTML: dataSourcesHTML,
-            PBM_OPTIONS: pbmOptions
+            PBM_OPTIONS: pbmOptions,
+            PRIMARY_PBM: primaryPBM
         };
 
         console.log('📋 Template data prepared for configure modal');
@@ -814,6 +819,9 @@ const handler = async (event) => {
                                 target: '#modal-content',
                                 swap: 'innerHTML'
                             });
+
+                            // Set flag to refresh list view when modal closes
+                            window.clinicalModelNeedsRefresh = true;
                         }, 1000);
                     </script>
                 `;

@@ -1399,6 +1399,35 @@ window.closeClinicalModelModal = function() {
         modal.remove();
     }
 
+    // Check if list needs refresh after configure modal actions
+    if (window.clinicalModelNeedsRefresh) {
+        htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models', {
+            target: '#clinical-models-container',
+            swap: 'innerHTML'
+        });
+        window.clinicalModelNeedsRefresh = false;
+    }
+
+    // Restore background scrolling
+    document.body.style.overflow = '';
+};
+
+// Global modal close function used by configure modal
+window.closeModal = function() {
+    const modal = document.getElementById('clinical-model-modal');
+    if (modal) {
+        modal.remove();
+    }
+
+    // Check if list needs refresh after configure modal actions
+    if (window.clinicalModelNeedsRefresh) {
+        htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models', {
+            target: '#clinical-models-container',
+            swap: 'innerHTML'
+        });
+        window.clinicalModelNeedsRefresh = false;
+    }
+
     // Restore background scrolling
     document.body.style.overflow = '';
 };
@@ -2359,14 +2388,6 @@ window.openAddClinicalModelModal = function() {
     });
 };
 
-window.closeClinicalModelModal = function() {
-    const modal = document.getElementById('rule-modal');
-    if (modal) {
-        modal.classList.remove('show');
-        document.body.classList.remove('modal-open');
-        document.body.style.overflow = '';
-    }
-};
 
 // Note: Modal close functionality is handled by the existing modal system in modal.js
 
