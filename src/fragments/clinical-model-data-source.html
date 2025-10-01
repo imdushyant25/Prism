@@ -10,8 +10,8 @@
                 </svg>
             </div>
             <div>
-                <h4 class="text-sm font-semibold text-gray-900">{{PBM}} - {{SOURCE_TYPE}}</h4>
-                <p class="text-xs text-gray-600">{{FORMULARY_NAME}} • {{CRITERIA_COUNT}} criteria</p>
+                <h4 class="text-sm font-semibold text-gray-900">{{PBM_DISPLAY}} - {{SOURCE_TYPE_DISPLAY}}</h4>
+                <p class="text-xs text-gray-600">{{#FORMULARY_NAME_DISPLAY}}{{FORMULARY_NAME_DISPLAY}}{{/FORMULARY_NAME_DISPLAY}}{{^FORMULARY_NAME_DISPLAY}}No specific list{{/FORMULARY_NAME_DISPLAY}} • {{CRITERIA_COUNT}} criteria</p>
             </div>
         </div>
         <div class="flex items-center space-x-2">

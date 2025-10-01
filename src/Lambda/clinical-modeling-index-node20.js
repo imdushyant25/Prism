@@ -118,8 +118,11 @@ function generateCriteriaSummary(criteria) {
         if (!dataSourcesMap[key]) {
             dataSourcesMap[key] = {
                 pbm: criterion.pbm,
+                pbm_display: criterion.pbm_display || criterion.pbm,
                 source_type: criterion.source_type,
+                source_type_display: criterion.source_type_display || criterion.source_type,
                 formulary_name: criterion.formulary_name,
+                formulary_name_display: criterion.formulary_name_display || criterion.formulary_name,
                 criteria: []
             };
         }
@@ -133,10 +136,19 @@ function generateCriteriaSummary(criteria) {
 
     // Get primary data source (first one)
     const primarySource = dataSources[0];
-    const primaryDisplay = `${primarySource.pbm} ${primarySource.source_type}`;
+    // Use display names for better readability
+    const pbmDisplay = primarySource.pbm_display;
+    const sourceTypeDisplay = primarySource.source_type_display;
+    const formularyDisplay = primarySource.formulary_name_display;
+
+    // Build display string: "PBM SourceType" or "PBM SourceType - Formulary" if formulary exists
+    let primaryDisplay = `${pbmDisplay} ${sourceTypeDisplay}`;
+    if (formularyDisplay && formularyDisplay !== 'null' && formularyDisplay !== sourceTypeDisplay) {
+        primaryDisplay += ` - ${formularyDisplay}`;
+    }
 
     if (dataSources.length === 1) {
-        // Single source: "CVS Formulary • 3 criteria"
+        // Single source: "Caremark Formulary - Advanced Control Formulary • 3 criteria"
         return `${primaryDisplay} • ${totalCriteria} criteria`;
     } else {
         // Multiple sources: "CVS Formulary + 2 more • 8 criteria"
@@ -197,7 +209,7 @@ async function getClinicalModels(client, filters = {}) {
         const modelsQuery = `
             SELECT
                 cm.*,
-                -- Get criteria for each model
+                -- Get criteria for each model with display names from system config
                 COALESCE(
                     json_agg(
                         json_build_object(
@@ -205,14 +217,23 @@ async function getClinicalModels(client, filters = {}) {
                             'operator', mc.operator,
                             'criteria_value', mc.criteria_value,
                             'source_type', mc.source_type,
+                            'source_type_display', COALESCE(source_config.display_name, mc.source_type),
                             'pbm', mc.pbm,
-                            'formulary_name', mc.formulary_name
+                            'pbm_display', COALESCE(pbm_config.display_name, mc.pbm),
+                            'formulary_name', mc.formulary_name,
+                            'formulary_name_display', COALESCE(formulary_config.display_name, mc.formulary_name)
                         ) ORDER BY mc.created_at
                     ) FILTER (WHERE mc.criteria_id IS NOT NULL),
                     '[]'::json
                 ) as criteria
             FROM application.prism_clinical_models cm
             LEFT JOIN application.prism_model_criteria mc ON cm.model_id = mc.model_id
+            LEFT JOIN application.prism_system_config pbm_config
+                ON mc.pbm = pbm_config.config_code AND pbm_config.config_level = 1
+            LEFT JOIN application.prism_system_config source_config
+                ON mc.source_type = source_config.config_code AND source_config.config_level = 2
+            LEFT JOIN application.prism_system_config formulary_config
+                ON mc.formulary_name = formulary_config.config_code AND formulary_config.config_level = 3
             ${whereClause}
             GROUP BY cm.model_id, cm.model_name, cm.description, cm.created_by,
                      cm.created_at, cm.updated_at, cm.is_active, cm.last_executed_at, cm.is_executed
@@ -720,11 +741,11 @@ async function generateConfigureModelHTML(client, modelId) {
     try {
         console.log('🔄 Starting generateConfigureModelHTML for model ID:', modelId);
 
-        // Get model details with criteria
+        // Get model details with criteria including display names
         const modelQuery = `
             SELECT
                 cm.*,
-                -- Get criteria for each model grouped by data source
+                -- Get criteria for each model with display names from system config
                 COALESCE(
                     json_agg(
                         json_build_object(
@@ -734,14 +755,23 @@ async function generateConfigureModelHTML(client, modelId) {
                             'criteria_value', mc.criteria_value,
                             'action', mc.action,
                             'source_type', mc.source_type,
+                            'source_type_display', COALESCE(source_config.display_name, mc.source_type),
                             'pbm', mc.pbm,
-                            'formulary_name', mc.formulary_name
+                            'pbm_display', COALESCE(pbm_config.display_name, mc.pbm),
+                            'formulary_name', mc.formulary_name,
+                            'formulary_name_display', COALESCE(formulary_config.display_name, mc.formulary_name)
                         ) ORDER BY mc.created_at
                     ) FILTER (WHERE mc.criteria_id IS NOT NULL),
                     '[]'::json
                 ) as criteria
             FROM application.prism_clinical_models cm
             LEFT JOIN application.prism_model_criteria mc ON cm.model_id = mc.model_id
+            LEFT JOIN application.prism_system_config pbm_config
+                ON mc.pbm = pbm_config.config_code AND pbm_config.config_level = 1
+            LEFT JOIN application.prism_system_config source_config
+                ON mc.source_type = source_config.config_code AND source_config.config_level = 2
+            LEFT JOIN application.prism_system_config formulary_config
+                ON mc.formulary_name = formulary_config.config_code AND formulary_config.config_level = 3
             WHERE cm.model_id = $1
             GROUP BY cm.model_id, cm.model_name, cm.description, cm.created_by,
                      cm.created_at, cm.updated_at, cm.is_active, cm.last_executed_at, cm.is_executed
@@ -766,8 +796,11 @@ async function generateConfigureModelHTML(client, modelId) {
                 dataSourcesMap[key] = {
                     id: key.replace(/\|/g, '-').toLowerCase(),
                     pbm: criterion.pbm,
+                    pbm_display: criterion.pbm_display || criterion.pbm,
                     source_type: criterion.source_type,
+                    source_type_display: criterion.source_type_display || criterion.source_type,
                     formulary_name: criterion.formulary_name,
+                    formulary_name_display: criterion.formulary_name_display || criterion.formulary_name,
                     criteria: []
                 };
             }
@@ -820,8 +853,11 @@ async function generateConfigureModelHTML(client, modelId) {
             const dataSourceData = {
                 DATA_SOURCE_ID: dataSource.id,
                 PBM: dataSource.pbm,
+                PBM_DISPLAY: dataSource.pbm_display,
                 SOURCE_TYPE: dataSource.source_type,
+                SOURCE_TYPE_DISPLAY: dataSource.source_type_display,
                 FORMULARY_NAME: dataSource.formulary_name,
+                FORMULARY_NAME_DISPLAY: dataSource.formulary_name_display,
                 CRITERIA_COUNT: dataSource.criteria.length,
                 CRITERIA_HTML: criteriaHTML
             };
