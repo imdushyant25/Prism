@@ -357,20 +357,31 @@ function loadNewSpecificLists(listType) {
         return;
     }
 
-    if (listType.includes('FORMULARY')) {
-        specificListContainer.style.display = 'block';
-        specificListLabel.textContent = 'Formulary';
-        specificListSelect.innerHTML = '<option value="">Loading...</option>';
-        specificListSelect.setAttribute('required', 'required');
+    // Always query the server to check if level 3 configs exist
+    specificListSelect.innerHTML = '<option value="">Loading...</option>';
 
-        htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?component=specific-lists&list_type=${listType}`, {
-            target: '#new_specific_list',
-            swap: 'innerHTML'
-        });
-    } else {
-        specificListContainer.style.display = 'none';
-        specificListSelect.removeAttribute('required');
-        specificListSelect.value = '';
-    }
+    // Make HTMX request to load specific lists
+    htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?component=specific-lists&list_type=${listType}`, {
+        target: '#new_specific_list',
+        swap: 'innerHTML'
+    }).then(() => {
+        // After options are loaded, check if there are any real options
+        const optionCount = specificListSelect.options.length;
+        // Check if we have more than just "No specific lists available" or empty
+        const firstOptionValue = specificListSelect.options[0]?.value || '';
+        const hasOptions = optionCount > 1 || (optionCount === 1 && firstOptionValue !== '');
+
+        if (hasOptions) {
+            // Has level 3 configs - show dropdown and make it required
+            specificListContainer.style.display = 'block';
+            specificListLabel.textContent = 'Specific List';
+            specificListSelect.setAttribute('required', 'required');
+        } else {
+            // No level 3 configs - hide dropdown
+            specificListContainer.style.display = 'none';
+            specificListSelect.removeAttribute('required');
+            specificListSelect.value = '';
+        }
+    });
 }
 </script>

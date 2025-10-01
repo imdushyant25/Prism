@@ -932,7 +932,7 @@ const handler = async (event) => {
                 const description = formData.description || null;
                 const pbm = formData.pbm;
                 const listType = formData.list_type;
-                const specificList = formData.specific_list || listType; // Use specific list if available, otherwise list type
+                const specificList = formData.specific_list || null; // Only use specific list if provided (level 3 config)
                 const isActive = true; // All new models are active by default
 
                 if (!modelName || !pbm || !listType) {
@@ -991,7 +991,7 @@ const handler = async (event) => {
                         modelId,
                         listType, // source_type (formulary, biosimilar, etc.)
                         pbm, // pbm (CVS, ESI, etc.)
-                        specificList || listType, // formulary_name (specific formulary or list type)
+                        specificList, // formulary_name (specific formulary if level 3 config exists, otherwise NULL)
                         criterion.field_name,
                         criterion.operator,
                         criterion.criteria_value,
@@ -1068,7 +1068,7 @@ const handler = async (event) => {
                 const modelId = formData.model_id;
                 const pbm = formData.new_pbm;
                 const listType = formData.new_list_type;
-                const specificList = formData.new_specific_list || listType;
+                const specificList = formData.new_specific_list || null; // Only use specific list if provided (level 3 config)
 
                 if (!modelId || !pbm || !listType) {
                     throw new Error('Model ID, PBM, and list type are required');
