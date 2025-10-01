@@ -1437,6 +1437,8 @@ window.closeModal = function() {
     if (clinicalModal) {
         console.log('✅ Found clinical-model-modal, removing it');
         clinicalModal.remove();
+        // Re-enable body scroll
+        document.body.style.overflow = 'auto';
     }
 
     // Check if list needs refresh after configure modal actions

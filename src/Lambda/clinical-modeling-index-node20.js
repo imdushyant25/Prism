@@ -695,15 +695,15 @@ async function generateCloneModelHTML(client, modelId) {
             formulary_name: originalModel.criteria && originalModel.criteria.length > 0 ? originalModel.criteria[0].formulary_name : null
         };
 
-        const preloadScript = `
-            <script>
-                // Pre-load cloned model data
-                window.clonedModelData = ${JSON.stringify(cloneDataJSON)};
-                console.log('📋 Cloned model data loaded:', window.clonedModelData);
-            </script>
-        `;
-        // Insert script before closing div
-        renderedHTML = renderedHTML.replace('</div>\n</div>', `${preloadScript}\n</div>\n</div>`);
+        // Insert the clone data at the beginning of the first script tag
+        const preloadCode = `
+// Pre-load cloned model data
+window.clonedModelData = ${JSON.stringify(cloneDataJSON)};
+console.log('📋 Cloned model data loaded:', window.clonedModelData);
+
+`;
+        // Insert right after the first <script> tag
+        renderedHTML = renderedHTML.replace('<script>', `<script>\n${preloadCode}`);
 
         console.log('✅ Clone template rendered successfully');
         return renderedHTML;

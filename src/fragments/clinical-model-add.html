@@ -310,56 +310,75 @@ function loadSpecificLists(listType) {
         return;
     }
 
-    // Check if this list type needs specific lists (like formulary)
-    if (listType.includes('FORMULARY')) {
-        specificListContainer.style.display = 'block';
-        specificListLabel.textContent = 'Formulary';
-        specificListSelect.innerHTML = '<option value="">Loading...</option>';
-        specificListSelect.setAttribute('required', 'required'); // Make it required when visible
+    // Always query the server to check if level 3 configs exist
+    specificListSelect.innerHTML = '<option value="">Loading...</option>';
 
-        // Make HTMX request to load specific lists
-        htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?component=specific-lists&list_type=${listType}`, {
-            target: '#specific_list',
-            swap: 'innerHTML'
-        });
-    } else {
-        // For other list types, no specific list needed
-        specificListContainer.style.display = 'none';
-        specificListSelect.removeAttribute('required'); // Remove required when hidden
-        specificListSelect.value = ''; // Clear the value
-        // The list_type itself is the final selection
-    }
+    // Make HTMX request to load specific lists
+    htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?component=specific-lists&list_type=${listType}`, {
+        target: '#specific_list',
+        swap: 'innerHTML'
+    }).then(() => {
+        // After options are loaded, check if there are any real options
+        const optionCount = specificListSelect.options.length;
+        // Check if we have more than just "No specific lists available" or empty
+        const firstOptionValue = specificListSelect.options[0]?.value || '';
+        const hasOptions = optionCount > 1 || (optionCount === 1 && firstOptionValue !== '');
+
+        if (hasOptions) {
+            // Has level 3 configs - show dropdown and make it required
+            specificListContainer.style.display = 'block';
+            specificListLabel.textContent = 'Specific List';
+            specificListSelect.setAttribute('required', 'required');
+        } else {
+            // No level 3 configs - hide dropdown
+            specificListContainer.style.display = 'none';
+            specificListSelect.removeAttribute('required');
+            specificListSelect.value = '';
+        }
+    });
 }
 
 // Handle cloned model data if present
-document.addEventListener('DOMContentLoaded', function() {
+// Use a function that can be called immediately or on DOMContentLoaded
+function populateClonedData() {
+    console.log('🔄 populateClonedData() called');
+    console.log('🔍 Checking for clonedModelData:', window.clonedModelData);
+
     if (window.clonedModelData) {
-        console.log('📋 Populating cloned model data...');
+        console.log('📋 Populating cloned model data:', JSON.stringify(window.clonedModelData, null, 2));
 
         // Pre-populate data source fields
         if (window.clonedModelData.pbm) {
+            console.log('🎯 Setting PBM to:', window.clonedModelData.pbm);
             const pbmSelect = document.getElementById('pbm');
             const listTypeSelect = document.getElementById('list_type');
             const specificListSelect = document.getElementById('specific_list');
 
             // Set PBM and trigger load
             pbmSelect.value = window.clonedModelData.pbm;
+            console.log('✅ PBM value set, now loading list types...');
             loadListTypes(window.clonedModelData.pbm);
 
             // Wait for list types to load using HTMX events
             if (window.clonedModelData.source_type) {
+                console.log('🎯 Will set source_type to:', window.clonedModelData.source_type);
                 const listTypeLoadHandler = function(event) {
+                    console.log('🔔 HTMX afterSwap event:', event.detail.target.id);
                     if (event.detail.target.id === 'list_type') {
                         console.log('✅ List types loaded, setting value:', window.clonedModelData.source_type);
                         listTypeSelect.value = window.clonedModelData.source_type;
+                        console.log('✅ List type value set, now loading specific lists...');
                         loadSpecificLists(window.clonedModelData.source_type);
 
                         // Wait for specific lists to load
                         if (window.clonedModelData.formulary_name) {
+                            console.log('🎯 Will set formulary_name to:', window.clonedModelData.formulary_name);
                             const specificListLoadHandler = function(event) {
+                                console.log('🔔 HTMX afterSwap event:', event.detail.target.id);
                                 if (event.detail.target.id === 'specific_list') {
                                     console.log('✅ Specific lists loaded, setting value:', window.clonedModelData.formulary_name);
                                     specificListSelect.value = window.clonedModelData.formulary_name;
+                                    console.log('✅ All data sources populated successfully');
                                     document.body.removeEventListener('htmx:afterSwap', specificListLoadHandler);
                                 }
                             };
@@ -371,6 +390,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 };
                 document.body.addEventListener('htmx:afterSwap', listTypeLoadHandler);
             }
+        } else {
+            console.log('⚠️ No PBM data found in clonedModelData');
         }
 
         // Populate cloned criteria
@@ -451,5 +472,14 @@ document.addEventListener('DOMContentLoaded', function() {
         // Clean up the global variable
         delete window.clonedModelData;
     }
-});
+}
+
+// Call immediately if modal is loaded dynamically (via HTMX)
+// Otherwise wait for DOMContentLoaded
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', populateClonedData);
+} else {
+    // DOM already loaded, run immediately
+    populateClonedData();
+}
 </script>
