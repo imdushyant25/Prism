@@ -2661,4 +2661,65 @@ window.debounceSearch = function(searchTerm) {
     }, 500); // Wait 500ms after user stops typing
 };
 
+// ============================================================================
+// RFP Reports Functions
+// ============================================================================
+
+// Open Create Report Modal
+window.openCreateReportModal = function() {
+    console.log('📋 Opening create RFP report modal...');
+
+    const modal = document.getElementById('rule-modal');
+    const modalContent = document.getElementById('modal-content');
+
+    // Show loading spinner
+    if (modalContent) {
+        modalContent.innerHTML = `
+            <div class="p-8 text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p class="text-gray-600">Loading report form...</p>
+            </div>
+        `;
+    }
+
+    // Show modal
+    if (modal) {
+        modal.classList.add('show');
+        document.body.classList.add('modal-open');
+        document.body.style.overflow = 'hidden';
+    }
+
+    // Load create report modal
+    htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rfp-reports?component=create-report', {
+        target: '#modal-content',
+        swap: 'innerHTML'
+    }).then(() => {
+        console.log('✅ Create report modal loaded successfully');
+    }).catch((error) => {
+        console.error('❌ Failed to load create report modal:', error);
+        if (modalContent) {
+            modalContent.innerHTML = `
+                <div class="p-8 text-center text-red-600">
+                    <p>Failed to load report form. Please try again.</p>
+                    <button onclick="closeModal()" class="mt-4 px-4 py-2 bg-gray-500 text-white rounded">Close</button>
+                </div>
+            `;
+        }
+    });
+};
+
+// Compare Reports (placeholder)
+window.compareRFPReports = function() {
+    const checkboxes = document.querySelectorAll('#rfp-reports-tbody input[type="checkbox"]:checked');
+    const reportIds = Array.from(checkboxes).map(cb => cb.value);
+
+    if (reportIds.length < 2) {
+        ClaimsApp.utils.showNotification('Please select at least 2 reports to compare', 'warning');
+        return;
+    }
+
+    console.log('📊 Comparing reports:', reportIds);
+    ClaimsApp.utils.showNotification('Report comparison coming soon!', 'info');
+};
+
 console.log('🚀 ClaimsApp utilities loaded');

@@ -1,0 +1,171 @@
+<!-- Create RFP Report Modal -->
+<div class="bg-white rounded-lg shadow-xl w-full max-w-3xl mx-auto my-8">
+    <!-- Modal Header -->
+    <div class="px-6 py-4 border-b bg-gray-50 rounded-t-lg">
+        <div class="flex items-center justify-between">
+            <h2 class="text-xl font-bold text-gray-900">Create New RFP Report</h2>
+            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 focus:outline-none">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal Content -->
+    <form id="create-rfp-report-form"
+          hx-post="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rfp-reports?action=run-report"
+          hx-target="#modal-content"
+          hx-swap="innerHTML">
+
+        <div class="px-6 py-6 space-y-6">
+
+            <!-- PBM Selection (Mandatory) -->
+            <div class="bg-blue-50 p-4 rounded-lg">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Report Configuration</h3>
+
+                <div class="space-y-4">
+                    <!-- PBM -->
+                    <div>
+                        <label for="report-pbm" class="block text-sm font-medium text-gray-700 mb-1">
+                            PBM <span class="text-red-500">*</span>
+                        </label>
+                        <select id="report-pbm"
+                                name="pbm"
+                                required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            {{PBM_OPTIONS}}
+                        </select>
+                    </div>
+
+                    <!-- Organization (Optional) -->
+                    <div>
+                        <label for="report-organization" class="block text-sm font-medium text-gray-700 mb-1">
+                            Organization <span class="text-gray-400">(Optional)</span>
+                        </label>
+                        <input type="text"
+                               id="report-organization"
+                               name="organization"
+                               placeholder="Enter organization name..."
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="mt-1 text-xs text-gray-500">Leave blank if not applicable</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Date of Service (Mandatory) -->
+            <div class="bg-green-50 p-4 rounded-lg">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Date of Service</h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Effective From -->
+                    <div>
+                        <label for="report-effective-from" class="block text-sm font-medium text-gray-700 mb-1">
+                            Effective From <span class="text-red-500">*</span>
+                        </label>
+                        <input type="date"
+                               id="report-effective-from"
+                               name="effective_from"
+                               required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <!-- Effective To -->
+                    <div>
+                        <label for="report-effective-to" class="block text-sm font-medium text-gray-700 mb-1">
+                            Effective To <span class="text-red-500">*</span>
+                        </label>
+                        <input type="date"
+                               id="report-effective-to"
+                               name="effective_to"
+                               required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Models Selection (Mandatory) -->
+            <div class="bg-purple-50 p-4 rounded-lg">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Model Selection</h3>
+
+                <div class="space-y-4">
+                    <!-- Price Model -->
+                    <div>
+                        <label for="report-price-model" class="block text-sm font-medium text-gray-700 mb-1">
+                            Price Model <span class="text-red-500">*</span>
+                        </label>
+                        <select id="report-price-model"
+                                name="price_model_id"
+                                required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            {{PRICE_MODEL_OPTIONS}}
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500">Only active price models are shown</p>
+                    </div>
+
+                    <!-- Clinical Model -->
+                    <div>
+                        <label for="report-clinical-model" class="block text-sm font-medium text-gray-700 mb-1">
+                            Clinical Model <span class="text-red-500">*</span>
+                        </label>
+                        <select id="report-clinical-model"
+                                name="clinical_model_id"
+                                required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            {{CLINICAL_MODEL_OPTIONS}}
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500">Only active clinical models are shown</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Note -->
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-yellow-800">Report Generation</h3>
+                        <div class="mt-2 text-sm text-yellow-700">
+                            <p>The selected price and clinical models will be applied to generate the RFP report for the specified date range.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-6 py-4 border-t bg-gray-50 rounded-b-lg flex justify-end space-x-3">
+            <button type="button"
+                    onclick="closeModal()"
+                    class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                Cancel
+            </button>
+            <button type="submit"
+                    class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <svg class="w-4 h-4 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+                Run Report
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+// Validate date range
+document.getElementById('create-rfp-report-form').addEventListener('submit', function(e) {
+    const effectiveFrom = document.getElementById('report-effective-from').value;
+    const effectiveTo = document.getElementById('report-effective-to').value;
+
+    if (effectiveFrom && effectiveTo && new Date(effectiveFrom) > new Date(effectiveTo)) {
+        e.preventDefault();
+        alert('⚠️ Effective From date must be before Effective To date.');
+        return false;
+    }
+});
+</script>
