@@ -2435,24 +2435,57 @@ window.deleteClinicalModel = function(modelId) {
 
 // Clone clinical model function
 window.cloneClinicalModel = function(modelId) {
-    console.log('Clone clinical model:', modelId);
+    console.log('🔄 Clone clinical model:', modelId);
 
     // Close dropdown
     const dropdown = document.getElementById(`clinical-dropdown-${modelId}`);
     if (dropdown) dropdown.classList.add('hidden');
 
-    // Prevent background scrolling
-    document.body.style.overflow = 'hidden';
+    // Close any other dropdowns first
+    document.querySelectorAll('[id^="clinical-dropdown-"]').forEach(dropdown => {
+        dropdown.classList.add('hidden');
+    });
 
-    // Load the add model form with pre-filled data from the model being cloned
+    // Set flag to refresh when modal closes (clone creates new model in DB)
+    window.clinicalModelNeedsRefresh = true;
+    console.log('✅ Set refresh flag to true');
+
+    const modal = document.getElementById('rule-modal');
+    const modalContent = document.getElementById('modal-content');
+
+    // Show loading spinner
+    if (modalContent) {
+        console.log('🧹 Clearing previous modal content for clone');
+        modalContent.innerHTML = `
+            <div class="p-8 text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p class="text-gray-600">Cloning model...</p>
+            </div>
+        `;
+    }
+
+    // Show modal
+    if (modal) {
+        modal.classList.add('show');
+        document.body.classList.add('modal-open');
+        document.body.style.overflow = 'hidden';
+    }
+
+    // Clone the model (creates DB copy) and load configure modal
     htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/clinical-models?component=clone&id=${modelId}`, {
-        target: 'body',
-        swap: 'beforeend'
+        target: '#modal-content',
+        swap: 'innerHTML'
     }).then(() => {
-        // Focus the modal for ESC key handling
-        const modal = document.getElementById('clinical-model-modal');
-        if (modal) {
-            modal.focus();
+        console.log('✅ Model cloned and configure modal loaded successfully');
+    }).catch((error) => {
+        console.error('❌ Failed to clone model:', error);
+        if (modalContent) {
+            modalContent.innerHTML = `
+                <div class="p-8 text-center text-red-600">
+                    <p>Failed to clone model. Please try again.</p>
+                    <button onclick="closeModal()" class="mt-4 px-4 py-2 bg-gray-500 text-white rounded">Close</button>
+                </div>
+            `;
         }
     });
 };

@@ -198,6 +198,17 @@
 </div>
 
 <script>
+// Set refresh flag so table refreshes when modal closes
+window.clinicalModelNeedsRefresh = true;
+
+// Check if this is a freshly cloned model and show notification
+{{#IS_CLONED}}
+console.log('✅ This is a cloned model, showing success notification');
+if (typeof ClaimsApp !== 'undefined' && ClaimsApp.utils && ClaimsApp.utils.showNotification) {
+    ClaimsApp.utils.showNotification('Model cloned successfully! You can now modify the cloned model.', 'success');
+}
+{{/IS_CLONED}}
+
 // Configure modal JavaScript functions
 function showAddDataSourceForm() {
     document.getElementById('add-data-source-form').classList.remove('hidden');

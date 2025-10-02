@@ -643,10 +643,10 @@ async function generateAddModelHTML(client) {
     }
 }
 
-// Generate clone clinical model modal HTML
-async function generateCloneModelHTML(client, modelId) {
+// Clone a clinical model - creates a complete copy in the database
+async function cloneClinicalModel(client, originalModelId) {
     try {
-        console.log('🔄 Starting generateCloneModelHTML for model ID:', modelId);
+        console.log('🔄 Starting cloneClinicalModel for model ID:', originalModelId);
 
         // Get the original model with all its criteria
         const modelQuery = `
@@ -675,71 +675,70 @@ async function generateCloneModelHTML(client, modelId) {
         `;
 
         console.log('🔍 Executing model query for clone...');
-        const modelResult = await client.query(modelQuery, [modelId]);
+        const modelResult = await client.query(modelQuery, [originalModelId]);
 
         if (modelResult.rows.length === 0) {
-            throw new Error(`Model with ID ${modelId} not found`);
+            throw new Error(`Model with ID ${originalModelId} not found`);
         }
 
         const originalModel = modelResult.rows[0];
         console.log('✅ Original model loaded:', originalModel.model_name);
         console.log('📋 Criteria count:', originalModel.criteria.length);
 
-        // Load the add template
-        console.log('📄 Loading S3 template: clinical-model-add.html');
-        const addTemplate = await getTemplate('clinical-model-add.html');
+        // Create new model with "(Clone)" suffix
+        const newModelName = `${originalModel.model_name} (Clone)`;
+        const insertModelQuery = `
+            INSERT INTO application.prism_clinical_models
+            (model_name, description, is_active, created_at, updated_at)
+            VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            RETURNING model_id
+        `;
 
-        // Get system config for PBM options
-        console.log('⚙️ Getting system config for PBM options...');
-        const systemConfig = await getSystemConfig(client);
-        const pbmOptions = generatePBMOptions(systemConfig.pbm || []);
+        const newModelResult = await client.query(insertModelQuery, [
+            newModelName,
+            originalModel.description,
+            true // Set as active by default
+        ]);
 
-        // Prepare template data with cloned model info - keep name and description blank
-        const templateData = {
-            PBM_OPTIONS: pbmOptions,
-            MODEL_NAME: '',  // Keep blank so user is forced to fill it
-            MODEL_DESCRIPTION: '',  // Keep blank so user is forced to fill it
-            IS_CLONE: true,
-            ORIGINAL_MODEL_ID: modelId,
-            MODAL_TITLE: `Clone ${originalModel.model_name}`
-        };
+        const newModelId = newModelResult.rows[0].model_id;
+        console.log('✅ New model created with ID:', newModelId, 'Name:', newModelName);
 
-        console.log('📋 Template data prepared for clone:', templateData);
+        // Clone all criteria
+        if (originalModel.criteria && originalModel.criteria.length > 0) {
+            for (const criterion of originalModel.criteria) {
+                const insertCriteriaQuery = `
+                    INSERT INTO application.prism_model_criteria
+                    (model_id, source_type, pbm, formulary_name, field_name, operator, criteria_value, action, created_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+                `;
 
-        let renderedHTML = renderTemplate(addTemplate, templateData);
+                await client.query(insertCriteriaQuery, [
+                    newModelId,
+                    criterion.source_type,
+                    criterion.pbm,
+                    criterion.formulary_name,
+                    criterion.field_name,
+                    criterion.operator,
+                    criterion.criteria_value,
+                    criterion.action
+                ]);
+            }
+            console.log('✅ All criteria cloned successfully, count:', originalModel.criteria.length);
+        }
 
-        // Pre-populate data source and criteria information
-        const cloneDataJSON = {
-            criteria: originalModel.criteria || [],
-            pbm: originalModel.criteria && originalModel.criteria.length > 0 ? originalModel.criteria[0].pbm : null,
-            source_type: originalModel.criteria && originalModel.criteria.length > 0 ? originalModel.criteria[0].source_type : null,
-            formulary_name: originalModel.criteria && originalModel.criteria.length > 0 ? originalModel.criteria[0].formulary_name : null
-        };
-
-        // Insert the clone data at the beginning of the first script tag
-        const preloadCode = `
-// Pre-load cloned model data
-window.clonedModelData = ${JSON.stringify(cloneDataJSON)};
-console.log('📋 Cloned model data loaded:', window.clonedModelData);
-
-`;
-        // Insert right after the first <script> tag
-        renderedHTML = renderedHTML.replace('<script>', `<script>\n${preloadCode}`);
-
-        console.log('✅ Clone template rendered successfully');
-        return renderedHTML;
+        return newModelId;
 
     } catch (error) {
-        console.error('💥 Failed to generate clone model HTML:', error);
+        console.error('💥 Failed to clone clinical model:', error);
         console.error('💥 Error stack:', error.stack);
         throw error;
     }
 }
 
 // Generate configure model HTML
-async function generateConfigureModelHTML(client, modelId) {
+async function generateConfigureModelHTML(client, modelId, isCloned = false) {
     try {
-        console.log('🔄 Starting generateConfigureModelHTML for model ID:', modelId);
+        console.log('🔄 Starting generateConfigureModelHTML for model ID:', modelId, 'isCloned:', isCloned);
 
         // Get model details with criteria including display names
         const modelQuery = `
@@ -879,6 +878,7 @@ async function generateConfigureModelHTML(client, modelId) {
             MODEL_NAME: model.model_name,
             MODEL_DESCRIPTION: model.description,
             IS_ACTIVE: model.is_active,
+            IS_CLONED: isCloned,
             LAST_EXECUTED_AT: model.last_executed_at ? new Date(model.last_executed_at).toLocaleDateString() : 'Never',
             CREATED_DATE: new Date(model.created_at).toLocaleDateString(),
             CREATED_BY: model.created_by,
@@ -1415,12 +1415,15 @@ const handler = async (event) => {
                 }
             }
 
-            // Handle clone model requests
+            // Handle clone model requests - create a copy and open configure modal
             if (queryParams.component === 'clone' && queryParams.id) {
-                console.log('📋 Loading clone model modal for ID:', queryParams.id);
+                console.log('📋 Cloning model ID:', queryParams.id);
                 try {
-                    const cloneHTML = await generateCloneModelHTML(client, queryParams.id);
-                    console.log('✅ Clone modal HTML generated successfully, length:', cloneHTML.length);
+                    const newModelId = await cloneClinicalModel(client, queryParams.id);
+                    console.log('✅ Model cloned successfully, new ID:', newModelId);
+
+                    // Return configure modal HTML for the new cloned model (pass true for isCloned to show notification)
+                    const configureHTML = await generateConfigureModelHTML(client, newModelId, true);
                     return {
                         statusCode: 200,
                         headers: {
@@ -1429,10 +1432,10 @@ const handler = async (event) => {
                             'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
                             'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
                         },
-                        body: cloneHTML
+                        body: configureHTML
                     };
                 } catch (error) {
-                    console.error('💥 Error generating clone modal HTML:', error);
+                    console.error('💥 Error cloning model:', error);
                     return {
                         statusCode: 500,
                         headers: {
@@ -1441,7 +1444,7 @@ const handler = async (event) => {
                             'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
                             'Access-Control-Allow-Headers': 'Content-Type,hx-current-url,hx-request,hx-target,hx-trigger,hx-trigger-name,hx-vals,hx-boosted,hx-history-restore-request,Authorization,X-Requested-With,Accept'
                         },
-                        body: `<div class="text-red-600">Error loading clone modal: ${error.message}</div>`
+                        body: `<div class="text-red-600">Error cloning model: ${error.message}</div>`
                     };
                 }
             }
