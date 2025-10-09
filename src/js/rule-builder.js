@@ -229,12 +229,16 @@ ClaimsApp.ruleBuilder = {
         } else {
             // Check if value is a boolean (true/false) - don't wrap in quotes
             const normalizedValue = value.trim().toLowerCase();
+            console.log('🔍 Value check:', { original: value, normalized: normalizedValue, isBoolean: normalizedValue === 'true' || normalizedValue === 'false' });
             if (normalizedValue === 'true' || normalizedValue === 'false') {
+                console.log('✅ Detected boolean, not adding quotes');
                 newCondition += normalizedValue;
             } else {
+                console.log('📝 Not a boolean, adding quotes');
                 newCondition += `'${value}'`;
             }
         }
+        console.log('🎯 Final condition:', newCondition);
         
         // Only store one condition for simple rules
         this.state.builtConditions = [{
