@@ -85,10 +85,10 @@ async function getSystemConfig(client) {
 async function getActivePriceModels(client) {
     try {
         const query = `
-            SELECT model_id, model_name, description, created_at
-            FROM application.prism_price_models
+            SELECT id, name, description, created_at
+            FROM application.prism_price_modeling
             WHERE is_active = true
-            ORDER BY model_name ASC
+            ORDER BY name ASC
         `;
 
         const result = await client.query(query);
@@ -139,7 +139,7 @@ function generatePriceModelOptions(priceModels) {
 
     let options = '<option value="">Select Price Model...</option>';
     priceModels.forEach(model => {
-        options += `<option value="${model.model_id}">${model.model_name}</option>`;
+        options += `<option value="${model.id}">${model.name}</option>`;
     });
 
     return options;
