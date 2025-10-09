@@ -227,7 +227,13 @@ ClaimsApp.ruleBuilder = {
         } else if (operator.includes('LIKE')) {
             newCondition += `'%${value}%'`;
         } else {
-            newCondition += `'${value}'`;
+            // Check if value is a boolean (true/false) - don't wrap in quotes
+            const normalizedValue = value.trim().toLowerCase();
+            if (normalizedValue === 'true' || normalizedValue === 'false') {
+                newCondition += normalizedValue;
+            } else {
+                newCondition += `'${value}'`;
+            }
         }
         
         // Only store one condition for simple rules
