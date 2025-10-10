@@ -3358,14 +3358,19 @@ function initPriceBookEventListeners() {
     document.body.addEventListener('priceBookUpdated', function(event) {
         console.log('✅ Price book updated event received');
 
-        // Refresh the list
-        ClaimsApp.priceBook.refreshList();
+        // Show success notification
+        ClaimsApp.utils.showNotification('Price book updated successfully!', 'success');
 
-        // Close modal if it's open (for edit operations)
+        // Close modal immediately
         if (ClaimsApp.modal && ClaimsApp.modal.close) {
             console.log('🚪 Closing modal after price book update');
             ClaimsApp.modal.close();
         }
+
+        // Refresh the list after a short delay
+        setTimeout(() => {
+            ClaimsApp.priceBook.refreshList();
+        }, 500);
     });
 
     document.body.addEventListener('priceBookDeleted', function(event) {
