@@ -2870,9 +2870,27 @@ ClaimsApp.priceBook = {
         }
 
         const html = parameters.map(param => {
-            const validationRules = param.validation_rules ? JSON.parse(param.validation_rules) : {};
+            // Handle validation_rules - might be string or object
+            let validationRules = {};
+            if (param.validation_rules) {
+                if (typeof param.validation_rules === 'string') {
+                    validationRules = JSON.parse(param.validation_rules);
+                } else {
+                    validationRules = param.validation_rules;
+                }
+            }
+
             const fieldType = validationRules.field_type || 'dropdown';
-            const validValues = JSON.parse(param.valid_values || '[]');
+
+            // Handle valid_values - might be string or array
+            let validValues = [];
+            if (param.valid_values) {
+                if (typeof param.valid_values === 'string') {
+                    validValues = JSON.parse(param.valid_values);
+                } else {
+                    validValues = param.valid_values;
+                }
+            }
 
             if (fieldType === 'dropdown') {
                 const options = validValues.map(val =>
