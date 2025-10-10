@@ -2722,4 +2722,244 @@ window.compareRFPReports = function() {
     ClaimsApp.utils.showNotification('Report comparison coming soon!', 'info');
 };
 
+// Price Book functionality
+ClaimsApp.priceBook = {
+    /**
+     * Show add price book modal
+     */
+    showAddModal() {
+        console.log('📖 Opening add price book modal');
+        const modal = document.getElementById('rule-modal');
+        const modalContent = document.getElementById('modal-content');
+
+        if (!modal || !modalContent) {
+            console.error('Modal elements not found');
+            return;
+        }
+
+        // Load the add modal template
+        fetch('https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-book?component=add')
+            .then(response => response.text())
+            .then(html => {
+                modalContent.innerHTML = html;
+                modal.classList.add('show');
+                document.body.classList.add('modal-open');
+            })
+            .catch(error => {
+                console.error('Failed to load add modal:', error);
+                ClaimsApp.utils.showNotification('Failed to load form', 'error');
+            });
+    },
+
+    /**
+     * Show edit price book modal
+     */
+    showEditModal(configId) {
+        console.log('✏️ Opening edit price book modal for:', configId);
+        const modal = document.getElementById('rule-modal');
+        const modalContent = document.getElementById('modal-content');
+
+        if (!modal || !modalContent) {
+            console.error('Modal elements not found');
+            return;
+        }
+
+        // Load the edit modal template
+        fetch(`https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-book?edit=${configId}`)
+            .then(response => response.text())
+            .then(html => {
+                modalContent.innerHTML = html;
+                modal.classList.add('show');
+                document.body.classList.add('modal-open');
+            })
+            .catch(error => {
+                console.error('Failed to load edit modal:', error);
+                ClaimsApp.utils.showNotification('Failed to load form', 'error');
+            });
+    },
+
+    /**
+     * View price book details
+     */
+    viewDetails(configId) {
+        console.log('👁️ Viewing price book details:', configId);
+        ClaimsApp.utils.showNotification('View details coming soon!', 'info');
+    },
+
+    /**
+     * Delete price book configuration
+     */
+    deleteConfig(configId) {
+        if (!confirm('Are you sure you want to delete this price book configuration?')) {
+            return;
+        }
+
+        console.log('🗑️ Deleting price book:', configId);
+
+        fetch(`https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-book?action=delete&id=${configId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        })
+        .then(response => response.text())
+        .then(html => {
+            // Show notification
+            const notification = document.getElementById('notification');
+            if (notification) {
+                notification.innerHTML = html;
+            }
+
+            // Refresh the list
+            setTimeout(() => {
+                this.refreshList();
+            }, 1000);
+        })
+        .catch(error => {
+            console.error('Failed to delete price book:', error);
+            ClaimsApp.utils.showNotification('Failed to delete price book', 'error');
+        });
+    },
+
+    /**
+     * Refresh price book list
+     */
+    refreshList() {
+        console.log('🔄 Refreshing price book list');
+        const container = document.getElementById('price-book-container');
+        if (container) {
+            htmx.trigger(container, 'load');
+        }
+    },
+
+    /**
+     * Load additional parameters based on PBM selection
+     */
+    loadAdditionalParameters(pbmCode) {
+        console.log('📋 Loading additional parameters for PBM:', pbmCode);
+
+        if (!pbmCode) {
+            const container = document.getElementById('additional-parameters-container');
+            if (container) {
+                container.innerHTML = '<div class="text-center text-gray-500 py-8"><p>Select a PBM to load additional parameters</p></div>';
+            }
+            return;
+        }
+
+        fetch(`https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-book?get_parameters=true&pbm_code=${pbmCode}`)
+            .then(response => response.json())
+            .then(parameters => {
+                this.renderAdditionalParameters(parameters);
+            })
+            .catch(error => {
+                console.error('Failed to load parameters:', error);
+                ClaimsApp.utils.showNotification('Failed to load additional parameters', 'error');
+            });
+    },
+
+    /**
+     * Render additional parameters form fields
+     */
+    renderAdditionalParameters(parameters) {
+        const container = document.getElementById('additional-parameters-container');
+        if (!container) return;
+
+        if (parameters.length === 0) {
+            container.innerHTML = '<div class="text-center text-gray-500 py-8"><p>No additional parameters available</p></div>';
+            return;
+        }
+
+        const html = parameters.map(param => {
+            const validationRules = param.validation_rules ? JSON.parse(param.validation_rules) : {};
+            const fieldType = validationRules.field_type || 'dropdown';
+            const validValues = JSON.parse(param.valid_values || '[]');
+
+            if (fieldType === 'dropdown') {
+                const options = validValues.map(val =>
+                    `<option value="${val.code}" ${val.is_default ? 'selected' : ''}>${val.label}</option>`
+                ).join('');
+
+                return `
+                    <div>
+                        <label for="param_${param.parameter_code}" class="block text-sm font-medium text-gray-700 mb-1">
+                            ${param.parameter_name}
+                            ${validationRules.required ? '<span class="text-red-500">*</span>' : ''}
+                        </label>
+                        <select id="param_${param.parameter_code}" name="param_${param.parameter_code}"
+                                ${validationRules.required ? 'required' : ''}
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            ${options}
+                        </select>
+                        ${param.parameter_description ? `<p class="mt-1 text-xs text-gray-500">${param.parameter_description}</p>` : ''}
+                    </div>
+                `;
+            } else if (fieldType === 'boolean') {
+                const options = validValues.map(val =>
+                    `<option value="${val.code}" ${val.is_default ? 'selected' : ''}>${val.label}</option>`
+                ).join('');
+
+                return `
+                    <div>
+                        <label for="param_${param.parameter_code}" class="block text-sm font-medium text-gray-700 mb-1">
+                            ${param.parameter_name}
+                        </label>
+                        <select id="param_${param.parameter_code}" name="param_${param.parameter_code}"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            ${options}
+                        </select>
+                    </div>
+                `;
+            }
+
+            return '';
+        }).join('');
+
+        container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">${html}</div>`;
+    },
+
+    /**
+     * Toggle additional parameters section
+     */
+    toggleAdditionalParameters() {
+        const container = document.getElementById('additional-parameters-container');
+        const chevron = document.getElementById('additional-params-chevron');
+
+        if (!container || !chevron) return;
+
+        if (container.classList.contains('hidden')) {
+            container.classList.remove('hidden');
+            chevron.classList.add('rotate-180');
+        } else {
+            container.classList.add('hidden');
+            chevron.classList.remove('rotate-180');
+        }
+    },
+
+    /**
+     * Open pricing builder (placeholder for now)
+     */
+    openPricingBuilder() {
+        console.log('💰 Opening pricing builder');
+        ClaimsApp.utils.showNotification('Pricing builder coming soon! For now, pricing structure will be saved as empty.', 'info');
+    }
+};
+
+// Listen for price book events
+document.body.addEventListener('priceBookCreated', function() {
+    console.log('✅ Price book created event received');
+    ClaimsApp.priceBook.refreshList();
+    ClaimsApp.modal.close();
+});
+
+document.body.addEventListener('priceBookUpdated', function() {
+    console.log('✅ Price book updated event received');
+    ClaimsApp.priceBook.refreshList();
+    ClaimsApp.modal.close();
+});
+
+document.body.addEventListener('priceBookDeleted', function() {
+    console.log('✅ Price book deleted event received');
+    ClaimsApp.priceBook.refreshList();
+});
+
 console.log('🚀 ClaimsApp utilities loaded');

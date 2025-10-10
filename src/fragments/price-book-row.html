@@ -1,0 +1,51 @@
+<tr class="{{ROW_CLASS}} hover:bg-gray-100">
+    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+        {{NAME}}
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        v{{VERSION}}
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {{PBM_CODE}}
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap">
+        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{CONFIG_TYPE_BADGE}}">
+            {{CONFIG_TYPE}}
+        </span>
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {{EFFECTIVE_FROM}}
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {{EFFECTIVE_TO}}
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {{UPDATED_AT}}
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap">
+        {{#IS_ACTIVE}}
+        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+            Active
+        </span>
+        {{/IS_ACTIVE}}
+        {{^IS_ACTIVE}}
+        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+            Inactive
+        </span>
+        {{/IS_ACTIVE}}
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+        <button onclick="ClaimsApp.priceBook.showEditModal('{{CONFIG_ID}}')"
+                class="text-blue-600 hover:text-blue-900 mr-3">
+            Edit
+        </button>
+        <button onclick="ClaimsApp.priceBook.viewDetails('{{CONFIG_ID}}')"
+                class="text-gray-600 hover:text-gray-900 mr-3">
+            View
+        </button>
+        <button onclick="ClaimsApp.priceBook.deleteConfig('{{CONFIG_ID}}')"
+                class="text-red-600 hover:text-red-900">
+            Delete
+        </button>
+    </td>
+</tr>

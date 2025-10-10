@@ -1,0 +1,76 @@
+<div class="bg-white rounded-lg border p-6 mb-6">
+    <form hx-post="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-book"
+          hx-target="#price-book-container"
+          hx-trigger="submit"
+          class="space-y-4">
+
+        <!-- Header with Add Button -->
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-gray-900">Price Book</h2>
+            <button type="button"
+                    onclick="ClaimsApp.priceBook.showAddModal()"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Add Price Book
+            </button>
+        </div>
+
+        <!-- Filters Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <!-- PBM Filter -->
+            <div>
+                <label for="pbm_filter" class="block text-sm font-medium text-gray-700 mb-1">
+                    PBM
+                </label>
+                <select id="pbm_filter" name="pbm_filter"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    {{PBM_OPTIONS}}
+                </select>
+            </div>
+
+            <!-- Config Type Filter -->
+            <div>
+                <label for="config_type_filter" class="block text-sm font-medium text-gray-700 mb-1">
+                    Type
+                </label>
+                <select id="config_type_filter" name="config_type_filter"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    {{CONFIG_TYPE_OPTIONS}}
+                </select>
+            </div>
+
+            <!-- Status Filter -->
+            <div>
+                <label for="status_filter" class="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                </label>
+                <select id="status_filter" name="status_filter"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    {{STATUS_OPTIONS}}
+                </select>
+            </div>
+
+            <!-- Search -->
+            <div>
+                <label for="name_search" class="block text-sm font-medium text-gray-700 mb-1">
+                    Search Name
+                </label>
+                <input type="text" id="name_search" name="name_search" placeholder="Search by name..."
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+        </div>
+
+        <!-- Apply Filters Button -->
+        <div class="flex justify-end">
+            <button type="submit"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                </svg>
+                Apply Filters
+            </button>
+        </div>
+    </form>
+</div>
