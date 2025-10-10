@@ -3055,6 +3055,9 @@ ClaimsApp.priceBook = {
             }
         });
 
+        // Add cache busting parameter
+        filters['_'] = Date.now();
+
         console.log('Price book filters:', filters);
 
         // Build query string
@@ -3075,6 +3078,21 @@ ClaimsApp.priceBook = {
      */
     refreshList() {
         console.log('🔄 Refreshing price book list');
+
+        // Add cache busting to ensure fresh data
+        const timestamp = Date.now();
+        const filterBody = document.getElementById('price-book-filter-body');
+
+        if (!filterBody) {
+            console.warn('Filter body not found, using simple refresh');
+            htmx.ajax('GET', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-book?_=${timestamp}`, {
+                target: '#price-book-container',
+                swap: 'innerHTML'
+            });
+            return;
+        }
+
+        // Apply filters with cache busting
         this.applyFilters();
     },
 
@@ -3367,10 +3385,8 @@ function initPriceBookEventListeners() {
             ClaimsApp.modal.close();
         }
 
-        // Refresh the list after a short delay
-        setTimeout(() => {
-            ClaimsApp.priceBook.refreshList();
-        }, 500);
+        // Refresh the list immediately
+        ClaimsApp.priceBook.refreshList();
     });
 
     document.body.addEventListener('priceBookDeleted', function(event) {
