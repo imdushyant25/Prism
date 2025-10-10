@@ -3186,37 +3186,31 @@ function initPriceBookEventListeners() {
     // Listen for price book events
     document.body.addEventListener('priceBookCreated', function(event) {
         console.log('✅ Price book created event received');
-        console.log('🔍 Event detail:', event.detail);
-        console.log('🔍 ClaimsApp.modal exists:', !!ClaimsApp.modal);
-        console.log('🔍 ClaimsApp.modal.close exists:', !!(ClaimsApp.modal && ClaimsApp.modal.close));
 
+        // Show success notification
+        ClaimsApp.utils.showNotification('Price book created successfully!', 'success');
+
+        // Close modal immediately
+        if (ClaimsApp.modal && ClaimsApp.modal.close) {
+            console.log('🚪 Closing modal after price book creation');
+            ClaimsApp.modal.close();
+        }
+
+        // Refresh the list
         ClaimsApp.priceBook.refreshList();
-
-        // Close modal after a brief delay to show success message
-        setTimeout(() => {
-            if (ClaimsApp.modal && ClaimsApp.modal.close) {
-                console.log('🚪 Calling ClaimsApp.modal.close()');
-                ClaimsApp.modal.close();
-            } else {
-                console.error('❌ ClaimsApp.modal.close not available!');
-            }
-        }, 800);
     });
 
     document.body.addEventListener('priceBookUpdated', function(event) {
         console.log('✅ Price book updated event received');
-        console.log('🔍 Event detail:', event.detail);
+
+        // Refresh the list
         ClaimsApp.priceBook.refreshList();
 
-        // Close modal after a brief delay to show success message
-        setTimeout(() => {
-            if (ClaimsApp.modal && ClaimsApp.modal.close) {
-                console.log('🚪 Calling ClaimsApp.modal.close()');
-                ClaimsApp.modal.close();
-            } else {
-                console.error('❌ ClaimsApp.modal.close not available!');
-            }
-        }, 800);
+        // Close modal if it's open (for edit operations)
+        if (ClaimsApp.modal && ClaimsApp.modal.close) {
+            console.log('🚪 Closing modal after price book update');
+            ClaimsApp.modal.close();
+        }
     });
 
     document.body.addEventListener('priceBookDeleted', function(event) {

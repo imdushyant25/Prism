@@ -697,17 +697,7 @@ const handler = async (event) => {
                 return {
                     statusCode: 200,
                     headers: { ...headers, 'HX-Trigger': 'priceBookCreated' },
-                    body: `
-                        <div class="p-8 text-center">
-                            <div class="mb-4">
-                                <svg class="w-16 h-16 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                            </div>
-                            <h3 class="text-lg font-medium text-gray-900 mb-2">Price Book Created!</h3>
-                            <p class="text-gray-600">Successfully created price book. Refreshing list...</p>
-                        </div>
-                    `
+                    body: ''
                 };
             } else {
                 return {
