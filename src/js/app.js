@@ -3357,38 +3357,6 @@ function initPriceBookEventListeners() {
     });
 
     // Listen for price book events
-    document.body.addEventListener('priceBookCreated', function(event) {
-        console.log('✅ Price book created event received');
-
-        // Show success notification
-        ClaimsApp.utils.showNotification('Price book created successfully!', 'success');
-
-        // Close modal immediately
-        if (ClaimsApp.modal && ClaimsApp.modal.close) {
-            console.log('🚪 Closing modal after price book creation');
-            ClaimsApp.modal.close();
-        }
-
-        // Refresh the list
-        ClaimsApp.priceBook.refreshList();
-    });
-
-    document.body.addEventListener('priceBookUpdated', function(event) {
-        console.log('✅ Price book updated event received');
-
-        // Show success notification
-        ClaimsApp.utils.showNotification('Price book updated successfully!', 'success');
-
-        // Close modal immediately
-        if (ClaimsApp.modal && ClaimsApp.modal.close) {
-            console.log('🚪 Closing modal after price book update');
-            ClaimsApp.modal.close();
-        }
-
-        // Refresh the list immediately
-        ClaimsApp.priceBook.refreshList();
-    });
-
     document.body.addEventListener('priceBookDeleted', function(event) {
         console.log('✅ Price book deleted event received');
         console.log('🔍 Event detail:', event.detail);

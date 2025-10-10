@@ -13,8 +13,7 @@
     <!-- Form -->
     <form id="price-book-form"
           hx-post="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-book?action=create"
-          hx-target="#modal-content"
-          hx-swap="innerHTML"
+          hx-on::after-request="handlePriceBookCreateResponse(event)"
           class="space-y-6">
 
         <!-- Select PBM -->

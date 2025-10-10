@@ -13,8 +13,7 @@
     <!-- Form -->
     <form id="price-book-edit-form"
           hx-post="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-book?action=update&id={{CONFIG_ID}}"
-          hx-target="#modal-content"
-          hx-swap="innerHTML"
+          hx-on::after-request="handlePriceBookEditResponse(event)"
           class="space-y-6">
 
         <input type="hidden" name="config_id" value="{{CONFIG_ID}}">

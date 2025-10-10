@@ -261,6 +261,46 @@ ClaimsApp.modal = {
             console.error('🎭 Clone failed:', event.detail);
             ClaimsApp.utils.showNotification('Failed to clone rules. Try again!', 'error');
         }
+    },
+
+    /**
+     * Handle price book edit form response
+     */
+    handlePriceBookEditResponse(event) {
+        console.log('💰 Price book edit response received:', event.detail);
+
+        if (event.detail.successful) {
+            this.closeModal();
+            ClaimsApp.utils.showNotification('Price book updated successfully!', 'success');
+
+            // Refresh the price book list
+            if (ClaimsApp.priceBook && ClaimsApp.priceBook.refreshList) {
+                ClaimsApp.priceBook.refreshList();
+            }
+        } else {
+            console.error('💰 Price book update failed:', event.detail);
+            ClaimsApp.utils.showNotification('Failed to update price book. Try again!', 'error');
+        }
+    },
+
+    /**
+     * Handle price book create form response
+     */
+    handlePriceBookCreateResponse(event) {
+        console.log('💰 Price book create response received:', event.detail);
+
+        if (event.detail.successful) {
+            this.closeModal();
+            ClaimsApp.utils.showNotification('Price book created successfully!', 'success');
+
+            // Refresh the price book list
+            if (ClaimsApp.priceBook && ClaimsApp.priceBook.refreshList) {
+                ClaimsApp.priceBook.refreshList();
+            }
+        } else {
+            console.error('💰 Price book creation failed:', event.detail);
+            ClaimsApp.utils.showNotification('Failed to create price book. Try again!', 'error');
+        }
     }
 };
 
@@ -284,5 +324,7 @@ document.addEventListener('DOMContentLoaded', function() {
 window.closeModal = ClaimsApp.modal.closeModal.bind(ClaimsApp.modal);
 window.handleEditResponse = ClaimsApp.modal.handleEditResponse.bind(ClaimsApp.modal);
 window.handleCloneResponse = ClaimsApp.modal.handleCloneResponse.bind(ClaimsApp.modal);
+window.handlePriceBookEditResponse = ClaimsApp.modal.handlePriceBookEditResponse.bind(ClaimsApp.modal);
+window.handlePriceBookCreateResponse = ClaimsApp.modal.handlePriceBookCreateResponse.bind(ClaimsApp.modal);
 
 console.log('🚀 Modal management loaded');
