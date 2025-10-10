@@ -132,6 +132,40 @@ function buildFilterQuery(filters) {
     };
 }
 
+// Get parameter display names from system config
+async function getParameterLabels(client) {
+    try {
+        const query = `
+            SELECT config_code, display_name, parent_code
+            FROM application.prism_system_config
+            WHERE config_type = 'price_parameters'
+              AND is_active = true
+        `;
+        const result = await client.query(query);
+
+        // Create maps:
+        // 1. parameter labels (parent_code IS NULL) - config_code -> display_name
+        // 2. value labels (parent_code IS NOT NULL) - config_code -> display_name
+        const parameterLabels = {};
+        const valueLabels = {};
+
+        result.rows.forEach(row => {
+            if (row.parent_code === null) {
+                // This is a parameter (e.g., 'hospital_pricing')
+                parameterLabels[row.config_code] = row.display_name;
+            } else {
+                // This is a value (e.g., 'yes' under 'hospital_pricing')
+                valueLabels[row.config_code] = row.display_name;
+            }
+        });
+
+        return { parameterLabels, valueLabels };
+    } catch (error) {
+        console.error('Error getting parameter labels:', error);
+        return { parameterLabels: {}, valueLabels: {} };
+    }
+}
+
 // Get additional parameters for a specific PBM
 async function getAdditionalParameters(client, pbmCode) {
     try {
@@ -734,6 +768,67 @@ const handler = async (event) => {
             }
         }
 
+        // Handle toggle favorite request
+        if (method === 'POST' && event.queryStringParameters?.action === 'toggle_favorite') {
+            console.log('⭐ Toggle favorite request');
+            const configId = event.queryStringParameters?.id;
+
+            if (!configId) {
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: '<div class="text-red-600">Config ID required</div>'
+                };
+            }
+
+            try {
+                // Get current favorite status
+                const getQuery = `
+                    SELECT favorite FROM application.prism_price_configuration
+                    WHERE config_id = $1 AND is_active = true
+                    LIMIT 1
+                `;
+                const getResult = await client.query(getQuery, [configId]);
+
+                if (getResult.rows.length === 0) {
+                    await client.end();
+                    return {
+                        statusCode: 400,
+                        headers,
+                        body: '<div class="text-red-600">Price book not found</div>'
+                    };
+                }
+
+                const currentFavorite = getResult.rows[0].favorite;
+                const newFavorite = !currentFavorite;
+
+                // Toggle favorite status
+                const updateQuery = `
+                    UPDATE application.prism_price_configuration
+                    SET favorite = $1, updated_at = CURRENT_TIMESTAMP
+                    WHERE config_id = $2 AND is_active = true
+                `;
+                await client.query(updateQuery, [newFavorite, configId]);
+
+                console.log(`✅ Toggled favorite for ${configId}: ${currentFavorite} -> ${newFavorite}`);
+                await client.end();
+
+                return {
+                    statusCode: 200,
+                    headers: { ...headers, 'HX-Trigger': 'priceBookUpdated' },
+                    body: `<div class="text-green-600">${newFavorite ? 'Added to' : 'Removed from'} favorites!</div>`
+                };
+            } catch (error) {
+                console.error('❌ Toggle favorite error:', error);
+                await client.end();
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: `<div class="text-red-600">Error updating favorite status: ${error.message}</div>`
+                };
+            }
+        }
+
         // Main listing request
         console.log('📋 Price book listing request');
 
@@ -784,7 +879,7 @@ const handler = async (event) => {
             SELECT
                 id, config_id, version, name, description, config_type, pbm_code,
                 formulary, client_size, contract_duration,
-                pricing_structure, additional_parameters, is_active,
+                pricing_structure, additional_parameters, is_active, favorite, draft,
                 TO_CHAR(effective_from, 'MM/DD/YYYY') as effective_from_formatted,
                 TO_CHAR(effective_to, 'MM/DD/YYYY') as effective_to_formatted,
                 TO_CHAR(updated_at, 'MM/DD/YYYY HH24:MI') as updated_at_formatted
@@ -796,6 +891,9 @@ const handler = async (event) => {
 
         const queryParams = [...filterQuery.params, limit, offset];
         const result = await client.query(configsQuery, queryParams);
+
+        // Get parameter and value labels from system config
+        const { parameterLabels, valueLabels } = await getParameterLabels(client);
 
         await client.end();
 
@@ -809,33 +907,38 @@ const handler = async (event) => {
                 configParts.push(`<strong>PBM:</strong> ${config.pbm_code}`);
             }
 
-            // Add formulary
+            // Add formulary (use centralized labels)
             if (config.formulary) {
-                const formularyDisplay = config.formulary.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                configParts.push(`<strong>Formulary:</strong> ${formularyDisplay}`);
+                const paramLabel = parameterLabels['formulary'] || 'Formulary';
+                const valueDisplay = valueLabels[config.formulary] || config.formulary.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                configParts.push(`<strong>${paramLabel}:</strong> ${valueDisplay}`);
             }
 
-            // Add client size
+            // Add client size (use centralized labels)
             if (config.client_size) {
-                const clientSizeDisplay = config.client_size.replace(/>/g, '> ').replace(/</g, '< ');
-                configParts.push(`<strong>Client Size:</strong> ${clientSizeDisplay}`);
+                const paramLabel = parameterLabels['client_size'] || 'Client Size';
+                const valueDisplay = valueLabels[config.client_size] || config.client_size.replace(/>/g, '> ').replace(/</g, '< ');
+                configParts.push(`<strong>${paramLabel}:</strong> ${valueDisplay}`);
             }
 
-            // Add contract duration
+            // Add contract duration (use centralized labels)
             if (config.contract_duration) {
-                const contractDisplay = config.contract_duration.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                configParts.push(`<strong>Contract:</strong> ${contractDisplay}`);
+                const paramLabel = parameterLabels['contract_duration'] || 'Contract Duration';
+                const valueDisplay = valueLabels[config.contract_duration] || config.contract_duration.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                configParts.push(`<strong>${paramLabel}:</strong> ${valueDisplay}`);
             }
 
-            // Add additional parameters (non-null only)
+            // Add additional parameters (non-null only) - use centralized labels
             if (config.additional_parameters) {
                 try {
                     const params = JSON.parse(config.additional_parameters);
                     Object.keys(params).forEach(key => {
                         if (params[key] && params[key] !== '') {
-                            const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                            const value = params[key].toString().replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                            configParts.push(`<strong>${label}:</strong> ${value}`);
+                            // Use parameter label from database, fallback to formatted key
+                            const paramLabel = parameterLabels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                            // Use value label from database, fallback to formatted value
+                            const valueDisplay = valueLabels[params[key]] || params[key].toString().replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                            configParts.push(`<strong>${paramLabel}:</strong> ${valueDisplay}`);
                         }
                     });
                 } catch (e) {
@@ -851,17 +954,21 @@ const handler = async (event) => {
             const priceStructureParts = [];
             if (config.pricing_structure) {
                 try {
-                    const pricing = JSON.parse(config.pricing_structure);
+                    const pricing = typeof config.pricing_structure === 'string'
+                        ? JSON.parse(config.pricing_structure)
+                        : config.pricing_structure;
 
-                    // Overall fees
+                    console.log('Pricing structure for', config.name, ':', JSON.stringify(pricing));
+
+                    // Overall fees (check for non-null values)
                     if (pricing.overall) {
-                        if (pricing.overall.pepm_rebate_credit) {
+                        if (pricing.overall.pepm_rebate_credit !== null && pricing.overall.pepm_rebate_credit !== undefined) {
                             priceStructureParts.push(`<strong>PEPM Rebate Credit:</strong> $${pricing.overall.pepm_rebate_credit}`);
                         }
-                        if (pricing.overall.pricing_fee) {
+                        if (pricing.overall.pricing_fee !== null && pricing.overall.pricing_fee !== undefined) {
                             priceStructureParts.push(`<strong>Pricing Fee:</strong> $${pricing.overall.pricing_fee}`);
                         }
-                        if (pricing.overall.inhouse_pharmacy_fee) {
+                        if (pricing.overall.inhouse_pharmacy_fee !== null && pricing.overall.inhouse_pharmacy_fee !== undefined) {
                             priceStructureParts.push(`<strong>In-House Pharmacy Fee:</strong> $${pricing.overall.inhouse_pharmacy_fee}`);
                         }
                     }
@@ -869,29 +976,96 @@ const handler = async (event) => {
                     // Retail pricing
                     if (pricing.retail) {
                         const retailParts = [];
-                        if (pricing.retail.brand?.rebate) retailParts.push(`Brand Rebate: $${pricing.retail.brand.rebate}`);
-                        if (pricing.retail.brand?.discount) retailParts.push(`Brand Discount: ${pricing.retail.brand.discount}%`);
-                        if (pricing.retail.generic?.discount) retailParts.push(`Generic Discount: ${pricing.retail.generic.discount}%`);
+                        if (pricing.retail.brand?.rebate !== null && pricing.retail.brand?.rebate !== undefined) {
+                            retailParts.push(`Brand Rebate: $${pricing.retail.brand.rebate}`);
+                        }
+                        if (pricing.retail.brand?.discount !== null && pricing.retail.brand?.discount !== undefined) {
+                            retailParts.push(`Brand Discount: ${pricing.retail.brand.discount}%`);
+                        }
+                        if (pricing.retail.brand?.dispensing_fee !== null && pricing.retail.brand?.dispensing_fee !== undefined) {
+                            retailParts.push(`Brand Disp Fee: $${pricing.retail.brand.dispensing_fee}`);
+                        }
+                        if (pricing.retail.generic?.discount !== null && pricing.retail.generic?.discount !== undefined) {
+                            retailParts.push(`Generic Discount: ${pricing.retail.generic.discount}%`);
+                        }
+                        if (pricing.retail.generic?.dispensing_fee !== null && pricing.retail.generic?.dispensing_fee !== undefined) {
+                            retailParts.push(`Generic Disp Fee: $${pricing.retail.generic.dispensing_fee}`);
+                        }
                         if (retailParts.length > 0) {
                             priceStructureParts.push(`<strong>Retail:</strong> ${retailParts.join(', ')}`);
                         }
                     }
 
+                    // Retail 90
+                    if (pricing.retail_90) {
+                        const retail90Parts = [];
+                        if (pricing.retail_90.brand?.rebate !== null && pricing.retail_90.brand?.rebate !== undefined) {
+                            retail90Parts.push(`Brand Rebate: $${pricing.retail_90.brand.rebate}`);
+                        }
+                        if (pricing.retail_90.brand?.discount !== null && pricing.retail_90.brand?.discount !== undefined) {
+                            retail90Parts.push(`Brand Discount: ${pricing.retail_90.brand.discount}%`);
+                        }
+                        if (retail90Parts.length > 0) {
+                            priceStructureParts.push(`<strong>Retail 90:</strong> ${retail90Parts.join(', ')}`);
+                        }
+                    }
+
+                    // Mail
+                    if (pricing.mail) {
+                        const mailParts = [];
+                        if (pricing.mail.brand?.rebate !== null && pricing.mail.brand?.rebate !== undefined) {
+                            mailParts.push(`Brand Rebate: $${pricing.mail.brand.rebate}`);
+                        }
+                        if (pricing.mail.brand?.discount !== null && pricing.mail.brand?.discount !== undefined) {
+                            mailParts.push(`Brand Discount: ${pricing.mail.brand.discount}%`);
+                        }
+                        if (mailParts.length > 0) {
+                            priceStructureParts.push(`<strong>Mail:</strong> ${mailParts.join(', ')}`);
+                        }
+                    }
+
+                    // Specialty Mail
+                    if (pricing.specialty_mail) {
+                        const specialtyMailParts = [];
+                        if (pricing.specialty_mail.brand?.rebate !== null && pricing.specialty_mail.brand?.rebate !== undefined) {
+                            specialtyMailParts.push(`Brand Rebate: $${pricing.specialty_mail.brand.rebate}`);
+                        }
+                        if (pricing.specialty_mail.brand?.discount !== null && pricing.specialty_mail.brand?.discount !== undefined) {
+                            specialtyMailParts.push(`Brand Discount: ${pricing.specialty_mail.brand.discount}%`);
+                        }
+                        if (specialtyMailParts.length > 0) {
+                            priceStructureParts.push(`<strong>Specialty Mail:</strong> ${specialtyMailParts.join(', ')}`);
+                        }
+                    }
+
                     // Specialty pricing
-                    if (pricing.ldd_blended_specialty || pricing.non_ldd_blended_specialty) {
-                        const specialtyParts = [];
-                        if (pricing.ldd_blended_specialty?.rebate) {
-                            specialtyParts.push(`LDD Rebate: $${pricing.ldd_blended_specialty.rebate}`);
+                    if (pricing.ldd_blended_specialty) {
+                        const lddParts = [];
+                        if (pricing.ldd_blended_specialty.rebate !== null && pricing.ldd_blended_specialty.rebate !== undefined) {
+                            lddParts.push(`Rebate: $${pricing.ldd_blended_specialty.rebate}`);
                         }
-                        if (pricing.non_ldd_blended_specialty?.rebate) {
-                            specialtyParts.push(`Non-LDD Rebate: $${pricing.non_ldd_blended_specialty.rebate}`);
+                        if (pricing.ldd_blended_specialty.discount !== null && pricing.ldd_blended_specialty.discount !== undefined) {
+                            lddParts.push(`Discount: ${pricing.ldd_blended_specialty.discount}%`);
                         }
-                        if (specialtyParts.length > 0) {
-                            priceStructureParts.push(`<strong>Specialty:</strong> ${specialtyParts.join(', ')}`);
+                        if (lddParts.length > 0) {
+                            priceStructureParts.push(`<strong>LDD Blended Specialty:</strong> ${lddParts.join(', ')}`);
+                        }
+                    }
+
+                    if (pricing.non_ldd_blended_specialty) {
+                        const nonLddParts = [];
+                        if (pricing.non_ldd_blended_specialty.rebate !== null && pricing.non_ldd_blended_specialty.rebate !== undefined) {
+                            nonLddParts.push(`Rebate: $${pricing.non_ldd_blended_specialty.rebate}`);
+                        }
+                        if (pricing.non_ldd_blended_specialty.discount !== null && pricing.non_ldd_blended_specialty.discount !== undefined) {
+                            nonLddParts.push(`Discount: ${pricing.non_ldd_blended_specialty.discount}%`);
+                        }
+                        if (nonLddParts.length > 0) {
+                            priceStructureParts.push(`<strong>Non-LDD Blended Specialty:</strong> ${nonLddParts.join(', ')}`);
                         }
                     }
                 } catch (e) {
-                    console.error('Error parsing pricing structure:', e);
+                    console.error('Error parsing pricing structure for', config.name, ':', e);
                 }
             }
 
@@ -912,7 +1086,9 @@ const handler = async (event) => {
                 EFFECTIVE_FROM: config.effective_from_formatted,
                 EFFECTIVE_TO: config.effective_to_formatted,
                 UPDATED_AT: config.updated_at_formatted,
-                IS_ACTIVE: config.is_active
+                IS_ACTIVE: config.is_active,
+                IS_PRODUCTION: config.config_type === 'PRODUCTION',
+                IS_FAVORITE: config.favorite
             };
 
             return renderTemplate(rowTemplate, rowData);

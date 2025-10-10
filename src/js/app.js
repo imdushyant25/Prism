@@ -2834,6 +2834,37 @@ ClaimsApp.priceBook = {
     },
 
     /**
+     * Toggle favorite status for a price book configuration
+     */
+    toggleFavorite(configId) {
+        console.log('⭐ Toggling favorite for price book:', configId);
+
+        fetch(`https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-book?action=toggle_favorite&id=${configId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        })
+        .then(response => response.text())
+        .then(html => {
+            // Show notification
+            const notification = document.getElementById('notification');
+            if (notification) {
+                notification.innerHTML = html;
+            }
+
+            // Refresh the list
+            setTimeout(() => {
+                this.refreshList();
+            }, 800);
+        })
+        .catch(error => {
+            console.error('Failed to toggle favorite:', error);
+            ClaimsApp.utils.showNotification('Failed to update favorite status', 'error');
+        });
+    },
+
+    /**
      * Refresh price book list
      */
     refreshList() {
