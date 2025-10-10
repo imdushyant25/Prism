@@ -2208,10 +2208,10 @@ window.cloneRule = function(ruleId) {
 
 // ==================== CLINICAL MODEL FUNCTIONS ====================
 
-// Global toggleDropdown function for clinical models
+// Global toggleDropdown function for all dropdowns (clinical models, price book, etc.)
 window.toggleDropdown = function(dropdownId) {
-    // Close all other dropdowns first
-    document.querySelectorAll('[id^="clinical-dropdown-"]').forEach(dropdown => {
+    // Close all other dropdowns first (any dropdown with id starting with "dropdown-")
+    document.querySelectorAll('[id^="dropdown-"]').forEach(dropdown => {
         if (dropdown.id !== dropdownId) {
             dropdown.classList.add('hidden');
         }

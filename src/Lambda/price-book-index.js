@@ -783,6 +783,7 @@ const handler = async (event) => {
         const configsQuery = `
             SELECT
                 id, config_id, version, name, description, config_type, pbm_code,
+                formulary, client_size, contract_duration,
                 additional_parameters, is_active,
                 TO_CHAR(effective_from, 'MM/DD/YYYY') as effective_from_formatted,
                 TO_CHAR(effective_to, 'MM/DD/YYYY') as effective_to_formatted,
@@ -800,8 +801,22 @@ const handler = async (event) => {
 
         // Generate rows
         const configsHTML = result.rows.map((config, index) => {
+            // Format formulary display
+            const formularyDisplay = config.formulary ?
+                config.formulary.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) :
+                'Not specified';
+
+            // Format client size display
+            const clientSizeDisplay = config.client_size ?
+                config.client_size.replace(/>/g, '> ').replace(/</g, '< ') :
+                'Not specified';
+
+            // Format contract duration display
+            const contractDisplay = config.contract_duration ?
+                config.contract_duration.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) :
+                'Not specified';
+
             const rowData = {
-                ROW_CLASS: index % 2 === 0 ? 'bg-white' : 'bg-gray-50',
                 CONFIG_ID: config.config_id,
                 NAME: config.name,
                 VERSION: config.version,
@@ -810,6 +825,9 @@ const handler = async (event) => {
                 CONFIG_TYPE_BADGE: config.config_type === 'PRODUCTION'
                     ? 'bg-blue-100 text-blue-800'
                     : 'bg-purple-100 text-purple-800',
+                FORMULARY: formularyDisplay,
+                CLIENT_SIZE: clientSizeDisplay,
+                CONTRACT_DURATION: contractDisplay,
                 EFFECTIVE_FROM: config.effective_from_formatted,
                 EFFECTIVE_TO: config.effective_to_formatted,
                 UPDATED_AT: config.updated_at_formatted,

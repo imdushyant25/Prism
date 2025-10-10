@@ -2,7 +2,7 @@
     <form id="price-book-filters-form"
           hx-post="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-book"
           hx-target="#price-book-container"
-          hx-trigger="submit, load"
+          hx-trigger="submit"
           class="space-y-4">
 
         <!-- Header with Add Button -->
@@ -75,3 +75,20 @@
         </div>
     </form>
 </div>
+
+<script>
+// Auto-submit the filter form when it's loaded to fetch initial price book list
+(function() {
+    console.log('🔄 Price book filters loaded, auto-submitting form...');
+    const form = document.getElementById('price-book-filters-form');
+    if (form) {
+        // Use setTimeout to ensure HTMX has processed the form
+        setTimeout(() => {
+            console.log('📤 Triggering form submission');
+            htmx.trigger(form, 'submit');
+        }, 100);
+    } else {
+        console.error('❌ Price book filters form not found!');
+    }
+})();
+</script>
