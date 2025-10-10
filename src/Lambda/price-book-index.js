@@ -71,22 +71,26 @@ async function generateFiltersHTML(client) {
         `;
 
         const configResult = await client.query(configQuery);
-        const pbmOptions = configResult.rows
-            .map((row, index) => `<option value="${row.config_code}" ${index === 0 ? 'selected' : ''}>${row.display_name}</option>`)
-            .join('');
 
-        // Config Type options (PRODUCTION/MODELING)
+        // PBM options with "All" as default
+        const pbmOptionsArray = ['<option value="" selected>All PBMs</option>'];
+        pbmOptionsArray.push(...configResult.rows.map(row =>
+            `<option value="${row.config_code}">${row.display_name}</option>`
+        ));
+        const pbmOptions = pbmOptionsArray.join('');
+
+        // Config Type options (PRODUCTION/MODELING) with "All" as default
         const configTypeOptions = [
             '<option value="" selected>All Types</option>',
             '<option value="PRODUCTION">Production</option>',
             '<option value="MODELING">Modeling</option>'
         ].join('');
 
-        // Status options
+        // Status options with "All" as default
         const statusOptions = [
-            '<option value="active" selected>Active</option>',
-            '<option value="inactive">Inactive</option>',
-            '<option value="all">All</option>'
+            '<option value="all" selected>All Status</option>',
+            '<option value="active">Active</option>',
+            '<option value="inactive">Inactive</option>'
         ].join('');
 
         const filterData = {

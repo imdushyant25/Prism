@@ -2916,23 +2916,166 @@ ClaimsApp.priceBook = {
     },
 
     /**
+     * Initialize price book filters
+     */
+    initializeFilters() {
+        console.log('Initializing price book filters...');
+
+        // Check if filter elements exist
+        const filterBody = document.getElementById('price-book-filter-body');
+        if (!filterBody) {
+            console.warn('Price book filter body not found, skipping initialization');
+            return;
+        }
+
+        // Add change listeners for real-time updates
+        const filterInputs = filterBody.querySelectorAll('select, input');
+        console.log(`Found ${filterInputs.length} price book filter inputs`);
+
+        filterInputs.forEach(input => {
+            // Remove existing listeners to avoid duplicates
+            input.removeEventListener('change', this.handleFilterChange.bind(this));
+            input.removeEventListener('keyup', this.handleFilterKeyup.bind(this));
+
+            // Add new listeners
+            input.addEventListener('change', this.handleFilterChange.bind(this));
+            input.addEventListener('keyup', this.handleFilterKeyup.bind(this));
+        });
+
+        // Start with filters expanded
+        if (filterBody) {
+            filterBody.classList.remove('collapse');
+            filterBody.classList.add('expand');
+        }
+
+        // Trigger initial load with default filters (all)
+        this.applyFilters();
+    },
+
+    /**
+     * Handle filter change events
+     */
+    handleFilterChange() {
+        this.updateFilterBadges();
+        this.applyFilters();
+    },
+
+    /**
+     * Handle keyup events for search inputs (with debounce)
+     */
+    handleFilterKeyup(event) {
+        // Debounce for search inputs
+        clearTimeout(this.searchTimeout);
+        this.searchTimeout = setTimeout(() => {
+            this.updateFilterBadges();
+            this.applyFilters();
+        }, 500);
+    },
+
+    /**
+     * Update filter badges display
+     */
+    updateFilterBadges() {
+        const filterBody = document.getElementById('price-book-filter-body');
+        if (!filterBody) return;
+
+        const filterInputs = filterBody.querySelectorAll('select, input');
+        const activeFiltersContainer = document.getElementById('price-book-active-filters');
+        const badgesContainer = document.getElementById('price-book-filter-badges');
+        const countBadge = document.getElementById('price-book-filter-count');
+
+        if (!badgesContainer || !countBadge) return;
+
+        // Clear existing badges
+        badgesContainer.innerHTML = '';
+
+        let activeCount = 0;
+
+        filterInputs.forEach(input => {
+            const value = input.value.trim();
+            const name = input.getAttribute('name');
+
+            // Skip if empty or default "all" values
+            if (!value || value === '' || value === 'all') return;
+
+            activeCount++;
+
+            // Get label text
+            const label = input.closest('.space-y-2')?.querySelector('label')?.textContent || name;
+
+            // Get display value
+            let displayValue = value;
+            if (input.tagName === 'SELECT') {
+                const selectedOption = input.options[input.selectedIndex];
+                displayValue = selectedOption?.textContent || value;
+            }
+
+            // Create badge
+            const badge = document.createElement('span');
+            badge.className = 'inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800';
+            badge.innerHTML = `
+                <span>${label}: ${displayValue}</span>
+                <button type="button" onclick="removePriceBookFilter('${name}')" class="hover:bg-blue-200 rounded-full p-0.5">
+                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    </svg>
+                </button>
+            `;
+            badgesContainer.appendChild(badge);
+        });
+
+        // Update count badge
+        countBadge.textContent = `${activeCount} active`;
+
+        // Show/hide active filters section
+        if (activeCount > 0) {
+            activeFiltersContainer.classList.remove('hidden');
+        } else {
+            activeFiltersContainer.classList.add('hidden');
+        }
+    },
+
+    /**
+     * Apply filters and load data
+     */
+    applyFilters() {
+        console.log('Applying price book filters...');
+
+        const filterBody = document.getElementById('price-book-filter-body');
+        if (!filterBody) return;
+
+        const filterInputs = filterBody.querySelectorAll('select, input');
+        const filters = {};
+
+        filterInputs.forEach(input => {
+            const name = input.getAttribute('name');
+            const value = input.value.trim();
+            if (value && name) {
+                filters[name] = value;
+            }
+        });
+
+        console.log('Price book filters:', filters);
+
+        // Build query string
+        const queryParams = new URLSearchParams(filters).toString();
+        const url = `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-book${queryParams ? '?' + queryParams : ''}`;
+
+        console.log('Loading price book with URL:', url);
+
+        // Load data using HTMX
+        htmx.ajax('GET', url, {
+            target: '#price-book-container',
+            swap: 'innerHTML'
+        });
+    },
+
+    /**
      * Refresh price book list
      */
     refreshList() {
         console.log('🔄 Refreshing price book list');
-
-        // Get current filter form and resubmit it to refresh the list
-        const filterForm = document.querySelector('#price-book-filters-container form');
-        if (filterForm) {
-            console.log('📋 Resubmitting filter form to refresh list');
-            htmx.trigger(filterForm, 'submit');
-        } else {
-            console.log('⚠️ No filter form found, triggering container load');
-            const container = document.getElementById('price-book-container');
-            if (container) {
-                htmx.trigger(container, 'load');
-            }
-        }
+        this.applyFilters();
     },
 
     /**
@@ -3183,6 +3326,18 @@ if (document.readyState === 'loading') {
 function initPriceBookEventListeners() {
     console.log('🚀 Initializing price book event listeners');
 
+    // Initialize filters when filters container loads
+    document.body.addEventListener('htmx:afterSwap', function(event) {
+        if (event.detail.target.id === 'price-book-filters-container') {
+            console.log('✅ Price book filters loaded, initializing...');
+            setTimeout(() => {
+                if (ClaimsApp.priceBook) {
+                    ClaimsApp.priceBook.initializeFilters();
+                }
+            }, 100);
+        }
+    });
+
     // Listen for price book events
     document.body.addEventListener('priceBookCreated', function(event) {
         console.log('✅ Price book created event received');
@@ -3232,5 +3387,77 @@ function initPriceBookEventListeners() {
 
     console.log('✅ Price book event listeners initialized');
 }
+
+//======================================================================
+// PRICE BOOK FILTER HELPER FUNCTIONS
+//======================================================================
+
+/**
+ * Toggle price book filters visibility
+ */
+window.togglePriceBookFilters = function() {
+    const filterBody = document.getElementById('price-book-filter-body');
+    const chevron = document.getElementById('price-book-filter-chevron');
+
+    if (!filterBody || !chevron) return;
+
+    if (filterBody.classList.contains('expand')) {
+        filterBody.classList.remove('expand');
+        filterBody.classList.add('collapse');
+        chevron.classList.remove('rotate-180');
+    } else {
+        filterBody.classList.remove('collapse');
+        filterBody.classList.add('expand');
+        chevron.classList.add('rotate-180');
+    }
+};
+
+/**
+ * Clear all price book filters
+ */
+window.clearPriceBookFilters = function() {
+    const filterBody = document.getElementById('price-book-filter-body');
+    if (!filterBody) return;
+
+    // Reset all inputs
+    const filterInputs = filterBody.querySelectorAll('select, input');
+    filterInputs.forEach(input => {
+        if (input.tagName === 'SELECT') {
+            // Reset to first option (usually "All")
+            input.selectedIndex = 0;
+        } else {
+            input.value = '';
+        }
+    });
+
+    // Trigger filter update
+    if (ClaimsApp.priceBook) {
+        ClaimsApp.priceBook.updateFilterBadges();
+        ClaimsApp.priceBook.applyFilters();
+    }
+};
+
+/**
+ * Remove a specific price book filter
+ */
+window.removePriceBookFilter = function(filterName) {
+    const filterBody = document.getElementById('price-book-filter-body');
+    if (!filterBody) return;
+
+    const input = filterBody.querySelector(`[name="${filterName}"]`);
+    if (!input) return;
+
+    if (input.tagName === 'SELECT') {
+        input.selectedIndex = 0; // Reset to first option
+    } else {
+        input.value = '';
+    }
+
+    // Trigger filter update
+    if (ClaimsApp.priceBook) {
+        ClaimsApp.priceBook.updateFilterBadges();
+        ClaimsApp.priceBook.applyFilters();
+    }
+};
 
 console.log('🚀 ClaimsApp utilities loaded');
