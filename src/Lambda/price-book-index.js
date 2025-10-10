@@ -1088,7 +1088,9 @@ const handler = async (event) => {
                 UPDATED_AT: config.updated_at_formatted,
                 IS_ACTIVE: config.is_active,
                 IS_PRODUCTION: config.config_type === 'PRODUCTION',
-                IS_FAVORITE: config.favorite
+                IS_FAVORITE: config.favorite,
+                // Combined flag: show favorite menu only for active production products
+                SHOW_FAVORITE_MENU: config.is_active && config.config_type === 'PRODUCTION'
             };
 
             return renderTemplate(rowTemplate, rowData);
