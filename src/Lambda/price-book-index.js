@@ -24,23 +24,37 @@ async function getTemplate(key) {
 }
 
 function renderTemplate(template, data) {
-    // Handle conditional blocks {{#KEY}} content {{/KEY}}
-    template = template.replace(/\{\{#(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (match, key, content) => {
-        const value = data[key];
-        return (value && value !== false && value !== 0 && value !== '' && value !== null && value !== undefined) ? content : '';
-    });
+    let result = template;
+    let previousResult;
+    let iterations = 0;
+    const maxIterations = 10; // Prevent infinite loops
 
-    // Handle inverted conditional blocks {{^KEY}} content {{/KEY}}
-    template = template.replace(/\{\{\^(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (match, key, content) => {
-        const value = data[key];
-        return (!value || value === false || value === 0 || value === '' || value === null || value === undefined) ? content : '';
-    });
+    // Process conditionals multiple times to handle nested blocks
+    do {
+        previousResult = result;
+
+        // Handle conditional blocks {{#KEY}} content {{/KEY}}
+        result = result.replace(/\{\{#(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (match, key, content) => {
+            const value = data[key];
+            return (value && value !== false && value !== 0 && value !== '' && value !== null && value !== undefined) ? content : '';
+        });
+
+        // Handle inverted conditional blocks {{^KEY}} content {{/KEY}}
+        result = result.replace(/\{\{\^(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (match, key, content) => {
+            const value = data[key];
+            return (!value || value === false || value === 0 || value === '' || value === null || value === undefined) ? content : '';
+        });
+
+        iterations++;
+    } while (result !== previousResult && iterations < maxIterations);
 
     // Handle simple variable substitution {{KEY}}
-    return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+    result = result.replace(/\{\{(\w+)\}\}/g, (match, key) => {
         const value = data[key];
         return value !== undefined && value !== null ? String(value) : '';
     });
+
+    return result;
 }
 
 // Generate filters HTML
@@ -63,9 +77,9 @@ async function generateFiltersHTML(client) {
 
         // Config Type options (PRODUCTION/MODELING)
         const configTypeOptions = [
-            '<option value="">All Types</option>',
+            '<option value="" selected>All Types</option>',
             '<option value="PRODUCTION">Production</option>',
-            '<option value="MODELING" selected>Modeling</option>'
+            '<option value="MODELING">Modeling</option>'
         ].join('');
 
         // Status options
@@ -540,6 +554,24 @@ async function deletePriceBook(client, configId) {
     }
 }
 
+// Make price book active (restore inactive/deleted configuration)
+async function makeActivePriceBook(client, configId) {
+    try {
+        const activateQuery = `
+            UPDATE application.prism_price_configuration
+            SET is_active = true, updated_at = CURRENT_TIMESTAMP
+            WHERE config_id = $1 AND is_active = false
+        `;
+
+        const result = await client.query(activateQuery, [configId]);
+        return result.rowCount > 0;
+
+    } catch (error) {
+        console.error('Failed to make price book active:', error);
+        throw error;
+    }
+}
+
 const handler = async (event) => {
     // Force template cache refresh for debugging
     templateCache = {};
@@ -829,6 +861,49 @@ const handler = async (event) => {
             }
         }
 
+        // Handle make active request
+        if (method === 'POST' && event.queryStringParameters?.action === 'makeActive') {
+            console.log('✅ Make active price book request');
+            const configId = event.queryStringParameters?.id;
+
+            if (!configId) {
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: '<div class="text-red-600">Config ID required</div>'
+                };
+            }
+
+            try {
+                const success = await makeActivePriceBook(client, configId);
+
+                if (success) {
+                    console.log('✅ Activated price book:', configId);
+                    await client.end();
+                    return {
+                        statusCode: 200,
+                        headers: { ...headers, 'HX-Trigger': 'priceBookUpdated' },
+                        body: '<div class="text-green-600">Price book activated successfully!</div>'
+                    };
+                } else {
+                    await client.end();
+                    return {
+                        statusCode: 400,
+                        headers,
+                        body: '<div class="text-red-600">Price book not found or already active</div>'
+                    };
+                }
+            } catch (error) {
+                console.error('❌ Make active error:', error);
+                await client.end();
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: `<div class="text-red-600">Error activating price book: ${error.message}</div>`
+                };
+            }
+        }
+
         // Main listing request
         console.log('📋 Price book listing request');
 
@@ -1005,6 +1080,15 @@ const handler = async (event) => {
                         if (pricing.retail_90.brand?.discount !== null && pricing.retail_90.brand?.discount !== undefined) {
                             retail90Parts.push(`Brand Discount: ${pricing.retail_90.brand.discount}%`);
                         }
+                        if (pricing.retail_90.brand?.dispensing_fee !== null && pricing.retail_90.brand?.dispensing_fee !== undefined) {
+                            retail90Parts.push(`Brand Disp Fee: $${pricing.retail_90.brand.dispensing_fee}`);
+                        }
+                        if (pricing.retail_90.generic?.discount !== null && pricing.retail_90.generic?.discount !== undefined) {
+                            retail90Parts.push(`Generic Discount: ${pricing.retail_90.generic.discount}%`);
+                        }
+                        if (pricing.retail_90.generic?.dispensing_fee !== null && pricing.retail_90.generic?.dispensing_fee !== undefined) {
+                            retail90Parts.push(`Generic Disp Fee: $${pricing.retail_90.generic.dispensing_fee}`);
+                        }
                         if (retail90Parts.length > 0) {
                             priceStructureParts.push(`<strong>Retail 90:</strong> ${retail90Parts.join(', ')}`);
                         }
@@ -1019,6 +1103,15 @@ const handler = async (event) => {
                         if (pricing.mail.brand?.discount !== null && pricing.mail.brand?.discount !== undefined) {
                             mailParts.push(`Brand Discount: ${pricing.mail.brand.discount}%`);
                         }
+                        if (pricing.mail.brand?.dispensing_fee !== null && pricing.mail.brand?.dispensing_fee !== undefined) {
+                            mailParts.push(`Brand Disp Fee: $${pricing.mail.brand.dispensing_fee}`);
+                        }
+                        if (pricing.mail.generic?.discount !== null && pricing.mail.generic?.discount !== undefined) {
+                            mailParts.push(`Generic Discount: ${pricing.mail.generic.discount}%`);
+                        }
+                        if (pricing.mail.generic?.dispensing_fee !== null && pricing.mail.generic?.dispensing_fee !== undefined) {
+                            mailParts.push(`Generic Disp Fee: $${pricing.mail.generic.dispensing_fee}`);
+                        }
                         if (mailParts.length > 0) {
                             priceStructureParts.push(`<strong>Mail:</strong> ${mailParts.join(', ')}`);
                         }
@@ -1032,6 +1125,15 @@ const handler = async (event) => {
                         }
                         if (pricing.specialty_mail.brand?.discount !== null && pricing.specialty_mail.brand?.discount !== undefined) {
                             specialtyMailParts.push(`Brand Discount: ${pricing.specialty_mail.brand.discount}%`);
+                        }
+                        if (pricing.specialty_mail.brand?.dispensing_fee !== null && pricing.specialty_mail.brand?.dispensing_fee !== undefined) {
+                            specialtyMailParts.push(`Brand Disp Fee: $${pricing.specialty_mail.brand.dispensing_fee}`);
+                        }
+                        if (pricing.specialty_mail.generic?.discount !== null && pricing.specialty_mail.generic?.discount !== undefined) {
+                            specialtyMailParts.push(`Generic Discount: ${pricing.specialty_mail.generic.discount}%`);
+                        }
+                        if (pricing.specialty_mail.generic?.dispensing_fee !== null && pricing.specialty_mail.generic?.dispensing_fee !== undefined) {
+                            specialtyMailParts.push(`Generic Disp Fee: $${pricing.specialty_mail.generic.dispensing_fee}`);
                         }
                         if (specialtyMailParts.length > 0) {
                             priceStructureParts.push(`<strong>Specialty Mail:</strong> ${specialtyMailParts.join(', ')}`);

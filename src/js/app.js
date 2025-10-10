@@ -2865,6 +2865,48 @@ ClaimsApp.priceBook = {
     },
 
     /**
+     * Make price book configuration active (restore deleted/inactive configuration)
+     */
+    makeActive(configId) {
+        console.log('✅ Making price book active:', configId);
+
+        // Show confirmation dialog
+        ClaimsApp.utils.showConfirmDialog(
+            'Reactivate Price Book',
+            'Are you sure you want to make this price book active? This will restore the configuration.',
+            () => {
+                // User confirmed, make the API call
+                fetch(`https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-book?action=makeActive&id=${configId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
+                })
+                .then(response => response.text())
+                .then(html => {
+                    // Show success notification
+                    ClaimsApp.utils.showNotification('Price book activated successfully!', 'success');
+
+                    // Refresh the list
+                    setTimeout(() => {
+                        this.refreshList();
+                    }, 800);
+                })
+                .catch(error => {
+                    console.error('Failed to activate price book:', error);
+                    ClaimsApp.utils.showNotification('Failed to activate price book', 'error');
+                });
+            },
+            () => {
+                // User cancelled - do nothing
+                console.log('User cancelled activation');
+            },
+            'Make Active',
+            'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+        );
+    },
+
+    /**
      * Refresh price book list
      */
     refreshList() {
