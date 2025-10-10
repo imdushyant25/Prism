@@ -2833,6 +2833,38 @@ ClaimsApp.priceBook = {
     },
 
     /**
+     * Load form fields when PBM is selected
+     */
+    loadFormFields(pbmCode) {
+        console.log('📋 Loading form fields for PBM:', pbmCode);
+
+        if (!pbmCode) {
+            // Hide form fields if no PBM selected
+            const formFields = document.getElementById('price-book-form-fields');
+            if (formFields) {
+                formFields.classList.add('hidden');
+            }
+            return;
+        }
+
+        // Show form fields container
+        const formFields = document.getElementById('price-book-form-fields');
+        if (formFields) {
+            formFields.classList.remove('hidden');
+        }
+
+        // Load additional parameters for the selected PBM
+        this.loadAdditionalParameters(pbmCode);
+
+        // Auto-set today's date as effective date if not already set
+        const effectiveFromInput = document.getElementById('effective_from');
+        if (effectiveFromInput && !effectiveFromInput.value) {
+            const today = new Date().toISOString().split('T')[0];
+            effectiveFromInput.value = today;
+        }
+    },
+
+    /**
      * Load additional parameters based on PBM selection
      */
     loadAdditionalParameters(pbmCode) {
