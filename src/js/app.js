@@ -2742,8 +2742,14 @@ ClaimsApp.priceBook = {
             .then(response => response.text())
             .then(html => {
                 modalContent.innerHTML = html;
+
+                // CRITICAL: Process HTMX attributes on dynamically loaded content
+                htmx.process(modalContent);
+
                 modal.classList.add('show');
                 document.body.classList.add('modal-open');
+
+                console.log('✅ Price book modal loaded and HTMX processed');
             })
             .catch(error => {
                 console.error('Failed to load add modal:', error);
@@ -2769,8 +2775,14 @@ ClaimsApp.priceBook = {
             .then(response => response.text())
             .then(html => {
                 modalContent.innerHTML = html;
+
+                // CRITICAL: Process HTMX attributes on dynamically loaded content
+                htmx.process(modalContent);
+
                 modal.classList.add('show');
                 document.body.classList.add('modal-open');
+
+                console.log('✅ Price book edit modal loaded and HTMX processed');
             })
             .catch(error => {
                 console.error('Failed to load edit modal:', error);
