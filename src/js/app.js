@@ -2893,8 +2893,9 @@ ClaimsApp.priceBook = {
             }
 
             if (fieldType === 'dropdown') {
+                // Ignore is_default flag - always start with "Select One"
                 const options = validValues.map(val =>
-                    `<option value="${val.code}" ${val.is_default ? 'selected' : ''}>${val.label}</option>`
+                    `<option value="${val.code}">${val.label}</option>`
                 ).join('');
 
                 return `
@@ -2912,8 +2913,9 @@ ClaimsApp.priceBook = {
                     </div>
                 `;
             } else if (fieldType === 'boolean') {
+                // Ignore is_default flag - always start with "Select One"
                 const options = validValues.map(val =>
-                    `<option value="${val.code}" ${val.is_default ? 'selected' : ''}>${val.label}</option>`
+                    `<option value="${val.code}">${val.label}</option>`
                 ).join('');
 
                 return `
