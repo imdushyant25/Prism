@@ -784,7 +784,7 @@ const handler = async (event) => {
             SELECT
                 id, config_id, version, name, description, config_type, pbm_code,
                 formulary, client_size, contract_duration,
-                additional_parameters, is_active,
+                pricing_structure, additional_parameters, is_active,
                 TO_CHAR(effective_from, 'MM/DD/YYYY') as effective_from_formatted,
                 TO_CHAR(effective_to, 'MM/DD/YYYY') as effective_to_formatted,
                 TO_CHAR(updated_at, 'MM/DD/YYYY HH24:MI') as updated_at_formatted
@@ -800,34 +800,115 @@ const handler = async (event) => {
         await client.end();
 
         // Generate rows
-        const configsHTML = result.rows.map((config, index) => {
-            // Format formulary display
-            const formularyDisplay = config.formulary ?
-                config.formulary.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) :
-                'Not specified';
+        const configsHTML = result.rows.map((config) => {
+            // Build configuration display (non-null parameters)
+            const configParts = [];
 
-            // Format client size display
-            const clientSizeDisplay = config.client_size ?
-                config.client_size.replace(/>/g, '> ').replace(/</g, '< ') :
-                'Not specified';
+            // Add PBM
+            if (config.pbm_code) {
+                configParts.push(`<strong>PBM:</strong> ${config.pbm_code}`);
+            }
 
-            // Format contract duration display
-            const contractDisplay = config.contract_duration ?
-                config.contract_duration.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) :
-                'Not specified';
+            // Add formulary
+            if (config.formulary) {
+                const formularyDisplay = config.formulary.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                configParts.push(`<strong>Formulary:</strong> ${formularyDisplay}`);
+            }
+
+            // Add client size
+            if (config.client_size) {
+                const clientSizeDisplay = config.client_size.replace(/>/g, '> ').replace(/</g, '< ');
+                configParts.push(`<strong>Client Size:</strong> ${clientSizeDisplay}`);
+            }
+
+            // Add contract duration
+            if (config.contract_duration) {
+                const contractDisplay = config.contract_duration.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                configParts.push(`<strong>Contract:</strong> ${contractDisplay}`);
+            }
+
+            // Add additional parameters (non-null only)
+            if (config.additional_parameters) {
+                try {
+                    const params = JSON.parse(config.additional_parameters);
+                    Object.keys(params).forEach(key => {
+                        if (params[key] && params[key] !== '') {
+                            const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                            const value = params[key].toString().replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                            configParts.push(`<strong>${label}:</strong> ${value}`);
+                        }
+                    });
+                } catch (e) {
+                    console.error('Error parsing additional parameters:', e);
+                }
+            }
+
+            const configurationDisplay = configParts.length > 0
+                ? configParts.map(p => `• ${p}`).join('<br>')
+                : '• No configuration specified';
+
+            // Build price structure display (like price modeling)
+            const priceStructureParts = [];
+            if (config.pricing_structure) {
+                try {
+                    const pricing = JSON.parse(config.pricing_structure);
+
+                    // Overall fees
+                    if (pricing.overall) {
+                        if (pricing.overall.pepm_rebate_credit) {
+                            priceStructureParts.push(`<strong>PEPM Rebate Credit:</strong> $${pricing.overall.pepm_rebate_credit}`);
+                        }
+                        if (pricing.overall.pricing_fee) {
+                            priceStructureParts.push(`<strong>Pricing Fee:</strong> $${pricing.overall.pricing_fee}`);
+                        }
+                        if (pricing.overall.inhouse_pharmacy_fee) {
+                            priceStructureParts.push(`<strong>In-House Pharmacy Fee:</strong> $${pricing.overall.inhouse_pharmacy_fee}`);
+                        }
+                    }
+
+                    // Retail pricing
+                    if (pricing.retail) {
+                        const retailParts = [];
+                        if (pricing.retail.brand?.rebate) retailParts.push(`Brand Rebate: $${pricing.retail.brand.rebate}`);
+                        if (pricing.retail.brand?.discount) retailParts.push(`Brand Discount: ${pricing.retail.brand.discount}%`);
+                        if (pricing.retail.generic?.discount) retailParts.push(`Generic Discount: ${pricing.retail.generic.discount}%`);
+                        if (retailParts.length > 0) {
+                            priceStructureParts.push(`<strong>Retail:</strong> ${retailParts.join(', ')}`);
+                        }
+                    }
+
+                    // Specialty pricing
+                    if (pricing.ldd_blended_specialty || pricing.non_ldd_blended_specialty) {
+                        const specialtyParts = [];
+                        if (pricing.ldd_blended_specialty?.rebate) {
+                            specialtyParts.push(`LDD Rebate: $${pricing.ldd_blended_specialty.rebate}`);
+                        }
+                        if (pricing.non_ldd_blended_specialty?.rebate) {
+                            specialtyParts.push(`Non-LDD Rebate: $${pricing.non_ldd_blended_specialty.rebate}`);
+                        }
+                        if (specialtyParts.length > 0) {
+                            priceStructureParts.push(`<strong>Specialty:</strong> ${specialtyParts.join(', ')}`);
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error parsing pricing structure:', e);
+                }
+            }
+
+            const priceStructureDisplay = priceStructureParts.length > 0
+                ? priceStructureParts.map(p => `• ${p}`).join('<br>')
+                : '• No pricing structure specified';
 
             const rowData = {
                 CONFIG_ID: config.config_id,
                 NAME: config.name,
-                VERSION: config.version,
                 PBM_CODE: config.pbm_code,
                 CONFIG_TYPE: config.config_type,
                 CONFIG_TYPE_BADGE: config.config_type === 'PRODUCTION'
                     ? 'bg-blue-100 text-blue-800'
                     : 'bg-purple-100 text-purple-800',
-                FORMULARY: formularyDisplay,
-                CLIENT_SIZE: clientSizeDisplay,
-                CONTRACT_DURATION: contractDisplay,
+                CONFIGURATION_DISPLAY: configurationDisplay,
+                PRICE_STRUCTURE_DISPLAY: priceStructureDisplay,
                 EFFECTIVE_FROM: config.effective_from_formatted,
                 EFFECTIVE_TO: config.effective_to_formatted,
                 UPDATED_AT: config.updated_at_formatted,
