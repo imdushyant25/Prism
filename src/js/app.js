@@ -2953,13 +2953,6 @@ ClaimsApp.priceBook = {
         }
     },
 
-    /**
-     * Open pricing builder (placeholder for now)
-     */
-    openPricingBuilder() {
-        console.log('💰 Opening pricing builder');
-        ClaimsApp.utils.showNotification('Pricing builder coming soon! For now, pricing structure will be saved as empty.', 'info');
-    }
 };
 
 // Listen for price book events
