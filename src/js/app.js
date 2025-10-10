@@ -2838,9 +2838,18 @@ ClaimsApp.priceBook = {
      */
     refreshList() {
         console.log('🔄 Refreshing price book list');
-        const container = document.getElementById('price-book-container');
-        if (container) {
-            htmx.trigger(container, 'load');
+
+        // Get current filter form and resubmit it to refresh the list
+        const filterForm = document.querySelector('#price-book-filters-container form');
+        if (filterForm) {
+            console.log('📋 Resubmitting filter form to refresh list');
+            htmx.trigger(filterForm, 'submit');
+        } else {
+            console.log('⚠️ No filter form found, triggering container load');
+            const container = document.getElementById('price-book-container');
+            if (container) {
+                htmx.trigger(container, 'load');
+            }
         }
     },
 
@@ -3083,21 +3092,56 @@ ClaimsApp.priceBook = {
 };
 
 // Listen for price book events
-document.body.addEventListener('priceBookCreated', function() {
+document.body.addEventListener('priceBookCreated', function(event) {
     console.log('✅ Price book created event received');
+    console.log('🔍 Event detail:', event.detail);
+    console.log('🔍 ClaimsApp.modal exists:', !!ClaimsApp.modal);
+    console.log('🔍 ClaimsApp.modal.close exists:', !!(ClaimsApp.modal && ClaimsApp.modal.close));
+
     ClaimsApp.priceBook.refreshList();
-    ClaimsApp.modal.close();
+
+    // Close modal after a brief delay to show success message
+    setTimeout(() => {
+        if (ClaimsApp.modal && ClaimsApp.modal.close) {
+            console.log('🚪 Calling ClaimsApp.modal.close()');
+            ClaimsApp.modal.close();
+        } else {
+            console.error('❌ ClaimsApp.modal.close not available!');
+        }
+    }, 800);
 });
 
-document.body.addEventListener('priceBookUpdated', function() {
+document.body.addEventListener('priceBookUpdated', function(event) {
     console.log('✅ Price book updated event received');
+    console.log('🔍 Event detail:', event.detail);
     ClaimsApp.priceBook.refreshList();
-    ClaimsApp.modal.close();
+
+    // Close modal after a brief delay to show success message
+    setTimeout(() => {
+        if (ClaimsApp.modal && ClaimsApp.modal.close) {
+            console.log('🚪 Calling ClaimsApp.modal.close()');
+            ClaimsApp.modal.close();
+        } else {
+            console.error('❌ ClaimsApp.modal.close not available!');
+        }
+    }, 800);
 });
 
-document.body.addEventListener('priceBookDeleted', function() {
+document.body.addEventListener('priceBookDeleted', function(event) {
     console.log('✅ Price book deleted event received');
+    console.log('🔍 Event detail:', event.detail);
     ClaimsApp.priceBook.refreshList();
+});
+
+// Listen for HTMX response events to debug trigger
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    if (event.detail.xhr) {
+        const triggerHeader = event.detail.xhr.getResponseHeader('HX-Trigger');
+        if (triggerHeader) {
+            console.log('🎯 HTMX trigger header received:', triggerHeader);
+            console.log('🎯 Response headers:', event.detail.xhr.getAllResponseHeaders());
+        }
+    }
 });
 
 console.log('🚀 ClaimsApp utilities loaded');

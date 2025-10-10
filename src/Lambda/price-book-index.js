@@ -218,56 +218,47 @@ async function createPriceBook(client, formData) {
         // Build pricing structure from flat form fields (same approach as price modeling)
         const pricingStructure = {};
 
-        // Overall fees & credits
-        if (formData.overall_pepm_rebate_credit || formData.overall_pricing_fee || formData.overall_inhouse_pharmacy_fee) {
-            pricingStructure.overall = {};
-            if (formData.overall_pepm_rebate_credit) pricingStructure.overall.pepm_rebate_credit = parseFloat(formData.overall_pepm_rebate_credit);
-            if (formData.overall_pricing_fee) pricingStructure.overall.pricing_fee = parseFloat(formData.overall_pricing_fee);
-            if (formData.overall_inhouse_pharmacy_fee) pricingStructure.overall.inhouse_pharmacy_fee = parseFloat(formData.overall_inhouse_pharmacy_fee);
-        }
+        // Overall fees & credits (always include all fields, even if null)
+        pricingStructure.overall = {
+            pepm_rebate_credit: formData.overall_pepm_rebate_credit ? parseFloat(formData.overall_pepm_rebate_credit) : null,
+            pricing_fee: formData.overall_pricing_fee ? parseFloat(formData.overall_pricing_fee) : null,
+            inhouse_pharmacy_fee: formData.overall_inhouse_pharmacy_fee ? parseFloat(formData.overall_inhouse_pharmacy_fee) : null
+        };
 
-        // Build category structures (retail, retail_90, mail, specialty_mail)
+        // Build category structures (retail, retail_90, mail, specialty_mail) - always include all fields
         const categories = ['retail', 'retail_90', 'mail', 'specialty_mail'];
         categories.forEach(category => {
-            const categoryData = {};
-
-            // Brand data
-            const brandData = {};
-            if (formData[`${category}_brand_rebate`]) brandData.rebate = parseFloat(formData[`${category}_brand_rebate`]);
-            if (formData[`${category}_brand_discount`]) brandData.discount = parseFloat(formData[`${category}_brand_discount`]);
-            if (formData[`${category}_brand_dispensing_fee`]) brandData.dispensing_fee = parseFloat(formData[`${category}_brand_dispensing_fee`]);
-            if (Object.keys(brandData).length > 0) categoryData.brand = brandData;
-
-            // Generic data
-            const genericData = {};
-            if (formData[`${category}_generic_discount`]) genericData.discount = parseFloat(formData[`${category}_generic_discount`]);
-            if (formData[`${category}_generic_dispensing_fee`]) genericData.dispensing_fee = parseFloat(formData[`${category}_generic_dispensing_fee`]);
-            if (Object.keys(genericData).length > 0) categoryData.generic = genericData;
-
-            if (Object.keys(categoryData).length > 0) {
-                pricingStructure[category] = categoryData;
-            }
+            pricingStructure[category] = {
+                brand: {
+                    rebate: formData[`${category}_brand_rebate`] ? parseFloat(formData[`${category}_brand_rebate`]) : null,
+                    discount: formData[`${category}_brand_discount`] ? parseFloat(formData[`${category}_brand_discount`]) : null,
+                    dispensing_fee: formData[`${category}_brand_dispensing_fee`] ? parseFloat(formData[`${category}_brand_dispensing_fee`]) : null
+                },
+                generic: {
+                    discount: formData[`${category}_generic_discount`] ? parseFloat(formData[`${category}_generic_discount`]) : null,
+                    dispensing_fee: formData[`${category}_generic_dispensing_fee`] ? parseFloat(formData[`${category}_generic_dispensing_fee`]) : null
+                }
+            };
         });
 
-        // Blended specialty categories
+        // Blended specialty categories - always include all fields
         ['ldd_blended_specialty', 'non_ldd_blended_specialty'].forEach(category => {
-            const categoryData = {};
-            if (formData[`${category}_rebate`]) categoryData.rebate = parseFloat(formData[`${category}_rebate`]);
-            if (formData[`${category}_discount`]) categoryData.discount = parseFloat(formData[`${category}_discount`]);
-            if (formData[`${category}_dispensing_fee`]) categoryData.dispensing_fee = parseFloat(formData[`${category}_dispensing_fee`]);
-            if (Object.keys(categoryData).length > 0) {
-                pricingStructure[category] = categoryData;
-            }
+            pricingStructure[category] = {
+                rebate: formData[`${category}_rebate`] ? parseFloat(formData[`${category}_rebate`]) : null,
+                discount: formData[`${category}_discount`] ? parseFloat(formData[`${category}_discount`]) : null,
+                dispensing_fee: formData[`${category}_dispensing_fee`] ? parseFloat(formData[`${category}_dispensing_fee`]) : null
+            };
         });
 
         console.log('Built pricing_structure:', JSON.stringify(pricingStructure, null, 2));
 
-        // Build additional parameters from param_* fields
+        // Build additional parameters from param_* fields (include all, even empty)
         const additionalParameters = {};
         Object.keys(formData).forEach(key => {
-            if (key.startsWith('param_') && formData[key]) {
+            if (key.startsWith('param_')) {
                 const paramCode = key.replace('param_', '');
-                additionalParameters[paramCode] = formData[key];
+                // Save the value even if empty (empty string becomes empty string, not null)
+                additionalParameters[paramCode] = formData[key] || '';
             }
         });
 
@@ -386,57 +377,48 @@ async function updatePriceBook(client, configId, formData) {
 
         const currentConfig = currentConfigResult.rows[0];
 
-        // Build pricing structure from flat form fields (same approach as create)
+        // Build pricing structure from flat form fields (same approach as create - always include all fields)
         const pricingStructure = {};
 
-        // Overall fees & credits
-        if (formData.overall_pepm_rebate_credit || formData.overall_pricing_fee || formData.overall_inhouse_pharmacy_fee) {
-            pricingStructure.overall = {};
-            if (formData.overall_pepm_rebate_credit) pricingStructure.overall.pepm_rebate_credit = parseFloat(formData.overall_pepm_rebate_credit);
-            if (formData.overall_pricing_fee) pricingStructure.overall.pricing_fee = parseFloat(formData.overall_pricing_fee);
-            if (formData.overall_inhouse_pharmacy_fee) pricingStructure.overall.inhouse_pharmacy_fee = parseFloat(formData.overall_inhouse_pharmacy_fee);
-        }
+        // Overall fees & credits (always include all fields, even if null)
+        pricingStructure.overall = {
+            pepm_rebate_credit: formData.overall_pepm_rebate_credit ? parseFloat(formData.overall_pepm_rebate_credit) : null,
+            pricing_fee: formData.overall_pricing_fee ? parseFloat(formData.overall_pricing_fee) : null,
+            inhouse_pharmacy_fee: formData.overall_inhouse_pharmacy_fee ? parseFloat(formData.overall_inhouse_pharmacy_fee) : null
+        };
 
-        // Build category structures
+        // Build category structures (retail, retail_90, mail, specialty_mail) - always include all fields
         const categories = ['retail', 'retail_90', 'mail', 'specialty_mail'];
         categories.forEach(category => {
-            const categoryData = {};
-
-            // Brand data
-            const brandData = {};
-            if (formData[`${category}_brand_rebate`]) brandData.rebate = parseFloat(formData[`${category}_brand_rebate`]);
-            if (formData[`${category}_brand_discount`]) brandData.discount = parseFloat(formData[`${category}_brand_discount`]);
-            if (formData[`${category}_brand_dispensing_fee`]) brandData.dispensing_fee = parseFloat(formData[`${category}_brand_dispensing_fee`]);
-            if (Object.keys(brandData).length > 0) categoryData.brand = brandData;
-
-            // Generic data
-            const genericData = {};
-            if (formData[`${category}_generic_discount`]) genericData.discount = parseFloat(formData[`${category}_generic_discount`]);
-            if (formData[`${category}_generic_dispensing_fee`]) genericData.dispensing_fee = parseFloat(formData[`${category}_generic_dispensing_fee`]);
-            if (Object.keys(genericData).length > 0) categoryData.generic = genericData;
-
-            if (Object.keys(categoryData).length > 0) {
-                pricingStructure[category] = categoryData;
-            }
+            pricingStructure[category] = {
+                brand: {
+                    rebate: formData[`${category}_brand_rebate`] ? parseFloat(formData[`${category}_brand_rebate`]) : null,
+                    discount: formData[`${category}_brand_discount`] ? parseFloat(formData[`${category}_brand_discount`]) : null,
+                    dispensing_fee: formData[`${category}_brand_dispensing_fee`] ? parseFloat(formData[`${category}_brand_dispensing_fee`]) : null
+                },
+                generic: {
+                    discount: formData[`${category}_generic_discount`] ? parseFloat(formData[`${category}_generic_discount`]) : null,
+                    dispensing_fee: formData[`${category}_generic_dispensing_fee`] ? parseFloat(formData[`${category}_generic_dispensing_fee`]) : null
+                }
+            };
         });
 
-        // Blended specialty categories
+        // Blended specialty categories - always include all fields
         ['ldd_blended_specialty', 'non_ldd_blended_specialty'].forEach(category => {
-            const categoryData = {};
-            if (formData[`${category}_rebate`]) categoryData.rebate = parseFloat(formData[`${category}_rebate`]);
-            if (formData[`${category}_discount`]) categoryData.discount = parseFloat(formData[`${category}_discount`]);
-            if (formData[`${category}_dispensing_fee`]) categoryData.dispensing_fee = parseFloat(formData[`${category}_dispensing_fee`]);
-            if (Object.keys(categoryData).length > 0) {
-                pricingStructure[category] = categoryData;
-            }
+            pricingStructure[category] = {
+                rebate: formData[`${category}_rebate`] ? parseFloat(formData[`${category}_rebate`]) : null,
+                discount: formData[`${category}_discount`] ? parseFloat(formData[`${category}_discount`]) : null,
+                dispensing_fee: formData[`${category}_dispensing_fee`] ? parseFloat(formData[`${category}_dispensing_fee`]) : null
+            };
         });
 
-        // Build additional parameters from param_* fields
+        // Build additional parameters from param_* fields (include all, even empty)
         const additionalParameters = {};
         Object.keys(formData).forEach(key => {
-            if (key.startsWith('param_') && formData[key]) {
+            if (key.startsWith('param_')) {
                 const paramCode = key.replace('param_', '');
-                additionalParameters[paramCode] = formData[key];
+                // Save the value even if empty (empty string becomes empty string, not null)
+                additionalParameters[paramCode] = formData[key] || '';
             }
         });
 
@@ -649,7 +631,17 @@ const handler = async (event) => {
                 return {
                     statusCode: 200,
                     headers: { ...headers, 'HX-Trigger': 'priceBookCreated' },
-                    body: '<div class="text-green-600">Price book created successfully! Refreshing...</div>'
+                    body: `
+                        <div class="p-8 text-center">
+                            <div class="mb-4">
+                                <svg class="w-16 h-16 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">Price Book Created!</h3>
+                            <p class="text-gray-600">Successfully created price book. Refreshing list...</p>
+                        </div>
+                    `
                 };
             } else {
                 return {
