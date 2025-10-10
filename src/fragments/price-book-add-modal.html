@@ -393,5 +393,95 @@ document.addEventListener('DOMContentLoaded', function() {
         const today = new Date().toISOString().split('T')[0];
         effectiveFromInput.value = today;
     }
+
+    // Add form submission handler to build pricing_structure JSON
+    const form = document.getElementById('price-book-form');
+    if (form) {
+        form.addEventListener('htmx:configRequest', function(event) {
+            console.log('📦 Preparing price book form submission');
+
+            const formData = new FormData(form);
+
+            // Build pricing structure JSON
+            const pricingStructure = {
+                overall: {
+                    pepm_rebate_credit: formData.get('overall_pepm_rebate_credit') || null,
+                    pricing_fee: formData.get('overall_pricing_fee') || null,
+                    inhouse_pharmacy_fee: formData.get('overall_inhouse_pharmacy_fee') || null
+                },
+                retail: {
+                    brand: {
+                        rebate: formData.get('retail_brand_rebate') || null,
+                        discount: formData.get('retail_brand_discount') || null,
+                        dispensing_fee: formData.get('retail_brand_dispensing_fee') || null
+                    },
+                    generic: {
+                        discount: formData.get('retail_generic_discount') || null,
+                        dispensing_fee: formData.get('retail_generic_dispensing_fee') || null
+                    }
+                },
+                retail_90: {
+                    brand: {
+                        rebate: formData.get('retail_90_brand_rebate') || null,
+                        discount: formData.get('retail_90_brand_discount') || null,
+                        dispensing_fee: formData.get('retail_90_brand_dispensing_fee') || null
+                    },
+                    generic: {
+                        discount: formData.get('retail_90_generic_discount') || null,
+                        dispensing_fee: formData.get('retail_90_generic_dispensing_fee') || null
+                    }
+                },
+                mail: {
+                    brand: {
+                        rebate: formData.get('mail_brand_rebate') || null,
+                        discount: formData.get('mail_brand_discount') || null,
+                        dispensing_fee: formData.get('mail_brand_dispensing_fee') || null
+                    },
+                    generic: {
+                        discount: formData.get('mail_generic_discount') || null,
+                        dispensing_fee: formData.get('mail_generic_dispensing_fee') || null
+                    }
+                },
+                specialty_mail: {
+                    brand: {
+                        rebate: formData.get('specialty_mail_brand_rebate') || null,
+                        discount: formData.get('specialty_mail_brand_discount') || null,
+                        dispensing_fee: formData.get('specialty_mail_brand_dispensing_fee') || null
+                    },
+                    generic: {
+                        discount: formData.get('specialty_mail_generic_discount') || null,
+                        dispensing_fee: formData.get('specialty_mail_generic_dispensing_fee') || null
+                    }
+                },
+                ldd_blended_specialty: {
+                    rebate: formData.get('ldd_blended_specialty_rebate') || null,
+                    discount: formData.get('ldd_blended_specialty_discount') || null,
+                    dispensing_fee: formData.get('ldd_blended_specialty_dispensing_fee') || null
+                },
+                non_ldd_blended_specialty: {
+                    rebate: formData.get('non_ldd_blended_specialty_rebate') || null,
+                    discount: formData.get('non_ldd_blended_specialty_discount') || null,
+                    dispensing_fee: formData.get('non_ldd_blended_specialty_dispensing_fee') || null
+                }
+            };
+
+            // Build additional parameters JSON (from dynamically added params)
+            const additionalParams = {};
+            const paramInputs = document.querySelectorAll('[id^="param_"]');
+            paramInputs.forEach(input => {
+                const paramCode = input.id.replace('param_', '');
+                if (input.value) {
+                    additionalParams[paramCode] = input.value;
+                }
+            });
+
+            // Add the JSON fields to the request parameters
+            event.detail.parameters.pricing_structure = JSON.stringify(pricingStructure);
+            event.detail.parameters.additional_parameters = JSON.stringify(additionalParams);
+
+            console.log('✅ Pricing structure built:', pricingStructure);
+            console.log('✅ Additional parameters built:', additionalParams);
+        });
+    }
 });
 </script>
