@@ -268,14 +268,20 @@ async function createPriceBook(client, formData) {
 
         console.log('Final config data:', configData);
 
+        // Extract special fields (these go in dedicated columns, not JSONB)
+        const formulary = formData.formulary || null;
+        const clientSize = formData.client_size || null;
+        const contractDuration = formData.contract_duration || null;
+
         // Insert new configuration
         const insertQuery = `
             INSERT INTO application.prism_price_configuration (
                 config_id, version, name, description, config_type, pbm_code,
+                formulary, client_size, contract_duration,
                 pricing_structure, additional_parameters, effective_from, effective_to,
                 is_active, created_by
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
             )
             RETURNING id, config_id, version
         `;
@@ -287,6 +293,9 @@ async function createPriceBook(client, formData) {
             configData.description,
             configData.config_type,
             configData.pbm_code,
+            formulary,
+            clientSize,
+            contractDuration,
             configData.pricing_structure,
             configData.additional_parameters,
             configData.effective_from,
@@ -375,14 +384,20 @@ async function updatePriceBook(client, configId, formData) {
             [configId]
         );
 
+        // Extract special fields (these go in dedicated columns, not JSONB)
+        const formulary = formData.formulary || currentConfig.formulary || null;
+        const clientSize = formData.client_size || currentConfig.client_size || null;
+        const contractDuration = formData.contract_duration || currentConfig.contract_duration || null;
+
         // Insert new version
         const insertQuery = `
             INSERT INTO application.prism_price_configuration (
                 config_id, version, name, description, config_type, pbm_code,
+                formulary, client_size, contract_duration,
                 pricing_structure, additional_parameters, effective_from, effective_to,
                 is_active, created_by, last_modified_by
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
             )
             RETURNING id, version
         `;
@@ -395,6 +410,9 @@ async function updatePriceBook(client, configId, formData) {
             formData.description || currentConfig.description,
             formData.config_type || currentConfig.config_type,
             formData.pbm_code || currentConfig.pbm_code,
+            formulary,
+            clientSize,
+            contractDuration,
             JSON.stringify(pricingStructure),
             JSON.stringify(additionalParameters),
             formData.effective_from || currentConfig.effective_from,

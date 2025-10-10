@@ -2890,6 +2890,69 @@ ClaimsApp.priceBook = {
     },
 
     /**
+     * Render special parameters (formulary, client_size, contract_duration) in Basic Information section
+     */
+    renderSpecialParameters(specialParamData) {
+        // Helper function to create field HTML
+        const createFieldHTML = (param) => {
+            if (!param) return '';
+
+            let validationRules = {};
+            if (param.validation_rules) {
+                if (typeof param.validation_rules === 'string') {
+                    validationRules = JSON.parse(param.validation_rules);
+                } else {
+                    validationRules = param.validation_rules;
+                }
+            }
+
+            let validValues = [];
+            if (param.valid_values) {
+                if (typeof param.valid_values === 'string') {
+                    validValues = JSON.parse(param.valid_values);
+                } else {
+                    validValues = param.valid_values;
+                }
+            }
+
+            const options = validValues.map(val =>
+                `<option value="${val.code}">${val.label}</option>`
+            ).join('');
+
+            return `
+                <label for="${param.parameter_code}" class="block text-sm font-medium text-gray-700 mb-1">
+                    ${param.parameter_name}
+                    ${validationRules.required ? '<span class="text-red-500">*</span>' : ''}
+                </label>
+                <select id="${param.parameter_code}" name="${param.parameter_code}"
+                        ${validationRules.required ? 'required' : ''}
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">Select One</option>
+                    ${options}
+                </select>
+            `;
+        };
+
+        // Render formulary
+        const formularyContainer = document.getElementById('formulary-container');
+        if (formularyContainer) {
+            formularyContainer.innerHTML = createFieldHTML(specialParamData['formulary']);
+        }
+
+        // Render client_size
+        const clientSizeContainer = document.getElementById('client-size-container');
+        if (clientSizeContainer) {
+            clientSizeContainer.innerHTML = createFieldHTML(specialParamData['client_size']);
+        }
+
+        // Render contract_duration
+        const contractDurationContainer = document.getElementById('contract-duration-container');
+        if (contractDurationContainer) {
+            contractDurationContainer.innerHTML = createFieldHTML(specialParamData['contract_duration']);
+        }
+    },
+
+    /**
      * Render additional parameters form fields
      */
     renderAdditionalParameters(parameters) {
@@ -2901,7 +2964,24 @@ ClaimsApp.priceBook = {
             return;
         }
 
-        const html = parameters.map(param => {
+        // Special handling for formulary, client_size, and contract_duration
+        // These go in Basic Information section with dedicated columns
+        const specialParams = ['formulary', 'client_size', 'contract_duration'];
+        const regularParams = [];
+        const specialParamData = {};
+
+        parameters.forEach(param => {
+            if (specialParams.includes(param.parameter_code)) {
+                specialParamData[param.parameter_code] = param;
+            } else {
+                regularParams.push(param);
+            }
+        });
+
+        // Render special parameters in Basic Information section
+        this.renderSpecialParameters(specialParamData);
+
+        const html = regularParams.map(param => {
             // Handle validation_rules - might be string or object
             let validationRules = {};
             if (param.validation_rules) {
