@@ -214,32 +214,64 @@ async function createPriceBook(client, formData) {
         await dbClient.query('BEGIN');
 
         console.log('Creating new price book with data:', formData);
-        console.log('pricing_structure in formData:', formData.pricing_structure);
-        console.log('additional_parameters in formData:', formData.additional_parameters);
 
-        // Parse additional parameters
-        let additionalParameters = {};
-        if (formData.additional_parameters) {
-            try {
-                additionalParameters = typeof formData.additional_parameters === 'string'
-                    ? JSON.parse(formData.additional_parameters)
-                    : formData.additional_parameters;
-            } catch (e) {
-                console.error('Failed to parse additional_parameters:', e);
-            }
+        // Build pricing structure from flat form fields (same approach as price modeling)
+        const pricingStructure = {};
+
+        // Overall fees & credits
+        if (formData.overall_pepm_rebate_credit || formData.overall_pricing_fee || formData.overall_inhouse_pharmacy_fee) {
+            pricingStructure.overall = {};
+            if (formData.overall_pepm_rebate_credit) pricingStructure.overall.pepm_rebate_credit = parseFloat(formData.overall_pepm_rebate_credit);
+            if (formData.overall_pricing_fee) pricingStructure.overall.pricing_fee = parseFloat(formData.overall_pricing_fee);
+            if (formData.overall_inhouse_pharmacy_fee) pricingStructure.overall.inhouse_pharmacy_fee = parseFloat(formData.overall_inhouse_pharmacy_fee);
         }
 
-        // Parse pricing structure
-        let pricingStructure = {};
-        if (formData.pricing_structure) {
-            try {
-                pricingStructure = typeof formData.pricing_structure === 'string'
-                    ? JSON.parse(formData.pricing_structure)
-                    : formData.pricing_structure;
-            } catch (e) {
-                console.error('Failed to parse pricing_structure:', e);
+        // Build category structures (retail, retail_90, mail, specialty_mail)
+        const categories = ['retail', 'retail_90', 'mail', 'specialty_mail'];
+        categories.forEach(category => {
+            const categoryData = {};
+
+            // Brand data
+            const brandData = {};
+            if (formData[`${category}_brand_rebate`]) brandData.rebate = parseFloat(formData[`${category}_brand_rebate`]);
+            if (formData[`${category}_brand_discount`]) brandData.discount = parseFloat(formData[`${category}_brand_discount`]);
+            if (formData[`${category}_brand_dispensing_fee`]) brandData.dispensing_fee = parseFloat(formData[`${category}_brand_dispensing_fee`]);
+            if (Object.keys(brandData).length > 0) categoryData.brand = brandData;
+
+            // Generic data
+            const genericData = {};
+            if (formData[`${category}_generic_discount`]) genericData.discount = parseFloat(formData[`${category}_generic_discount`]);
+            if (formData[`${category}_generic_dispensing_fee`]) genericData.dispensing_fee = parseFloat(formData[`${category}_generic_dispensing_fee`]);
+            if (Object.keys(genericData).length > 0) categoryData.generic = genericData;
+
+            if (Object.keys(categoryData).length > 0) {
+                pricingStructure[category] = categoryData;
             }
-        }
+        });
+
+        // Blended specialty categories
+        ['ldd_blended_specialty', 'non_ldd_blended_specialty'].forEach(category => {
+            const categoryData = {};
+            if (formData[`${category}_rebate`]) categoryData.rebate = parseFloat(formData[`${category}_rebate`]);
+            if (formData[`${category}_discount`]) categoryData.discount = parseFloat(formData[`${category}_discount`]);
+            if (formData[`${category}_dispensing_fee`]) categoryData.dispensing_fee = parseFloat(formData[`${category}_dispensing_fee`]);
+            if (Object.keys(categoryData).length > 0) {
+                pricingStructure[category] = categoryData;
+            }
+        });
+
+        console.log('Built pricing_structure:', JSON.stringify(pricingStructure, null, 2));
+
+        // Build additional parameters from param_* fields
+        const additionalParameters = {};
+        Object.keys(formData).forEach(key => {
+            if (key.startsWith('param_') && formData[key]) {
+                const paramCode = key.replace('param_', '');
+                additionalParameters[paramCode] = formData[key];
+            }
+        });
+
+        console.log('Built additional_parameters:', JSON.stringify(additionalParameters, null, 2));
 
         // Generate new config_id
         const newConfigId = uuidv4();
@@ -354,31 +386,59 @@ async function updatePriceBook(client, configId, formData) {
 
         const currentConfig = currentConfigResult.rows[0];
 
-        // Parse additional parameters
-        let additionalParameters = {};
-        if (formData.additional_parameters) {
-            try {
-                additionalParameters = typeof formData.additional_parameters === 'string'
-                    ? JSON.parse(formData.additional_parameters)
-                    : formData.additional_parameters;
-            } catch (e) {
-                console.error('Failed to parse additional_parameters:', e);
-                additionalParameters = currentConfig.additional_parameters || {};
-            }
+        // Build pricing structure from flat form fields (same approach as create)
+        const pricingStructure = {};
+
+        // Overall fees & credits
+        if (formData.overall_pepm_rebate_credit || formData.overall_pricing_fee || formData.overall_inhouse_pharmacy_fee) {
+            pricingStructure.overall = {};
+            if (formData.overall_pepm_rebate_credit) pricingStructure.overall.pepm_rebate_credit = parseFloat(formData.overall_pepm_rebate_credit);
+            if (formData.overall_pricing_fee) pricingStructure.overall.pricing_fee = parseFloat(formData.overall_pricing_fee);
+            if (formData.overall_inhouse_pharmacy_fee) pricingStructure.overall.inhouse_pharmacy_fee = parseFloat(formData.overall_inhouse_pharmacy_fee);
         }
 
-        // Parse pricing structure
-        let pricingStructure = {};
-        if (formData.pricing_structure) {
-            try {
-                pricingStructure = typeof formData.pricing_structure === 'string'
-                    ? JSON.parse(formData.pricing_structure)
-                    : formData.pricing_structure;
-            } catch (e) {
-                console.error('Failed to parse pricing_structure:', e);
-                pricingStructure = currentConfig.pricing_structure || {};
+        // Build category structures
+        const categories = ['retail', 'retail_90', 'mail', 'specialty_mail'];
+        categories.forEach(category => {
+            const categoryData = {};
+
+            // Brand data
+            const brandData = {};
+            if (formData[`${category}_brand_rebate`]) brandData.rebate = parseFloat(formData[`${category}_brand_rebate`]);
+            if (formData[`${category}_brand_discount`]) brandData.discount = parseFloat(formData[`${category}_brand_discount`]);
+            if (formData[`${category}_brand_dispensing_fee`]) brandData.dispensing_fee = parseFloat(formData[`${category}_brand_dispensing_fee`]);
+            if (Object.keys(brandData).length > 0) categoryData.brand = brandData;
+
+            // Generic data
+            const genericData = {};
+            if (formData[`${category}_generic_discount`]) genericData.discount = parseFloat(formData[`${category}_generic_discount`]);
+            if (formData[`${category}_generic_dispensing_fee`]) genericData.dispensing_fee = parseFloat(formData[`${category}_generic_dispensing_fee`]);
+            if (Object.keys(genericData).length > 0) categoryData.generic = genericData;
+
+            if (Object.keys(categoryData).length > 0) {
+                pricingStructure[category] = categoryData;
             }
-        }
+        });
+
+        // Blended specialty categories
+        ['ldd_blended_specialty', 'non_ldd_blended_specialty'].forEach(category => {
+            const categoryData = {};
+            if (formData[`${category}_rebate`]) categoryData.rebate = parseFloat(formData[`${category}_rebate`]);
+            if (formData[`${category}_discount`]) categoryData.discount = parseFloat(formData[`${category}_discount`]);
+            if (formData[`${category}_dispensing_fee`]) categoryData.dispensing_fee = parseFloat(formData[`${category}_dispensing_fee`]);
+            if (Object.keys(categoryData).length > 0) {
+                pricingStructure[category] = categoryData;
+            }
+        });
+
+        // Build additional parameters from param_* fields
+        const additionalParameters = {};
+        Object.keys(formData).forEach(key => {
+            if (key.startsWith('param_') && formData[key]) {
+                const paramCode = key.replace('param_', '');
+                additionalParameters[paramCode] = formData[key];
+            }
+        });
 
         // Deactivate current version
         await dbClient.query(
