@@ -2802,35 +2802,44 @@ ClaimsApp.priceBook = {
      * Delete price book configuration
      */
     deleteConfig(configId) {
-        if (!confirm('Are you sure you want to delete this price book configuration?')) {
-            return;
-        }
+        console.log('🗑️ Delete price book requested:', configId);
 
-        console.log('🗑️ Deleting price book:', configId);
+        // Show custom confirmation dialog
+        ClaimsApp.utils.showConfirmDialog(
+            'Delete Price Book',
+            'Are you sure you want to delete this price book configuration? This action will deactivate the configuration.',
+            () => {
+                // User confirmed, proceed with deletion
+                console.log('🗑️ User confirmed deletion for:', configId);
 
-        fetch(`https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-book?action=delete&id=${configId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            }
-        })
-        .then(response => response.text())
-        .then(html => {
-            // Show notification
-            const notification = document.getElementById('notification');
-            if (notification) {
-                notification.innerHTML = html;
-            }
+                fetch(`https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-book?action=delete&id=${configId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
+                })
+                .then(response => response.text())
+                .then(html => {
+                    // Show success notification
+                    ClaimsApp.utils.showNotification('Price book deleted successfully!', 'success');
 
-            // Refresh the list
-            setTimeout(() => {
-                this.refreshList();
-            }, 1000);
-        })
-        .catch(error => {
-            console.error('Failed to delete price book:', error);
-            ClaimsApp.utils.showNotification('Failed to delete price book', 'error');
-        });
+                    // Refresh the list
+                    setTimeout(() => {
+                        this.refreshList();
+                    }, 800);
+                })
+                .catch(error => {
+                    console.error('Failed to delete price book:', error);
+                    ClaimsApp.utils.showNotification('Failed to delete price book', 'error');
+                });
+            },
+            () => {
+                // User cancelled - do nothing
+                console.log('User cancelled deletion');
+            },
+            'Delete',
+            'bg-red-600 hover:bg-red-700 focus:ring-red-500'
+        );
     },
 
     /**
