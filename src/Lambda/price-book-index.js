@@ -258,6 +258,200 @@ async function getAdditionalParameters(client, pbmCode) {
     }
 }
 
+// Generate edit price book HTML with populated data
+async function generateEditPriceBookHTML(client, configId) {
+    try {
+        const editTemplate = await getTemplate('price-book-edit-modal.html');
+
+        // Get the configuration data
+        const configQuery = `
+            SELECT * FROM application.prism_price_configuration
+            WHERE config_id = $1 AND is_active = true
+            ORDER BY version DESC
+            LIMIT 1
+        `;
+        const configResult = await client.query(configQuery, [configId]);
+
+        if (configResult.rows.length === 0) {
+            throw new Error('Price book configuration not found');
+        }
+
+        const config = configResult.rows[0];
+        const pricingStructure = typeof config.pricing_structure === 'string'
+            ? JSON.parse(config.pricing_structure)
+            : config.pricing_structure;
+        const additionalParameters = typeof config.additional_parameters === 'string'
+            ? JSON.parse(config.additional_parameters)
+            : config.additional_parameters;
+
+        // Helper function to safely get nested values
+        const getNestedValue = (obj, path) => {
+            return path.split('.').reduce((current, key) =>
+                current && current[key] !== undefined && current[key] !== null ? current[key] : '', obj);
+        };
+
+        // Generate config type options with selection
+        const configTypeOptions = [
+            `<option value="PRODUCTION" ${config.config_type === 'PRODUCTION' ? 'selected' : ''}>Production</option>`,
+            `<option value="MODELING" ${config.config_type === 'MODELING' ? 'selected' : ''}>Modeling</option>`
+        ].join('');
+
+        // Get additional parameters for this PBM
+        const parameters = await getAdditionalParameters(client, config.pbm_code);
+        const { parameterLabels, valueLabels } = await getParameterLabels(client);
+
+        // Generate additional parameter fields
+        let additionalParamsHTML = '';
+        if (parameters.length > 0) {
+            additionalParamsHTML = parameters.map(param => {
+                const currentValue = additionalParameters[param.parameter_code] || '';
+                const paramLabel = param.parameter_name;
+
+                const options = param.valid_values.map(val =>
+                    `<option value="${val.code}" ${currentValue === val.code ? 'selected' : ''}>${val.label}</option>`
+                ).join('');
+
+                return `
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">${paramLabel}</label>
+                        <select name="param_${param.parameter_code}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select ${paramLabel}</option>
+                            ${options}
+                        </select>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            additionalParamsHTML = '<p class="text-sm text-gray-500">No additional parameters available for this PBM.</p>';
+        }
+
+        // Generate formulary, client_size, contract_duration fields
+        const formularyOptions = await getSystemConfigOptions(client, 'formulary', config.formulary);
+        const clientSizeOptions = await getSystemConfigOptions(client, 'client_size', config.client_size);
+        const contractDurationOptions = await getSystemConfigOptions(client, 'contract_duration', config.contract_duration);
+
+        const formularyField = formularyOptions ? `
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Formulary</label>
+                <select name="formulary" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">Select Formulary</option>
+                    ${formularyOptions}
+                </select>
+            </div>
+        ` : '';
+
+        const clientSizeField = clientSizeOptions ? `
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Client Size</label>
+                <select name="client_size" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">Select Client Size</option>
+                    ${clientSizeOptions}
+                </select>
+            </div>
+        ` : '';
+
+        const contractDurationField = contractDurationOptions ? `
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Contract Duration</label>
+                <select name="contract_duration" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">Select Duration</option>
+                    ${contractDurationOptions}
+                </select>
+            </div>
+        ` : '';
+
+        // Format dates for input fields (YYYY-MM-DD)
+        const formatDateForInput = (dateStr) => {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toISOString().split('T')[0];
+        };
+
+        const editData = {
+            CONFIG_ID: config.config_id,
+            NAME: config.name,
+            DESCRIPTION: config.description || '',
+            PBM_CODE: config.pbm_code,
+            CONFIG_TYPE_OPTIONS: configTypeOptions,
+            EFFECTIVE_FROM: formatDateForInput(config.effective_from),
+            EFFECTIVE_TO: formatDateForInput(config.effective_to),
+            FORMULARY_FIELD: formularyField,
+            CLIENT_SIZE_FIELD: clientSizeField,
+            CONTRACT_DURATION_FIELD: contractDurationField,
+            ADDITIONAL_PARAMETERS_FIELDS: additionalParamsHTML,
+
+            // Overall fees
+            OVERALL_PEPM_REBATE_CREDIT: getNestedValue(pricingStructure, 'overall.pepm_rebate_credit'),
+            OVERALL_PRICING_FEE: getNestedValue(pricingStructure, 'overall.pricing_fee'),
+            OVERALL_INHOUSE_PHARMACY_FEE: getNestedValue(pricingStructure, 'overall.inhouse_pharmacy_fee'),
+
+            // Retail
+            RETAIL_BRAND_REBATE: getNestedValue(pricingStructure, 'retail.brand.rebate'),
+            RETAIL_BRAND_DISCOUNT: getNestedValue(pricingStructure, 'retail.brand.discount'),
+            RETAIL_BRAND_DISPENSING_FEE: getNestedValue(pricingStructure, 'retail.brand.dispensing_fee'),
+            RETAIL_GENERIC_DISCOUNT: getNestedValue(pricingStructure, 'retail.generic.discount'),
+            RETAIL_GENERIC_DISPENSING_FEE: getNestedValue(pricingStructure, 'retail.generic.dispensing_fee'),
+
+            // Retail 90
+            RETAIL_90_BRAND_REBATE: getNestedValue(pricingStructure, 'retail_90.brand.rebate'),
+            RETAIL_90_BRAND_DISCOUNT: getNestedValue(pricingStructure, 'retail_90.brand.discount'),
+            RETAIL_90_BRAND_DISPENSING_FEE: getNestedValue(pricingStructure, 'retail_90.brand.dispensing_fee'),
+            RETAIL_90_GENERIC_DISCOUNT: getNestedValue(pricingStructure, 'retail_90.generic.discount'),
+            RETAIL_90_GENERIC_DISPENSING_FEE: getNestedValue(pricingStructure, 'retail_90.generic.dispensing_fee'),
+
+            // Mail
+            MAIL_BRAND_REBATE: getNestedValue(pricingStructure, 'mail.brand.rebate'),
+            MAIL_BRAND_DISCOUNT: getNestedValue(pricingStructure, 'mail.brand.discount'),
+            MAIL_BRAND_DISPENSING_FEE: getNestedValue(pricingStructure, 'mail.brand.dispensing_fee'),
+            MAIL_GENERIC_DISCOUNT: getNestedValue(pricingStructure, 'mail.generic.discount'),
+            MAIL_GENERIC_DISPENSING_FEE: getNestedValue(pricingStructure, 'mail.generic.dispensing_fee'),
+
+            // Specialty Mail
+            SPECIALTY_MAIL_BRAND_REBATE: getNestedValue(pricingStructure, 'specialty_mail.brand.rebate'),
+            SPECIALTY_MAIL_BRAND_DISCOUNT: getNestedValue(pricingStructure, 'specialty_mail.brand.discount'),
+            SPECIALTY_MAIL_BRAND_DISPENSING_FEE: getNestedValue(pricingStructure, 'specialty_mail.brand.dispensing_fee'),
+            SPECIALTY_MAIL_GENERIC_DISCOUNT: getNestedValue(pricingStructure, 'specialty_mail.generic.discount'),
+            SPECIALTY_MAIL_GENERIC_DISPENSING_FEE: getNestedValue(pricingStructure, 'specialty_mail.generic.dispensing_fee'),
+
+            // Blended Specialty
+            LDD_BLENDED_SPECIALTY_REBATE: getNestedValue(pricingStructure, 'ldd_blended_specialty.rebate'),
+            LDD_BLENDED_SPECIALTY_DISCOUNT: getNestedValue(pricingStructure, 'ldd_blended_specialty.discount'),
+            LDD_BLENDED_SPECIALTY_DISPENSING_FEE: getNestedValue(pricingStructure, 'ldd_blended_specialty.dispensing_fee'),
+            NON_LDD_BLENDED_SPECIALTY_REBATE: getNestedValue(pricingStructure, 'non_ldd_blended_specialty.rebate'),
+            NON_LDD_BLENDED_SPECIALTY_DISCOUNT: getNestedValue(pricingStructure, 'non_ldd_blended_specialty.discount'),
+            NON_LDD_BLENDED_SPECIALTY_DISPENSING_FEE: getNestedValue(pricingStructure, 'non_ldd_blended_specialty.dispensing_fee')
+        };
+
+        return renderTemplate(editTemplate, editData);
+
+    } catch (error) {
+        console.error('Failed to generate edit price book form:', error);
+        throw error;
+    }
+}
+
+// Helper function to get system config options with selection
+async function getSystemConfigOptions(client, configType, selectedValue) {
+    try {
+        const query = `
+            SELECT config_code, display_name
+            FROM application.prism_system_config
+            WHERE parent_code = $1 AND is_active = true
+            ORDER BY display_order
+        `;
+        const result = await client.query(query, [configType]);
+
+        if (result.rows.length === 0) return null;
+
+        return result.rows.map(row =>
+            `<option value="${row.config_code}" ${row.config_code === selectedValue ? 'selected' : ''}>${row.display_name}</option>`
+        ).join('');
+    } catch (error) {
+        console.error(`Error getting ${configType} options:`, error);
+        return null;
+    }
+}
+
 // Create new price book configuration
 async function createPriceBook(client, formData) {
     const dbClient = client;
@@ -655,6 +849,39 @@ const handler = async (event) => {
             };
         }
 
+        // Handle edit modal request
+        if (method === 'GET' && event.queryStringParameters?.component === 'edit') {
+            console.log('✏️ Edit modal request');
+            const configId = event.queryStringParameters.id;
+
+            if (!configId) {
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: '<div class="text-red-600">Config ID required for editing</div>'
+                };
+            }
+
+            try {
+                const editHTML = await generateEditPriceBookHTML(client, configId);
+                await client.end();
+
+                return {
+                    statusCode: 200,
+                    headers,
+                    body: editHTML
+                };
+            } catch (error) {
+                console.error('❌ Edit modal error:', error);
+                await client.end();
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: `<div class="text-red-600">Error loading edit form: ${error.message}</div>`
+                };
+            }
+        }
+
         // Handle get parameters request
         if (method === 'GET' && event.queryStringParameters?.get_parameters) {
             console.log('🔍 Get parameters request');
@@ -713,12 +940,16 @@ const handler = async (event) => {
         }
 
         // Handle update request
-        if (method === 'PUT' && event.queryStringParameters?.update) {
+        if (method === 'POST' && event.queryStringParameters?.action === 'update') {
             console.log('💾 Update price book request');
-            const configId = event.queryStringParameters.update;
+            const configId = event.queryStringParameters?.id;
 
             if (!configId) {
-                throw new Error('Config ID required');
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: '<div class="text-red-600">Config ID required for update</div>'
+                };
             }
 
             let formData = {};
@@ -733,20 +964,30 @@ const handler = async (event) => {
                 }
             }
 
-            const result = await updatePriceBook(client, configId, formData);
-            await client.end();
+            try {
+                const result = await updatePriceBook(client, configId, formData);
+                await client.end();
 
-            if (result.success) {
-                return {
-                    statusCode: 200,
-                    headers: { ...headers, 'HX-Trigger': 'priceBookUpdated' },
-                    body: '<div class="text-green-600">Price book updated successfully! Refreshing...</div>'
-                };
-            } else {
+                if (result.success) {
+                    return {
+                        statusCode: 200,
+                        headers: { ...headers, 'HX-Trigger': 'priceBookUpdated' },
+                        body: ''  // Empty body, just trigger event
+                    };
+                } else {
+                    return {
+                        statusCode: 400,
+                        headers,
+                        body: `<div class="text-red-600">Failed to update price book: ${result.error}</div>`
+                    };
+                }
+            } catch (error) {
+                console.error('❌ Update error:', error);
+                await client.end();
                 return {
                     statusCode: 400,
                     headers,
-                    body: '<div class="text-red-600">Failed to update price book</div>'
+                    body: `<div class="text-red-600">Error updating price book: ${error.message}</div>`
                 };
             }
         }

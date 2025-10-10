@@ -2771,7 +2771,7 @@ ClaimsApp.priceBook = {
         }
 
         // Load the edit modal template
-        fetch(`https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-book?edit=${configId}`)
+        fetch(`https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-book?component=edit&id=${configId}`)
             .then(response => response.text())
             .then(html => {
                 modalContent.innerHTML = html;
