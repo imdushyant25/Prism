@@ -2906,9 +2906,9 @@ ClaimsApp.priceBook = {
                         <select id="param_${param.parameter_code}" name="param_${param.parameter_code}"
                                 ${validationRules.required ? 'required' : ''}
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Select One</option>
                             ${options}
                         </select>
-                        ${param.parameter_description ? `<p class="mt-1 text-xs text-gray-500">${param.parameter_description}</p>` : ''}
                     </div>
                 `;
             } else if (fieldType === 'boolean') {
@@ -2923,6 +2923,7 @@ ClaimsApp.priceBook = {
                         </label>
                         <select id="param_${param.parameter_code}" name="param_${param.parameter_code}"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Select One</option>
                             ${options}
                         </select>
                     </div>
