@@ -540,12 +540,12 @@ async function updatePriceBook(client, configId, formData) {
     }
 }
 
-// Delete price book (set is_active to false)
+// Delete price book (set is_active to false and favorite to false)
 async function deletePriceBook(client, configId) {
     try {
         const deleteQuery = `
             UPDATE application.prism_price_configuration
-            SET is_active = false, updated_at = CURRENT_TIMESTAMP
+            SET is_active = false, favorite = false, updated_at = CURRENT_TIMESTAMP
             WHERE config_id = $1 AND is_active = true
         `;
 
