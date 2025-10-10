@@ -386,8 +386,8 @@
 </div>
 
 <script>
-// Auto-set today's date as effective date
-document.addEventListener('DOMContentLoaded', function() {
+// Auto-set today's date as effective date (execute immediately since modal loaded dynamically)
+(function() {
     const effectiveFromInput = document.getElementById('effective_from');
     if (effectiveFromInput && !effectiveFromInput.value) {
         const today = new Date().toISOString().split('T')[0];
@@ -397,6 +397,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add form submission handler to build pricing_structure JSON
     const form = document.getElementById('price-book-form');
     if (form) {
+        console.log('✅ Attaching htmx:configRequest handler to price book form');
+
         form.addEventListener('htmx:configRequest', function(event) {
             console.log('📦 Preparing price book form submission');
 
@@ -482,6 +484,8 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('✅ Pricing structure built:', pricingStructure);
             console.log('✅ Additional parameters built:', additionalParams);
         });
+    } else {
+        console.error('❌ Could not find price-book-form element');
     }
-});
+})();
 </script>

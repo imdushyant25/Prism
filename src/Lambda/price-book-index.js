@@ -214,6 +214,8 @@ async function createPriceBook(client, formData) {
         await dbClient.query('BEGIN');
 
         console.log('Creating new price book with data:', formData);
+        console.log('pricing_structure in formData:', formData.pricing_structure);
+        console.log('additional_parameters in formData:', formData.additional_parameters);
 
         // Parse additional parameters
         let additionalParameters = {};
