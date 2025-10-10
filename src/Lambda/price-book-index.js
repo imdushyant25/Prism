@@ -493,6 +493,36 @@ const handler = async (event) => {
             };
         }
 
+        // Handle add modal request
+        if (method === 'GET' && event.queryStringParameters?.component === 'add') {
+            console.log('➕ Add modal request');
+            const addModalTemplate = await getTemplate('price-book-add-modal.html');
+
+            // Get PBM options
+            const configQuery = `
+                SELECT config_code, display_name
+                FROM application.prism_system_config
+                WHERE config_type = 'pbm' AND is_active = true
+                ORDER BY display_order
+            `;
+            const configResult = await client.query(configQuery);
+            const pbmOptions = configResult.rows
+                .map(row => `<option value="${row.config_code}">${row.display_name}</option>`)
+                .join('');
+
+            await client.end();
+
+            const modalHTML = renderTemplate(addModalTemplate, {
+                PBM_OPTIONS: pbmOptions
+            });
+
+            return {
+                statusCode: 200,
+                headers,
+                body: modalHTML
+            };
+        }
+
         // Handle get parameters request
         if (method === 'GET' && event.queryStringParameters?.get_parameters) {
             console.log('🔍 Get parameters request');
