@@ -243,16 +243,16 @@ ClaimsApp.modal = {
      */
     handleCloneResponse(event) {
         console.log('🎭 Clone response received:', event.detail);
-        
+
         if (event.detail.successful) {
             this.closeModal();
             ClaimsApp.utils.showNotification('Rules cloned successfully! 🎉', 'success');
-            
+
             // Clear bulk selections
             if (ClaimsApp.bulkActions) {
                 ClaimsApp.bulkActions.clearSelection();
             }
-            
+
             // Refresh the rules list
             htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules', {
                 target: '#rules-container'
@@ -263,6 +263,9 @@ ClaimsApp.modal = {
         }
     }
 };
+
+// Add alias for compatibility
+ClaimsApp.modal.close = ClaimsApp.modal.closeModal;
 
 // Set up modal event listeners when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
