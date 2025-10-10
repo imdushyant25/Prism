@@ -1,7 +1,8 @@
 <div class="bg-white rounded-lg border p-6 mb-6">
-    <form hx-post="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-book"
+    <form id="price-book-filters-form"
+          hx-post="https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-book"
           hx-target="#price-book-container"
-          hx-trigger="submit"
+          hx-trigger="submit, load"
           class="space-y-4">
 
         <!-- Header with Add Button -->

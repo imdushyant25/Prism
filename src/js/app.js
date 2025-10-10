@@ -3091,57 +3091,70 @@ ClaimsApp.priceBook = {
 
 };
 
-// Listen for price book events
-document.body.addEventListener('priceBookCreated', function(event) {
-    console.log('✅ Price book created event received');
-    console.log('🔍 Event detail:', event.detail);
-    console.log('🔍 ClaimsApp.modal exists:', !!ClaimsApp.modal);
-    console.log('🔍 ClaimsApp.modal.close exists:', !!(ClaimsApp.modal && ClaimsApp.modal.close));
+// Initialize price book event listeners when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPriceBookEventListeners);
+} else {
+    initPriceBookEventListeners();
+}
 
-    ClaimsApp.priceBook.refreshList();
+function initPriceBookEventListeners() {
+    console.log('🚀 Initializing price book event listeners');
 
-    // Close modal after a brief delay to show success message
-    setTimeout(() => {
-        if (ClaimsApp.modal && ClaimsApp.modal.close) {
-            console.log('🚪 Calling ClaimsApp.modal.close()');
-            ClaimsApp.modal.close();
-        } else {
-            console.error('❌ ClaimsApp.modal.close not available!');
+    // Listen for price book events
+    document.body.addEventListener('priceBookCreated', function(event) {
+        console.log('✅ Price book created event received');
+        console.log('🔍 Event detail:', event.detail);
+        console.log('🔍 ClaimsApp.modal exists:', !!ClaimsApp.modal);
+        console.log('🔍 ClaimsApp.modal.close exists:', !!(ClaimsApp.modal && ClaimsApp.modal.close));
+
+        ClaimsApp.priceBook.refreshList();
+
+        // Close modal after a brief delay to show success message
+        setTimeout(() => {
+            if (ClaimsApp.modal && ClaimsApp.modal.close) {
+                console.log('🚪 Calling ClaimsApp.modal.close()');
+                ClaimsApp.modal.close();
+            } else {
+                console.error('❌ ClaimsApp.modal.close not available!');
+            }
+        }, 800);
+    });
+
+    document.body.addEventListener('priceBookUpdated', function(event) {
+        console.log('✅ Price book updated event received');
+        console.log('🔍 Event detail:', event.detail);
+        ClaimsApp.priceBook.refreshList();
+
+        // Close modal after a brief delay to show success message
+        setTimeout(() => {
+            if (ClaimsApp.modal && ClaimsApp.modal.close) {
+                console.log('🚪 Calling ClaimsApp.modal.close()');
+                ClaimsApp.modal.close();
+            } else {
+                console.error('❌ ClaimsApp.modal.close not available!');
+            }
+        }, 800);
+    });
+
+    document.body.addEventListener('priceBookDeleted', function(event) {
+        console.log('✅ Price book deleted event received');
+        console.log('🔍 Event detail:', event.detail);
+        ClaimsApp.priceBook.refreshList();
+    });
+
+    // Listen for HTMX response events to debug trigger
+    document.body.addEventListener('htmx:afterSwap', function(event) {
+        if (event.detail.xhr) {
+            const triggerHeader = event.detail.xhr.getResponseHeader('HX-Trigger');
+            if (triggerHeader) {
+                console.log('🎯 HTMX trigger header received:', triggerHeader);
+                console.log('🎯 Response headers:', event.detail.xhr.getAllResponseHeaders());
+            }
         }
-    }, 800);
-});
+    });
 
-document.body.addEventListener('priceBookUpdated', function(event) {
-    console.log('✅ Price book updated event received');
-    console.log('🔍 Event detail:', event.detail);
-    ClaimsApp.priceBook.refreshList();
-
-    // Close modal after a brief delay to show success message
-    setTimeout(() => {
-        if (ClaimsApp.modal && ClaimsApp.modal.close) {
-            console.log('🚪 Calling ClaimsApp.modal.close()');
-            ClaimsApp.modal.close();
-        } else {
-            console.error('❌ ClaimsApp.modal.close not available!');
-        }
-    }, 800);
-});
-
-document.body.addEventListener('priceBookDeleted', function(event) {
-    console.log('✅ Price book deleted event received');
-    console.log('🔍 Event detail:', event.detail);
-    ClaimsApp.priceBook.refreshList();
-});
-
-// Listen for HTMX response events to debug trigger
-document.body.addEventListener('htmx:afterSwap', function(event) {
-    if (event.detail.xhr) {
-        const triggerHeader = event.detail.xhr.getResponseHeader('HX-Trigger');
-        if (triggerHeader) {
-            console.log('🎯 HTMX trigger header received:', triggerHeader);
-            console.log('🎯 Response headers:', event.detail.xhr.getAllResponseHeaders());
-        }
-    }
-});
+    console.log('✅ Price book event listeners initialized');
+}
 
 console.log('🚀 ClaimsApp utilities loaded');
