@@ -2948,7 +2948,7 @@ ClaimsApp.priceBook = {
             filterBody.classList.add('expand');
         }
 
-        // Trigger initial load with default filters (all)
+        // Trigger initial load with default filters (active status by default)
         this.applyFilters();
     },
 

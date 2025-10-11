@@ -86,10 +86,10 @@ async function generateFiltersHTML(client) {
             '<option value="MODELING">Modeling</option>'
         ].join('');
 
-        // Status options with "All" as default
+        // Status options with "Active" as default
         const statusOptions = [
-            '<option value="all" selected>All Status</option>',
-            '<option value="active">Active</option>',
+            '<option value="all">All Status</option>',
+            '<option value="active" selected>Active</option>',
             '<option value="inactive">Inactive</option>'
         ].join('');
 
