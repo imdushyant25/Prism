@@ -3146,6 +3146,7 @@ ClaimsApp.priceBook = {
             .then(response => response.json())
             .then(parameters => {
                 this.renderAdditionalParameters(parameters);
+                this.setupConditionalFields();
             })
             .catch(error => {
                 console.error('Failed to load parameters:', error);
@@ -3178,6 +3179,10 @@ ClaimsApp.priceBook = {
                 }
             }
 
+            const fieldType = validationRules.field_type || 'dropdown';
+            const dependsOn = param.depends_on || '';
+            const dependsOnAttr = dependsOn ? `data-depends-on="${dependsOn}"` : '';
+
             let validValues = [];
             if (param.valid_values) {
                 if (typeof param.valid_values === 'string') {
@@ -3187,24 +3192,73 @@ ClaimsApp.priceBook = {
                 }
             }
 
-            const options = validValues.map(val =>
-                `<option value="${val.code}">${val.label}</option>`
-            ).join('');
+            if (fieldType === 'dropdown' && validValues.length > 0) {
+                const options = validValues.map(val =>
+                    `<option value="${val.code}">${val.label}</option>`
+                ).join('');
 
-            return `
-                <div>
-                    <label for="${param.parameter_code}" class="block text-sm font-medium text-gray-700 mb-1">
-                        ${param.parameter_name}
-                        ${validationRules.required ? '<span class="text-red-500">*</span>' : ''}
-                    </label>
-                    <select id="${param.parameter_code}" name="${param.parameter_code}"
-                            ${validationRules.required ? 'required' : ''}
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        <option value="">Select One</option>
-                        ${options}
-                    </select>
-                </div>
-            `;
+                return `
+                    <div ${dependsOnAttr}>
+                        <label for="${param.parameter_code}" class="block text-sm font-medium text-gray-700 mb-1">
+                            ${param.parameter_name}
+                            ${validationRules.required ? '<span class="text-red-500">*</span>' : ''}
+                        </label>
+                        <select id="${param.parameter_code}" name="${param.parameter_code}"
+                                ${validationRules.required ? 'required' : ''}
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Select One</option>
+                            ${options}
+                        </select>
+                    </div>
+                `;
+            } else if (fieldType === 'text') {
+                const maxLength = validationRules.max_length || '';
+                const maxLengthAttr = maxLength ? `maxlength="${maxLength}"` : '';
+
+                return `
+                    <div ${dependsOnAttr}>
+                        <label for="${param.parameter_code}" class="block text-sm font-medium text-gray-700 mb-1">
+                            ${param.parameter_name}
+                            ${validationRules.required ? '<span class="text-red-500">*</span>' : ''}
+                        </label>
+                        <input type="text" id="${param.parameter_code}" name="${param.parameter_code}"
+                               ${validationRules.required ? 'required' : ''} ${maxLengthAttr}
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="Enter ${param.parameter_name}">
+                    </div>
+                `;
+            } else if (fieldType === 'textarea') {
+                const maxLength = validationRules.max_length || '';
+                const maxLengthAttr = maxLength ? `maxlength="${maxLength}"` : '';
+
+                return `
+                    <div ${dependsOnAttr}>
+                        <label for="${param.parameter_code}" class="block text-sm font-medium text-gray-700 mb-1">
+                            ${param.parameter_name}
+                            ${validationRules.required ? '<span class="text-red-500">*</span>' : ''}
+                        </label>
+                        <textarea id="${param.parameter_code}" name="${param.parameter_code}"
+                                  ${validationRules.required ? 'required' : ''} ${maxLengthAttr} rows="3"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  placeholder="Enter ${param.parameter_name}"></textarea>
+                    </div>
+                `;
+            } else if (fieldType === 'number') {
+                return `
+                    <div ${dependsOnAttr}>
+                        <label for="${param.parameter_code}" class="block text-sm font-medium text-gray-700 mb-1">
+                            ${param.parameter_name}
+                            ${validationRules.required ? '<span class="text-red-500">*</span>' : ''}
+                        </label>
+                        <input type="number" id="${param.parameter_code}" name="${param.parameter_code}"
+                               ${validationRules.required ? 'required' : ''}
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="Enter ${param.parameter_name}">
+                    </div>
+                `;
+            }
+
+            return '';
         };
 
         // Render all basic info parameters dynamically
@@ -3253,6 +3307,8 @@ ClaimsApp.priceBook = {
             }
 
             const fieldType = validationRules.field_type || 'dropdown';
+            const dependsOn = param.depends_on || '';
+            const dependsOnAttr = dependsOn ? `data-depends-on="${dependsOn}"` : '';
 
             // Handle valid_values - might be string or array
             let validValues = [];
@@ -3264,14 +3320,14 @@ ClaimsApp.priceBook = {
                 }
             }
 
-            if (fieldType === 'dropdown') {
+            if (fieldType === 'dropdown' && validValues.length > 0) {
                 // Ignore is_default flag - always start with "Select One"
                 const options = validValues.map(val =>
                     `<option value="${val.code}">${val.label}</option>`
                 ).join('');
 
                 return `
-                    <div>
+                    <div ${dependsOnAttr}>
                         <label for="param_${param.parameter_code}" class="block text-sm font-medium text-gray-700 mb-1">
                             ${param.parameter_name}
                             ${validationRules.required ? '<span class="text-red-500">*</span>' : ''}
@@ -3284,14 +3340,14 @@ ClaimsApp.priceBook = {
                         </select>
                     </div>
                 `;
-            } else if (fieldType === 'boolean') {
+            } else if (fieldType === 'boolean' && validValues.length > 0) {
                 // Ignore is_default flag - always start with "Select One"
                 const options = validValues.map(val =>
                     `<option value="${val.code}">${val.label}</option>`
                 ).join('');
 
                 return `
-                    <div>
+                    <div ${dependsOnAttr}>
                         <label for="param_${param.parameter_code}" class="block text-sm font-medium text-gray-700 mb-1">
                             ${param.parameter_name}
                         </label>
@@ -3300,6 +3356,51 @@ ClaimsApp.priceBook = {
                             <option value="">Select One</option>
                             ${options}
                         </select>
+                    </div>
+                `;
+            } else if (fieldType === 'text') {
+                const maxLength = validationRules.max_length || '';
+                const maxLengthAttr = maxLength ? `maxlength="${maxLength}"` : '';
+
+                return `
+                    <div ${dependsOnAttr}>
+                        <label for="param_${param.parameter_code}" class="block text-sm font-medium text-gray-700 mb-1">
+                            ${param.parameter_name}
+                            ${validationRules.required ? '<span class="text-red-500">*</span>' : ''}
+                        </label>
+                        <input type="text" id="param_${param.parameter_code}" name="param_${param.parameter_code}"
+                               ${validationRules.required ? 'required' : ''} ${maxLengthAttr}
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="Enter ${param.parameter_name}">
+                    </div>
+                `;
+            } else if (fieldType === 'textarea') {
+                const maxLength = validationRules.max_length || '';
+                const maxLengthAttr = maxLength ? `maxlength="${maxLength}"` : '';
+
+                return `
+                    <div ${dependsOnAttr}>
+                        <label for="param_${param.parameter_code}" class="block text-sm font-medium text-gray-700 mb-1">
+                            ${param.parameter_name}
+                            ${validationRules.required ? '<span class="text-red-500">*</span>' : ''}
+                        </label>
+                        <textarea id="param_${param.parameter_code}" name="param_${param.parameter_code}"
+                                  ${validationRules.required ? 'required' : ''} ${maxLengthAttr} rows="3"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  placeholder="Enter ${param.parameter_name}"></textarea>
+                    </div>
+                `;
+            } else if (fieldType === 'number') {
+                return `
+                    <div ${dependsOnAttr}>
+                        <label for="param_${param.parameter_code}" class="block text-sm font-medium text-gray-700 mb-1">
+                            ${param.parameter_name}
+                            ${validationRules.required ? '<span class="text-red-500">*</span>' : ''}
+                        </label>
+                        <input type="number" id="param_${param.parameter_code}" name="param_${param.parameter_code}"
+                               ${validationRules.required ? 'required' : ''}
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="Enter ${param.parameter_name}">
                     </div>
                 `;
             }
@@ -3326,6 +3427,47 @@ ClaimsApp.priceBook = {
             container.classList.add('hidden');
             chevron.classList.remove('rotate-180');
         }
+    },
+
+    /**
+     * Setup conditional field visibility based on depends_on
+     */
+    setupConditionalFields() {
+        // Find all fields with data-depends-on attribute
+        const conditionalFields = document.querySelectorAll('[data-depends-on]');
+
+        conditionalFields.forEach(field => {
+            const parentFieldName = field.getAttribute('data-depends-on');
+            const parentField = document.querySelector(`[name="${parentFieldName}"], [name="param_${parentFieldName}"]`);
+
+            if (!parentField) return;
+
+            // Initially hide the conditional field
+            field.style.display = 'none';
+
+            // Function to update visibility
+            const updateVisibility = () => {
+                const parentValue = parentField.value;
+
+                if (parentValue && parentValue.trim() !== '') {
+                    // Parent has a value, show the field
+                    field.style.display = '';
+                } else {
+                    // Parent is empty, hide the field and clear its value
+                    field.style.display = 'none';
+                    const inputField = field.querySelector('input, textarea, select');
+                    if (inputField) {
+                        inputField.value = '';
+                    }
+                }
+            };
+
+            // Set initial visibility
+            updateVisibility();
+
+            // Listen for changes to parent field
+            parentField.addEventListener('change', updateVisibility);
+        });
     },
 
 };

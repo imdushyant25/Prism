@@ -184,6 +184,72 @@ async function getParameterLabels(client) {
     }
 }
 
+// Helper function to render parameter field based on field_type
+function renderParameterField(param, fieldName, currentValue, cssClasses) {
+    const validationRules = typeof param.validation_rules === 'string'
+        ? JSON.parse(param.validation_rules)
+        : param.validation_rules || {};
+
+    const fieldType = validationRules.field_type || 'dropdown';
+    const paramLabel = param.parameter_name;
+    const required = validationRules.required ? 'required' : '';
+    const dependsOn = param.depends_on || '';
+    const dependsOnAttr = dependsOn ? `data-depends-on="${dependsOn}"` : '';
+
+    if (fieldType === 'dropdown' && param.valid_values && param.valid_values.length > 0) {
+        // Dropdown field
+        const options = param.valid_values.map(val =>
+            `<option value="${val.code}" ${currentValue === val.code ? 'selected' : ''}>${val.label}</option>`
+        ).join('');
+
+        return `
+            <div ${dependsOnAttr}>
+                <label class="block text-sm font-medium text-gray-700 mb-1">${paramLabel}</label>
+                <select name="${fieldName}" ${required} class="${cssClasses}">
+                    <option value="">Select ${paramLabel}</option>
+                    ${options}
+                </select>
+            </div>
+        `;
+    } else if (fieldType === 'text') {
+        // Text input
+        const maxLength = validationRules.max_length || '';
+        const maxLengthAttr = maxLength ? `maxlength="${maxLength}"` : '';
+
+        return `
+            <div ${dependsOnAttr}>
+                <label class="block text-sm font-medium text-gray-700 mb-1">${paramLabel}</label>
+                <input type="text" name="${fieldName}" value="${currentValue || ''}" ${required} ${maxLengthAttr}
+                       class="${cssClasses}" placeholder="Enter ${paramLabel}">
+            </div>
+        `;
+    } else if (fieldType === 'textarea') {
+        // Textarea
+        const maxLength = validationRules.max_length || '';
+        const maxLengthAttr = maxLength ? `maxlength="${maxLength}"` : '';
+
+        return `
+            <div ${dependsOnAttr}>
+                <label class="block text-sm font-medium text-gray-700 mb-1">${paramLabel}</label>
+                <textarea name="${fieldName}" ${required} ${maxLengthAttr} rows="3"
+                          class="${cssClasses}" placeholder="Enter ${paramLabel}">${currentValue || ''}</textarea>
+            </div>
+        `;
+    } else if (fieldType === 'number') {
+        // Number input
+        return `
+            <div ${dependsOnAttr}>
+                <label class="block text-sm font-medium text-gray-700 mb-1">${paramLabel}</label>
+                <input type="number" name="${fieldName}" value="${currentValue || ''}" ${required}
+                       class="${cssClasses}" placeholder="Enter ${paramLabel}">
+            </div>
+        `;
+    }
+
+    // Fallback for unknown types
+    return '';
+}
+
 // Get additional parameters for a specific PBM
 async function getAdditionalParameters(client, pbmCode) {
     try {
@@ -223,6 +289,7 @@ async function getAdditionalParameters(client, pbmCode) {
                 parent.display_order as parameter_order,
                 parent.special_ui_render,
                 parent.validation_rules,
+                parent.depends_on,
                 parent.description as parameter_description,
                 COALESCE(
                     json_agg(
@@ -248,6 +315,7 @@ async function getAdditionalParameters(client, pbmCode) {
                 parent.display_order,
                 parent.special_ui_render,
                 parent.validation_rules,
+                parent.depends_on,
                 parent.description
             ORDER BY parent.display_order
         `;
@@ -636,21 +704,8 @@ async function generateEditPriceBookHTML(client, configId) {
         let basicInfoFieldsHTML = '';
         basicInfoParams.forEach(param => {
             const currentValue = config[param.parameter_code] || additionalParameters[param.parameter_code] || '';
-            const paramLabel = param.parameter_name;
-
-            const options = param.valid_values.map(val =>
-                `<option value="${val.code}" ${currentValue === val.code ? 'selected' : ''}>${val.label}</option>`
-            ).join('');
-
-            basicInfoFieldsHTML += `
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">${paramLabel}</label>
-                    <select name="${param.parameter_code}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                        <option value="">Select ${paramLabel}</option>
-                        ${options}
-                    </select>
-                </div>
-            `;
+            const cssClasses = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500';
+            basicInfoFieldsHTML += renderParameterField(param, param.parameter_code, currentValue, cssClasses);
         });
 
         // Generate Additional Parameters fields (special_ui_render = false or null)
@@ -658,21 +713,8 @@ async function generateEditPriceBookHTML(client, configId) {
         if (additionalParams.length > 0) {
             additionalParamsHTML = additionalParams.map(param => {
                 const currentValue = additionalParameters[param.parameter_code] || '';
-                const paramLabel = param.parameter_name;
-
-                const options = param.valid_values.map(val =>
-                    `<option value="${val.code}" ${currentValue === val.code ? 'selected' : ''}>${val.label}</option>`
-                ).join('');
-
-                return `
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">${paramLabel}</label>
-                        <select name="param_${param.parameter_code}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                            <option value="">Select ${paramLabel}</option>
-                            ${options}
-                        </select>
-                    </div>
-                `;
+                const cssClasses = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500';
+                return renderParameterField(param, `param_${param.parameter_code}`, currentValue, cssClasses);
             }).join('');
         } else {
             additionalParamsHTML = '<p class="text-sm text-gray-500">No additional parameters available for this PBM.</p>';
