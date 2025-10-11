@@ -580,12 +580,12 @@ function buildPricingStructureFromForm(formData, pricingStructure) {
     return result;
 }
 
-// Generate pricing display HTML for table listing (dynamic)
+// Generate pricing display HTML for table listing (dynamic) - compact two-column grid format
 function generatePricingDisplayHTML(pricingStructure, pricingData) {
-    const parts = [];
+    const lines = [];
 
     if (!pricingData || Object.keys(pricingData).length === 0) {
-        return '• No pricing structure specified';
+        return '<span class="text-gray-500 text-sm">No pricing specified</span>';
     }
 
     pricingStructure.forEach(category => {
@@ -600,7 +600,7 @@ function generatePricingDisplayHTML(pricingStructure, pricingData) {
 
         if (hasSubcategories) {
             // Category with subcategories (e.g., Retail: Brand/Generic)
-            const subParts = [];
+            const subcatParts = [];
 
             structure.forEach(subcat => {
                 if (!subcat.subcategory_code || !subcat.fields) return;
@@ -611,6 +611,7 @@ function generatePricingDisplayHTML(pricingStructure, pricingData) {
 
                 if (!subcategoryData) return;
 
+                const values = [];
                 subcat.fields.forEach(field => {
                     const fieldCode = field.field_code;
                     const fieldName = field.field_name;
@@ -622,17 +623,29 @@ function generatePricingDisplayHTML(pricingStructure, pricingData) {
                             ? `${fieldValue}%`
                             : `$${fieldValue}`;
 
-                        subParts.push(`${subcategoryName} ${fieldName.replace(/\s*\(\$\)|\s*\(%\)/g, '')}: ${formattedValue}`);
+                        // Use short field name (e.g., "AWP ($)" -> "AWP", "Discount (%)" -> "Disc")
+                        let shortName = fieldName.replace(/\s*\(\$\)|\s*\(%\)/g, '');
+                        if (shortName.toLowerCase().includes('discount')) {
+                            shortName = 'Disc';
+                        }
+
+                        values.push(`${shortName} ${formattedValue}`);
                     }
                 });
+
+                if (values.length > 0) {
+                    // Use first letter of subcategory (B for Brand, G for Generic)
+                    const shortSubcat = subcategoryName.charAt(0);
+                    subcatParts.push(`${shortSubcat}: ${values.join('/')}`);
+                }
             });
 
-            if (subParts.length > 0) {
-                parts.push(`<strong>${categoryName}:</strong> ${subParts.join(', ')}`);
+            if (subcatParts.length > 0) {
+                lines.push(`<strong>${categoryName}:</strong> ${subcatParts.join('  ')}`);
             }
         } else {
             // Category without subcategories (e.g., Overall Fees & Credits)
-            const fieldParts = [];
+            const values = [];
             const fields = structure[0]?.fields || [];
 
             fields.forEach(field => {
@@ -646,19 +659,27 @@ function generatePricingDisplayHTML(pricingStructure, pricingData) {
                         ? `${fieldValue}%`
                         : `$${fieldValue}`;
 
-                    fieldParts.push(`${fieldName.replace(/\s*\(\$\)|\s*\(%\)/g, '')}: ${formattedValue}`);
+                    // Shorten common field names
+                    let shortName = fieldName.replace(/\s*\(\$\)|\s*\(%\)/g, '');
+                    if (shortName.toLowerCase().includes('admin')) {
+                        shortName = 'Admin';
+                    } else if (shortName.toLowerCase().includes('rebate')) {
+                        shortName = 'Rebate';
+                    }
+
+                    values.push(`${shortName} ${formattedValue}`);
                 }
             });
 
-            if (fieldParts.length > 0) {
-                parts.push(`<strong>${categoryName}:</strong> ${fieldParts.join(', ')}`);
+            if (values.length > 0) {
+                lines.push(`<strong>${categoryName}:</strong> ${values.join(', ')}`);
             }
         }
     });
 
-    return parts.length > 0
-        ? parts.map(p => `• ${p}`).join('<br>')
-        : '• No pricing structure specified';
+    return lines.length > 0
+        ? lines.join('<br>')
+        : '<span class="text-gray-500 text-sm">No pricing specified</span>';
 }
 
 // Generate edit price book HTML with populated data
@@ -1484,33 +1505,38 @@ const handler = async (event) => {
 
         // Generate rows
         const configsHTML = result.rows.map((config) => {
-            // Build configuration display (non-null parameters)
+            // Build configuration display (non-null parameters) - inline format
             const configParts = [];
 
             // Add PBM
             if (config.pbm_code) {
-                configParts.push(`<strong>PBM:</strong> ${config.pbm_code}`);
+                configParts.push(config.pbm_code);
             }
 
             // Add formulary (use centralized labels)
             if (config.formulary) {
-                const paramLabel = parameterLabels['formulary'] || 'Formulary';
                 const valueDisplay = valueLabels[config.formulary] || config.formulary.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                configParts.push(`<strong>${paramLabel}:</strong> ${valueDisplay}`);
+                configParts.push(valueDisplay);
             }
 
-            // Add client size (use centralized labels)
+            // Add client size (use centralized labels) - shorten display
             if (config.client_size) {
-                const paramLabel = parameterLabels['client_size'] || 'Client Size';
-                const valueDisplay = valueLabels[config.client_size] || config.client_size.replace(/>/g, '> ').replace(/</g, '< ');
-                configParts.push(`<strong>${paramLabel}:</strong> ${valueDisplay}`);
+                let valueDisplay = valueLabels[config.client_size] || config.client_size.replace(/>/g, '> ').replace(/</g, '< ');
+                // Shorten common size displays
+                valueDisplay = valueDisplay.replace(/(\d+)/g, match => {
+                    const num = parseInt(match);
+                    if (num >= 1000) {
+                        return (num / 1000) + 'K';
+                    }
+                    return match;
+                });
+                configParts.push(valueDisplay);
             }
 
             // Add contract duration (use centralized labels)
             if (config.contract_duration) {
-                const paramLabel = parameterLabels['contract_duration'] || 'Contract Duration';
                 const valueDisplay = valueLabels[config.contract_duration] || config.contract_duration.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                configParts.push(`<strong>${paramLabel}:</strong> ${valueDisplay}`);
+                configParts.push(valueDisplay);
             }
 
             // Add additional parameters (non-null only) - use centralized labels
@@ -1519,11 +1545,9 @@ const handler = async (event) => {
                     const params = JSON.parse(config.additional_parameters);
                     Object.keys(params).forEach(key => {
                         if (params[key] && params[key] !== '') {
-                            // Use parameter label from database, fallback to formatted key
-                            const paramLabel = parameterLabels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                             // Use value label from database, fallback to formatted value
                             const valueDisplay = valueLabels[params[key]] || params[key].toString().replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                            configParts.push(`<strong>${paramLabel}:</strong> ${valueDisplay}`);
+                            configParts.push(valueDisplay);
                         }
                     });
                 } catch (e) {
@@ -1532,8 +1556,8 @@ const handler = async (event) => {
             }
 
             const configurationDisplay = configParts.length > 0
-                ? configParts.map(p => `• ${p}`).join('<br>')
-                : '• No configuration specified';
+                ? configParts.join('  <span class="text-gray-400">|</span>  ')
+                : '<span class="text-gray-500 text-sm">No configuration specified</span>';
 
             // Build price structure display dynamically
             let priceStructureDisplay = '• No pricing structure specified';
