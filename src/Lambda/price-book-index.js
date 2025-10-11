@@ -184,6 +184,223 @@ async function getParameterLabels(client) {
     }
 }
 
+// Common abbreviations for product name generation
+const ABBREVIATIONS = {
+    // PBM codes
+    'EXPRESS_SCRIPTS': 'ES',
+    'CAREMARK': 'CVM',
+    'OPTUM': 'OPT',
+    'OPTUMRX': 'OPT',
+
+    // Formulary
+    'Standard': 'Std',
+    'Enhanced': 'Enh',
+    'Custom': 'Cust',
+    'Basic': 'Bas',
+
+    // Duration
+    '1 Year': '1Y',
+    '2 Years': '2Y',
+    '3 Years': '3Y',
+    'Multi-Year': 'MY',
+
+    // Boolean
+    'Yes': 'Y',
+    'No': 'N',
+    'True': 'Y',
+    'False': 'N',
+
+    // Common words
+    'Hospital': 'Hosp',
+    'Pricing': 'Prc',
+    'Contract': 'Cntr',
+    'Duration': 'Dur',
+    'Standard': 'Std',
+    'Enhanced': 'Enh',
+    'Discount': 'Disc'
+};
+
+// Abbreviate a value intelligently
+function abbreviateValue(value, maxLength = 6) {
+    if (!value) return '';
+
+    const str = String(value).trim();
+
+    // Check if we have a predefined abbreviation
+    if (ABBREVIATIONS[str]) {
+        return ABBREVIATIONS[str];
+    }
+
+    // If already short enough, return as-is
+    if (str.length <= maxLength) {
+        return str;
+    }
+
+    // For size ranges, keep as-is (e.g., "<10K", "50K-100K")
+    if (/^[<>]?\d+K?(-\d+K)?$/.test(str)) {
+        return str;
+    }
+
+    // For multi-word strings, use first letter of each word
+    if (str.includes(' ')) {
+        const words = str.split(' ');
+        if (words.length > 1) {
+            return words.map(w => w.charAt(0).toUpperCase()).join('');
+        }
+    }
+
+    // Remove vowels from middle and keep consonants
+    if (str.length > maxLength) {
+        const firstChar = str.charAt(0);
+        const lastChar = str.charAt(str.length - 1);
+        const middle = str.slice(1, -1).replace(/[aeiou]/gi, '');
+        const abbreviated = (firstChar + middle + lastChar).substring(0, maxLength);
+        return abbreviated;
+    }
+
+    // Last resort: truncate
+    return str.substring(0, maxLength);
+}
+
+// Generate product name from form data
+async function generateProductName(client, formData) {
+    try {
+        const parts = [];
+
+        // Get parameter labels for display
+        const { valueLabels } = await getParameterLabels(client);
+
+        // 1. PBM (required)
+        if (formData.pbm_code) {
+            parts.push(abbreviateValue(formData.pbm_code));
+        }
+
+        // 2. Formulary
+        if (formData.formulary) {
+            const label = valueLabels[formData.formulary] || formData.formulary;
+            parts.push(abbreviateValue(label));
+        }
+
+        // 3. Client Size
+        if (formData.client_size) {
+            const label = valueLabels[formData.client_size] || formData.client_size;
+            parts.push(abbreviateValue(label));
+        }
+
+        // 4. Contract Duration
+        if (formData.contract_duration) {
+            const label = valueLabels[formData.contract_duration] || formData.contract_duration;
+            parts.push(abbreviateValue(label));
+        }
+
+        // 5. Additional parameters (from additional_parameters object or param_* fields)
+        let additionalParams = {};
+
+        // Check if additional_parameters is already parsed
+        if (formData.additional_parameters) {
+            if (typeof formData.additional_parameters === 'string') {
+                additionalParams = JSON.parse(formData.additional_parameters);
+            } else {
+                additionalParams = formData.additional_parameters;
+            }
+        } else {
+            // Extract from param_* fields
+            Object.keys(formData).forEach(key => {
+                if (key.startsWith('param_')) {
+                    const paramCode = key.replace('param_', '');
+                    if (formData[key] && formData[key].trim() !== '') {
+                        additionalParams[paramCode] = formData[key];
+                    }
+                }
+            });
+        }
+
+        // Add non-empty additional parameters
+        Object.keys(additionalParams).forEach(key => {
+            const value = additionalParams[key];
+            if (value && String(value).trim() !== '') {
+                const label = valueLabels[value] || value;
+                parts.push(abbreviateValue(label));
+            }
+        });
+
+        // Join parts with separator
+        let name = parts.join(' | ');
+
+        // Add year suffix from effective_from or current year
+        const effectiveDate = formData.effective_from ? new Date(formData.effective_from) : new Date();
+        const year = effectiveDate.getFullYear();
+        name += ` - ${year}`;
+
+        // Enforce max length (255 chars)
+        if (name.length > 255) {
+            name = name.substring(0, 252) + '...';
+        }
+
+        return name;
+    } catch (error) {
+        console.error('Error generating product name:', error);
+        // Fallback name
+        const year = new Date().getFullYear();
+        return `New Price Product - ${year}`;
+    }
+}
+
+// Check if product name is unique
+async function isProductNameUnique(client, name, excludeConfigId = null) {
+    try {
+        const query = `
+            SELECT config_id, name
+            FROM application.prism_price_configuration
+            WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
+              AND is_active = true
+              ${excludeConfigId ? 'AND config_id != $2' : ''}
+            LIMIT 1
+        `;
+
+        const params = excludeConfigId ? [name, excludeConfigId] : [name];
+        const result = await client.query(query, params);
+
+        return result.rows.length === 0;
+    } catch (error) {
+        console.error('Error checking name uniqueness:', error);
+        return false;
+    }
+}
+
+// Generate unique product name by appending counter if needed
+async function generateUniqueProductName(client, formData, excludeConfigId = null) {
+    try {
+        // Generate base name
+        let baseName = await generateProductName(client, formData);
+        let finalName = baseName;
+        let counter = 2;
+
+        // Keep checking and incrementing counter until we find a unique name
+        while (!(await isProductNameUnique(client, finalName, excludeConfigId))) {
+            // If adding counter would exceed 255 chars, truncate the base name
+            const suffix = ` (${counter})`;
+            if (baseName.length + suffix.length > 255) {
+                baseName = baseName.substring(0, 255 - suffix.length);
+            }
+            finalName = `${baseName}${suffix}`;
+            counter++;
+
+            // Safety check to prevent infinite loop (should never happen, but just in case)
+            if (counter > 100) {
+                console.error('Too many duplicate names, stopping at counter 100');
+                break;
+            }
+        }
+
+        return finalName;
+    } catch (error) {
+        console.error('Error generating unique product name:', error);
+        const year = new Date().getFullYear();
+        return `New Price Product - ${year}`;
+    }
+}
+
 // Helper function to render parameter field based on field_type
 function renderParameterField(param, fieldName, currentValue, cssClasses) {
     const validationRules = typeof param.validation_rules === 'string'
@@ -830,18 +1047,22 @@ async function createPriceBook(client, formData) {
         const newConfigId = uuidv4();
 
         // Validate required fields
-        if (!formData.name || !formData.pbm_code || !formData.config_type) {
+        if (!formData.pbm_code || !formData.config_type) {
             return {
                 success: false,
-                error: 'Missing required fields: name, pbm_code, and config_type are required'
+                error: 'Missing required fields: pbm_code and config_type are required'
             };
         }
+
+        // Auto-generate unique product name (with counter if needed)
+        const productName = await generateUniqueProductName(dbClient, formData);
+        console.log('Generated unique product name:', productName);
 
         // Prepare configuration data
         const configData = {
             config_id: newConfigId,
             version: 1,
-            name: formData.name.trim(),
+            name: productName,
             description: formData.description || null,
             config_type: formData.config_type,
             pbm_code: formData.pbm_code,
@@ -955,16 +1176,27 @@ async function updatePriceBook(client, configId, formData) {
             }
         });
 
+        // Extract special fields (these go in dedicated columns, not JSONB)
+        const formulary = formData.formulary || currentConfig.formulary || null;
+        const clientSize = formData.client_size || currentConfig.client_size || null;
+        const contractDuration = formData.contract_duration || currentConfig.contract_duration || null;
+
+        // Always regenerate product name from current parameters
+        // Build formData with all fields for name generation
+        const nameGenFormData = {
+            ...formData,
+            formulary: formulary,
+            client_size: clientSize,
+            contract_duration: contractDuration
+        };
+        const productName = await generateUniqueProductName(dbClient, nameGenFormData, configId);
+        console.log('Generated unique product name for update:', productName);
+
         // Deactivate current version
         await dbClient.query(
             'UPDATE application.prism_price_configuration SET is_active = false WHERE config_id = $1 AND is_active = true',
             [configId]
         );
-
-        // Extract special fields (these go in dedicated columns, not JSONB)
-        const formulary = formData.formulary || currentConfig.formulary || null;
-        const clientSize = formData.client_size || currentConfig.client_size || null;
-        const contractDuration = formData.contract_duration || currentConfig.contract_duration || null;
 
         // Insert new version
         const insertQuery = `
@@ -983,7 +1215,7 @@ async function updatePriceBook(client, configId, formData) {
         const insertValues = [
             configId,
             newVersion,
-            formData.name || currentConfig.name,
+            productName,
             formData.description || currentConfig.description,
             formData.config_type || currentConfig.config_type,
             formData.pbm_code || currentConfig.pbm_code,
