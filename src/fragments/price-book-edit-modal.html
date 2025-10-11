@@ -63,14 +63,8 @@
                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
 
-                <!-- Formulary -->
-                {{FORMULARY_FIELD}}
-
-                <!-- Client Size -->
-                {{CLIENT_SIZE_FIELD}}
-
-                <!-- Contract Duration -->
-                {{CONTRACT_DURATION_FIELD}}
+                <!-- Dynamic Basic Info Fields (from special_ui_render flag) -->
+                {{BASIC_INFO_FIELDS}}
 
                 <!-- Description -->
                 <div class="md:col-span-2">

@@ -221,6 +221,7 @@ async function getAdditionalParameters(client, pbmCode) {
                 parent.config_code as parameter_code,
                 parent.display_name as parameter_name,
                 parent.display_order as parameter_order,
+                parent.special_ui_render,
                 parent.validation_rules,
                 parent.description as parameter_description,
                 COALESCE(
@@ -245,6 +246,7 @@ async function getAdditionalParameters(client, pbmCode) {
                 parent.config_code,
                 parent.display_name,
                 parent.display_order,
+                parent.special_ui_render,
                 parent.validation_rules,
                 parent.description
             ORDER BY parent.display_order
@@ -510,6 +512,87 @@ function buildPricingStructureFromForm(formData, pricingStructure) {
     return result;
 }
 
+// Generate pricing display HTML for table listing (dynamic)
+function generatePricingDisplayHTML(pricingStructure, pricingData) {
+    const parts = [];
+
+    if (!pricingData || Object.keys(pricingData).length === 0) {
+        return '• No pricing structure specified';
+    }
+
+    pricingStructure.forEach(category => {
+        const categoryCode = category.category_code;
+        const categoryName = category.category_name;
+        const categoryData = pricingData[categoryCode];
+
+        if (!categoryData) return;
+
+        const structure = category.structure || [];
+        const hasSubcategories = structure.some(item => item.subcategory_code !== null);
+
+        if (hasSubcategories) {
+            // Category with subcategories (e.g., Retail: Brand/Generic)
+            const subParts = [];
+
+            structure.forEach(subcat => {
+                if (!subcat.subcategory_code || !subcat.fields) return;
+
+                const subcategoryCode = subcat.subcategory_code;
+                const subcategoryName = subcat.subcategory_name;
+                const subcategoryData = categoryData[subcategoryCode];
+
+                if (!subcategoryData) return;
+
+                subcat.fields.forEach(field => {
+                    const fieldCode = field.field_code;
+                    const fieldName = field.field_name;
+                    const fieldValue = subcategoryData[fieldCode];
+
+                    if (fieldValue !== null && fieldValue !== undefined) {
+                        // Format based on field type ($ or %)
+                        const formattedValue = fieldName.includes('%') || fieldName.toLowerCase().includes('discount')
+                            ? `${fieldValue}%`
+                            : `$${fieldValue}`;
+
+                        subParts.push(`${subcategoryName} ${fieldName.replace(/\s*\(\$\)|\s*\(%\)/g, '')}: ${formattedValue}`);
+                    }
+                });
+            });
+
+            if (subParts.length > 0) {
+                parts.push(`<strong>${categoryName}:</strong> ${subParts.join(', ')}`);
+            }
+        } else {
+            // Category without subcategories (e.g., Overall Fees & Credits)
+            const fieldParts = [];
+            const fields = structure[0]?.fields || [];
+
+            fields.forEach(field => {
+                const fieldCode = field.field_code;
+                const fieldName = field.field_name;
+                const fieldValue = categoryData[fieldCode];
+
+                if (fieldValue !== null && fieldValue !== undefined) {
+                    // Format based on field type ($ or %)
+                    const formattedValue = fieldName.includes('%') || fieldName.toLowerCase().includes('discount')
+                        ? `${fieldValue}%`
+                        : `$${fieldValue}`;
+
+                    fieldParts.push(`${fieldName.replace(/\s*\(\$\)|\s*\(%\)/g, '')}: ${formattedValue}`);
+                }
+            });
+
+            if (fieldParts.length > 0) {
+                parts.push(`<strong>${categoryName}:</strong> ${fieldParts.join(', ')}`);
+            }
+        }
+    });
+
+    return parts.length > 0
+        ? parts.map(p => `• ${p}`).join('<br>')
+        : '• No pricing structure specified';
+}
+
 // Generate edit price book HTML with populated data
 async function generateEditPriceBookHTML(client, configId) {
     try {
@@ -542,13 +625,38 @@ async function generateEditPriceBookHTML(client, configId) {
             `<option value="MODELING" ${config.config_type === 'MODELING' ? 'selected' : ''}>Modeling</option>`
         ].join('');
 
-        // Get additional parameters for this PBM
-        const parameters = await getAdditionalParameters(client, config.pbm_code);
+        // Get all parameters for this PBM
+        const allParameters = await getAdditionalParameters(client, config.pbm_code);
 
-        // Generate additional parameter fields
+        // Separate parameters based on special_ui_render flag
+        const basicInfoParams = allParameters.filter(p => p.special_ui_render === true);
+        const additionalParams = allParameters.filter(p => p.special_ui_render !== true);
+
+        // Generate Basic Info parameter fields (special_ui_render = true)
+        let basicInfoFieldsHTML = '';
+        basicInfoParams.forEach(param => {
+            const currentValue = config[param.parameter_code] || additionalParameters[param.parameter_code] || '';
+            const paramLabel = param.parameter_name;
+
+            const options = param.valid_values.map(val =>
+                `<option value="${val.code}" ${currentValue === val.code ? 'selected' : ''}>${val.label}</option>`
+            ).join('');
+
+            basicInfoFieldsHTML += `
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">${paramLabel}</label>
+                    <select name="${param.parameter_code}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="">Select ${paramLabel}</option>
+                        ${options}
+                    </select>
+                </div>
+            `;
+        });
+
+        // Generate Additional Parameters fields (special_ui_render = false or null)
         let additionalParamsHTML = '';
-        if (parameters.length > 0) {
-            additionalParamsHTML = parameters.map(param => {
+        if (additionalParams.length > 0) {
+            additionalParamsHTML = additionalParams.map(param => {
                 const currentValue = additionalParameters[param.parameter_code] || '';
                 const paramLabel = param.parameter_name;
 
@@ -569,41 +677,6 @@ async function generateEditPriceBookHTML(client, configId) {
         } else {
             additionalParamsHTML = '<p class="text-sm text-gray-500">No additional parameters available for this PBM.</p>';
         }
-
-        // Generate formulary, client_size, contract_duration fields
-        const formularyOptions = await getSystemConfigOptions(client, 'formulary', config.formulary);
-        const clientSizeOptions = await getSystemConfigOptions(client, 'client_size', config.client_size);
-        const contractDurationOptions = await getSystemConfigOptions(client, 'contract_duration', config.contract_duration);
-
-        const formularyField = formularyOptions ? `
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Formulary</label>
-                <select name="formulary" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                    <option value="">Select Formulary</option>
-                    ${formularyOptions}
-                </select>
-            </div>
-        ` : '';
-
-        const clientSizeField = clientSizeOptions ? `
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Client Size</label>
-                <select name="client_size" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                    <option value="">Select Client Size</option>
-                    ${clientSizeOptions}
-                </select>
-            </div>
-        ` : '';
-
-        const contractDurationField = contractDurationOptions ? `
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Contract Duration</label>
-                <select name="contract_duration" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                    <option value="">Select Duration</option>
-                    ${contractDurationOptions}
-                </select>
-            </div>
-        ` : '';
 
         // Format dates for input fields (YYYY-MM-DD)
         const formatDateForInput = (dateStr) => {
@@ -626,9 +699,7 @@ async function generateEditPriceBookHTML(client, configId) {
             CONFIG_TYPE_OPTIONS: configTypeOptions,
             EFFECTIVE_FROM: formatDateForInput(config.effective_from),
             EFFECTIVE_TO: formatDateForInput(config.effective_to),
-            FORMULARY_FIELD: formularyField,
-            CLIENT_SIZE_FIELD: clientSizeField,
-            CONTRACT_DURATION_FIELD: contractDurationField,
+            BASIC_INFO_FIELDS: basicInfoFieldsHTML,
             ADDITIONAL_PARAMETERS_FIELDS: additionalParamsHTML,
             PRICING_STRUCTURE_FIELDS: pricingFormHTML
         };
@@ -1364,6 +1435,9 @@ const handler = async (event) => {
         // Get parameter and value labels from system config
         const { parameterLabels, valueLabels } = await getParameterLabels(client);
 
+        // Get pricing structure definition for display
+        const pricingStructureDefinition = await getPricingStructure(client);
+
         await client.end();
 
         // Generate rows
@@ -1419,8 +1493,8 @@ const handler = async (event) => {
                 ? configParts.map(p => `• ${p}`).join('<br>')
                 : '• No configuration specified';
 
-            // Build price structure display (like price modeling)
-            const priceStructureParts = [];
+            // Build price structure display dynamically
+            let priceStructureDisplay = '• No pricing structure specified';
             if (config.pricing_structure) {
                 try {
                     const pricing = typeof config.pricing_structure === 'string'
@@ -1429,145 +1503,12 @@ const handler = async (event) => {
 
                     console.log('Pricing structure for', config.name, ':', JSON.stringify(pricing));
 
-                    // Overall fees (check for non-null values)
-                    if (pricing.overall) {
-                        if (pricing.overall.pepm_rebate_credit !== null && pricing.overall.pepm_rebate_credit !== undefined) {
-                            priceStructureParts.push(`<strong>PEPM Rebate Credit:</strong> $${pricing.overall.pepm_rebate_credit}`);
-                        }
-                        if (pricing.overall.pricing_fee !== null && pricing.overall.pricing_fee !== undefined) {
-                            priceStructureParts.push(`<strong>Pricing Fee:</strong> $${pricing.overall.pricing_fee}`);
-                        }
-                        if (pricing.overall.inhouse_pharmacy_fee !== null && pricing.overall.inhouse_pharmacy_fee !== undefined) {
-                            priceStructureParts.push(`<strong>In-House Pharmacy Fee:</strong> $${pricing.overall.inhouse_pharmacy_fee}`);
-                        }
-                    }
-
-                    // Retail pricing
-                    if (pricing.retail) {
-                        const retailParts = [];
-                        if (pricing.retail.brand?.rebate !== null && pricing.retail.brand?.rebate !== undefined) {
-                            retailParts.push(`Brand Rebate: $${pricing.retail.brand.rebate}`);
-                        }
-                        if (pricing.retail.brand?.discount !== null && pricing.retail.brand?.discount !== undefined) {
-                            retailParts.push(`Brand Discount: ${pricing.retail.brand.discount}%`);
-                        }
-                        if (pricing.retail.brand?.dispensing_fee !== null && pricing.retail.brand?.dispensing_fee !== undefined) {
-                            retailParts.push(`Brand Disp Fee: $${pricing.retail.brand.dispensing_fee}`);
-                        }
-                        if (pricing.retail.generic?.discount !== null && pricing.retail.generic?.discount !== undefined) {
-                            retailParts.push(`Generic Discount: ${pricing.retail.generic.discount}%`);
-                        }
-                        if (pricing.retail.generic?.dispensing_fee !== null && pricing.retail.generic?.dispensing_fee !== undefined) {
-                            retailParts.push(`Generic Disp Fee: $${pricing.retail.generic.dispensing_fee}`);
-                        }
-                        if (retailParts.length > 0) {
-                            priceStructureParts.push(`<strong>Retail:</strong> ${retailParts.join(', ')}`);
-                        }
-                    }
-
-                    // Retail 90
-                    if (pricing.retail_90) {
-                        const retail90Parts = [];
-                        if (pricing.retail_90.brand?.rebate !== null && pricing.retail_90.brand?.rebate !== undefined) {
-                            retail90Parts.push(`Brand Rebate: $${pricing.retail_90.brand.rebate}`);
-                        }
-                        if (pricing.retail_90.brand?.discount !== null && pricing.retail_90.brand?.discount !== undefined) {
-                            retail90Parts.push(`Brand Discount: ${pricing.retail_90.brand.discount}%`);
-                        }
-                        if (pricing.retail_90.brand?.dispensing_fee !== null && pricing.retail_90.brand?.dispensing_fee !== undefined) {
-                            retail90Parts.push(`Brand Disp Fee: $${pricing.retail_90.brand.dispensing_fee}`);
-                        }
-                        if (pricing.retail_90.generic?.discount !== null && pricing.retail_90.generic?.discount !== undefined) {
-                            retail90Parts.push(`Generic Discount: ${pricing.retail_90.generic.discount}%`);
-                        }
-                        if (pricing.retail_90.generic?.dispensing_fee !== null && pricing.retail_90.generic?.dispensing_fee !== undefined) {
-                            retail90Parts.push(`Generic Disp Fee: $${pricing.retail_90.generic.dispensing_fee}`);
-                        }
-                        if (retail90Parts.length > 0) {
-                            priceStructureParts.push(`<strong>Retail 90:</strong> ${retail90Parts.join(', ')}`);
-                        }
-                    }
-
-                    // Mail
-                    if (pricing.mail) {
-                        const mailParts = [];
-                        if (pricing.mail.brand?.rebate !== null && pricing.mail.brand?.rebate !== undefined) {
-                            mailParts.push(`Brand Rebate: $${pricing.mail.brand.rebate}`);
-                        }
-                        if (pricing.mail.brand?.discount !== null && pricing.mail.brand?.discount !== undefined) {
-                            mailParts.push(`Brand Discount: ${pricing.mail.brand.discount}%`);
-                        }
-                        if (pricing.mail.brand?.dispensing_fee !== null && pricing.mail.brand?.dispensing_fee !== undefined) {
-                            mailParts.push(`Brand Disp Fee: $${pricing.mail.brand.dispensing_fee}`);
-                        }
-                        if (pricing.mail.generic?.discount !== null && pricing.mail.generic?.discount !== undefined) {
-                            mailParts.push(`Generic Discount: ${pricing.mail.generic.discount}%`);
-                        }
-                        if (pricing.mail.generic?.dispensing_fee !== null && pricing.mail.generic?.dispensing_fee !== undefined) {
-                            mailParts.push(`Generic Disp Fee: $${pricing.mail.generic.dispensing_fee}`);
-                        }
-                        if (mailParts.length > 0) {
-                            priceStructureParts.push(`<strong>Mail:</strong> ${mailParts.join(', ')}`);
-                        }
-                    }
-
-                    // Specialty Mail
-                    if (pricing.specialty_mail) {
-                        const specialtyMailParts = [];
-                        if (pricing.specialty_mail.brand?.rebate !== null && pricing.specialty_mail.brand?.rebate !== undefined) {
-                            specialtyMailParts.push(`Brand Rebate: $${pricing.specialty_mail.brand.rebate}`);
-                        }
-                        if (pricing.specialty_mail.brand?.discount !== null && pricing.specialty_mail.brand?.discount !== undefined) {
-                            specialtyMailParts.push(`Brand Discount: ${pricing.specialty_mail.brand.discount}%`);
-                        }
-                        if (pricing.specialty_mail.brand?.dispensing_fee !== null && pricing.specialty_mail.brand?.dispensing_fee !== undefined) {
-                            specialtyMailParts.push(`Brand Disp Fee: $${pricing.specialty_mail.brand.dispensing_fee}`);
-                        }
-                        if (pricing.specialty_mail.generic?.discount !== null && pricing.specialty_mail.generic?.discount !== undefined) {
-                            specialtyMailParts.push(`Generic Discount: ${pricing.specialty_mail.generic.discount}%`);
-                        }
-                        if (pricing.specialty_mail.generic?.dispensing_fee !== null && pricing.specialty_mail.generic?.dispensing_fee !== undefined) {
-                            specialtyMailParts.push(`Generic Disp Fee: $${pricing.specialty_mail.generic.dispensing_fee}`);
-                        }
-                        if (specialtyMailParts.length > 0) {
-                            priceStructureParts.push(`<strong>Specialty Mail:</strong> ${specialtyMailParts.join(', ')}`);
-                        }
-                    }
-
-                    // Specialty pricing
-                    if (pricing.ldd_blended_specialty) {
-                        const lddParts = [];
-                        if (pricing.ldd_blended_specialty.rebate !== null && pricing.ldd_blended_specialty.rebate !== undefined) {
-                            lddParts.push(`Rebate: $${pricing.ldd_blended_specialty.rebate}`);
-                        }
-                        if (pricing.ldd_blended_specialty.discount !== null && pricing.ldd_blended_specialty.discount !== undefined) {
-                            lddParts.push(`Discount: ${pricing.ldd_blended_specialty.discount}%`);
-                        }
-                        if (lddParts.length > 0) {
-                            priceStructureParts.push(`<strong>LDD Blended Specialty:</strong> ${lddParts.join(', ')}`);
-                        }
-                    }
-
-                    if (pricing.non_ldd_blended_specialty) {
-                        const nonLddParts = [];
-                        if (pricing.non_ldd_blended_specialty.rebate !== null && pricing.non_ldd_blended_specialty.rebate !== undefined) {
-                            nonLddParts.push(`Rebate: $${pricing.non_ldd_blended_specialty.rebate}`);
-                        }
-                        if (pricing.non_ldd_blended_specialty.discount !== null && pricing.non_ldd_blended_specialty.discount !== undefined) {
-                            nonLddParts.push(`Discount: ${pricing.non_ldd_blended_specialty.discount}%`);
-                        }
-                        if (nonLddParts.length > 0) {
-                            priceStructureParts.push(`<strong>Non-LDD Blended Specialty:</strong> ${nonLddParts.join(', ')}`);
-                        }
-                    }
+                    // Use dynamic function to generate pricing display
+                    priceStructureDisplay = generatePricingDisplayHTML(pricingStructureDefinition, pricing);
                 } catch (e) {
                     console.error('Error parsing pricing structure for', config.name, ':', e);
                 }
             }
-
-            const priceStructureDisplay = priceStructureParts.length > 0
-                ? priceStructureParts.map(p => `• ${p}`).join('<br>')
-                : '• No pricing structure specified';
 
             const rowData = {
                 CONFIG_ID: config.config_id,
