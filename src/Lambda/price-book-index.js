@@ -258,6 +258,258 @@ async function getAdditionalParameters(client, pbmCode) {
     }
 }
 
+// Get pricing structure definition from system config
+async function getPricingStructure(client) {
+    try {
+        const query = `
+            WITH RECURSIVE
+            -- Get all categories
+            categories AS (
+                SELECT
+                    config_code,
+                    display_name,
+                    display_order,
+                    description
+                FROM application.prism_system_config
+                WHERE config_type = 'pricing_category'
+                  AND is_active = true
+            ),
+            -- Get all subcategories with their parent category
+            subcategories AS (
+                SELECT
+                    sub.config_code,
+                    sub.display_name,
+                    sub.parent_code,
+                    sub.display_order
+                FROM application.prism_system_config sub
+                WHERE sub.config_type = 'pricing_subcategory'
+                  AND sub.is_active = true
+            ),
+            -- Get all fields with their aggregated structure
+            subcategory_fields AS (
+                SELECT
+                    sub.parent_code as category_code,
+                    sub.config_code as subcategory_code,
+                    sub.display_name as subcategory_name,
+                    sub.display_order as subcategory_order,
+                    json_agg(
+                        json_build_object(
+                            'field_code', field.config_code,
+                            'field_name', field.display_name,
+                            'field_order', field.display_order,
+                            'validation', field.validation_rules
+                        ) ORDER BY field.display_order
+                    ) as fields
+                FROM subcategories sub
+                INNER JOIN application.prism_system_config field
+                    ON field.parent_code = sub.config_code
+                    AND field.config_type = 'pricing_field'
+                    AND field.is_active = true
+                GROUP BY sub.parent_code, sub.config_code, sub.display_name, sub.display_order
+            ),
+            -- Get fields directly under categories (no subcategory)
+            category_fields AS (
+                SELECT
+                    cat.config_code as category_code,
+                    NULL::text as subcategory_code,
+                    NULL::text as subcategory_name,
+                    0 as subcategory_order,
+                    json_agg(
+                        json_build_object(
+                            'field_code', field.config_code,
+                            'field_name', field.display_name,
+                            'field_order', field.display_order,
+                            'validation', field.validation_rules
+                        ) ORDER BY field.display_order
+                    ) as fields
+                FROM categories cat
+                INNER JOIN application.prism_system_config field
+                    ON field.parent_code = cat.config_code
+                    AND field.config_type = 'pricing_field'
+                    AND field.is_active = true
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM subcategories sub
+                    WHERE sub.parent_code = cat.config_code
+                )
+                GROUP BY cat.config_code
+            ),
+            -- Combine subcategory and category fields
+            all_structures AS (
+                SELECT * FROM subcategory_fields
+                UNION ALL
+                SELECT * FROM category_fields
+            )
+            -- Final aggregation by category
+            SELECT
+                cat.config_code as category_code,
+                cat.display_name as category_name,
+                cat.display_order as category_order,
+                cat.description as category_description,
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'subcategory_code', st.subcategory_code,
+                            'subcategory_name', st.subcategory_name,
+                            'fields', st.fields
+                        ) ORDER BY st.subcategory_order
+                    ) FILTER (WHERE st.subcategory_code IS NOT NULL OR st.fields IS NOT NULL),
+                    '[]'::json
+                ) as structure
+            FROM categories cat
+            LEFT JOIN all_structures st ON st.category_code = cat.config_code
+            GROUP BY cat.config_code, cat.display_name, cat.display_order, cat.description
+            ORDER BY cat.display_order
+        `;
+
+        const result = await client.query(query);
+        return result.rows;
+    } catch (error) {
+        console.error('Error getting pricing structure:', error);
+        return [];
+    }
+}
+
+// Generate pricing form HTML from pricing structure
+function generatePricingFormHTML(pricingStructure, currentValues = {}) {
+    let html = '';
+
+    // Helper to safely get nested values
+    const getValue = (categoryCode, subcategoryCode, fieldCode) => {
+        if (subcategoryCode) {
+            return currentValues[categoryCode]?.[subcategoryCode]?.[fieldCode] || '';
+        }
+        return currentValues[categoryCode]?.[fieldCode] || '';
+    };
+
+    // Helper to generate field name
+    const getFieldName = (categoryCode, subcategoryCode, fieldCode) => {
+        if (subcategoryCode) {
+            return `${categoryCode}_${subcategoryCode}_${fieldCode}`;
+        }
+        return `${categoryCode}_${fieldCode}`;
+    };
+
+    pricingStructure.forEach(category => {
+        const structure = category.structure || [];
+
+        // Check if category has subcategories
+        const hasSubcategories = structure.some(item => item.subcategory_code !== null);
+
+        html += `
+            <!-- ${category.category_name} -->
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">${category.category_name}</h3>
+        `;
+
+        if (hasSubcategories) {
+            // Category with subcategories (e.g., Retail: Brand/Generic)
+            html += '<div class="border border-gray-200 rounded-lg p-6">';
+            html += '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">';
+
+            structure.forEach(subcat => {
+                if (!subcat.subcategory_code || !subcat.fields || !Array.isArray(subcat.fields)) return;
+
+                html += `
+                    <div>
+                        <h5 class="text-sm font-medium text-gray-700 mb-3">${subcat.subcategory_name}</h5>
+                        <div class="grid grid-cols-${subcat.fields.length} gap-3">
+                `;
+
+                subcat.fields.forEach(field => {
+                    const fieldName = getFieldName(category.category_code, subcat.subcategory_code, field.field_code);
+                    const fieldValue = getValue(category.category_code, subcat.subcategory_code, field.field_code);
+
+                    html += `
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">${field.field_name}</label>
+                            <input type="number" step="0.01" name="${fieldName}" value="${fieldValue}"
+                                   class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500">
+                        </div>
+                    `;
+                });
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div></div>';
+        } else {
+            // Category without subcategories (e.g., Overall Fees, LDD Blended Specialty)
+            const fields = structure[0]?.fields || [];
+
+            if (Array.isArray(fields) && fields.length > 0) {
+                html += `<div class="grid grid-cols-${Math.min(fields.length, 3)} gap-6">`;
+
+                fields.forEach(field => {
+                    const fieldName = getFieldName(category.category_code, null, field.field_code);
+                    const fieldValue = getValue(category.category_code, null, field.field_code);
+
+                    html += `
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">${field.field_name}</label>
+                            <input type="number" step="0.01" name="${fieldName}" value="${fieldValue}"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    `;
+                });
+
+                html += '</div>';
+            }
+        }
+
+        html += `
+            </div>
+        `;
+    });
+
+    return html;
+}
+
+// Build pricing structure from form data dynamically
+function buildPricingStructureFromForm(formData, pricingStructure) {
+    const result = {};
+
+    pricingStructure.forEach(category => {
+        const categoryCode = category.category_code;
+        const structure = category.structure || [];
+
+        // Check if category has subcategories
+        const hasSubcategories = structure.some(item => item.subcategory_code !== null);
+
+        if (hasSubcategories) {
+            // Category with subcategories
+            result[categoryCode] = {};
+
+            structure.forEach(subcat => {
+                if (!subcat.subcategory_code || !subcat.fields) return;
+
+                const subcategoryCode = subcat.subcategory_code;
+                result[categoryCode][subcategoryCode] = {};
+
+                subcat.fields.forEach(field => {
+                    const fieldName = `${categoryCode}_${subcategoryCode}_${field.field_code}`;
+                    const value = formData[fieldName];
+                    result[categoryCode][subcategoryCode][field.field_code] = value ? parseFloat(value) : null;
+                });
+            });
+        } else {
+            // Category without subcategories
+            result[categoryCode] = {};
+            const fields = structure[0]?.fields || [];
+
+            fields.forEach(field => {
+                const fieldName = `${categoryCode}_${field.field_code}`;
+                const value = formData[fieldName];
+                result[categoryCode][field.field_code] = value ? parseFloat(value) : null;
+            });
+        }
+    });
+
+    return result;
+}
+
 // Generate edit price book HTML with populated data
 async function generateEditPriceBookHTML(client, configId) {
     try {
@@ -284,12 +536,6 @@ async function generateEditPriceBookHTML(client, configId) {
             ? JSON.parse(config.additional_parameters)
             : config.additional_parameters;
 
-        // Helper function to safely get nested values
-        const getNestedValue = (obj, path) => {
-            return path.split('.').reduce((current, key) =>
-                current && current[key] !== undefined && current[key] !== null ? current[key] : '', obj);
-        };
-
         // Generate config type options with selection
         const configTypeOptions = [
             `<option value="PRODUCTION" ${config.config_type === 'PRODUCTION' ? 'selected' : ''}>Production</option>`,
@@ -298,7 +544,6 @@ async function generateEditPriceBookHTML(client, configId) {
 
         // Get additional parameters for this PBM
         const parameters = await getAdditionalParameters(client, config.pbm_code);
-        const { parameterLabels, valueLabels } = await getParameterLabels(client);
 
         // Generate additional parameter fields
         let additionalParamsHTML = '';
@@ -367,6 +612,12 @@ async function generateEditPriceBookHTML(client, configId) {
             return date.toISOString().split('T')[0];
         };
 
+        // Get dynamic pricing structure from system config
+        const pricingStructureDefinition = await getPricingStructure(client);
+
+        // Generate pricing form HTML with current values
+        const pricingFormHTML = generatePricingFormHTML(pricingStructureDefinition, pricingStructure);
+
         const editData = {
             CONFIG_ID: config.config_id,
             NAME: config.name,
@@ -379,47 +630,7 @@ async function generateEditPriceBookHTML(client, configId) {
             CLIENT_SIZE_FIELD: clientSizeField,
             CONTRACT_DURATION_FIELD: contractDurationField,
             ADDITIONAL_PARAMETERS_FIELDS: additionalParamsHTML,
-
-            // Overall fees
-            OVERALL_PEPM_REBATE_CREDIT: getNestedValue(pricingStructure, 'overall.pepm_rebate_credit'),
-            OVERALL_PRICING_FEE: getNestedValue(pricingStructure, 'overall.pricing_fee'),
-            OVERALL_INHOUSE_PHARMACY_FEE: getNestedValue(pricingStructure, 'overall.inhouse_pharmacy_fee'),
-
-            // Retail
-            RETAIL_BRAND_REBATE: getNestedValue(pricingStructure, 'retail.brand.rebate'),
-            RETAIL_BRAND_DISCOUNT: getNestedValue(pricingStructure, 'retail.brand.discount'),
-            RETAIL_BRAND_DISPENSING_FEE: getNestedValue(pricingStructure, 'retail.brand.dispensing_fee'),
-            RETAIL_GENERIC_DISCOUNT: getNestedValue(pricingStructure, 'retail.generic.discount'),
-            RETAIL_GENERIC_DISPENSING_FEE: getNestedValue(pricingStructure, 'retail.generic.dispensing_fee'),
-
-            // Retail 90
-            RETAIL_90_BRAND_REBATE: getNestedValue(pricingStructure, 'retail_90.brand.rebate'),
-            RETAIL_90_BRAND_DISCOUNT: getNestedValue(pricingStructure, 'retail_90.brand.discount'),
-            RETAIL_90_BRAND_DISPENSING_FEE: getNestedValue(pricingStructure, 'retail_90.brand.dispensing_fee'),
-            RETAIL_90_GENERIC_DISCOUNT: getNestedValue(pricingStructure, 'retail_90.generic.discount'),
-            RETAIL_90_GENERIC_DISPENSING_FEE: getNestedValue(pricingStructure, 'retail_90.generic.dispensing_fee'),
-
-            // Mail
-            MAIL_BRAND_REBATE: getNestedValue(pricingStructure, 'mail.brand.rebate'),
-            MAIL_BRAND_DISCOUNT: getNestedValue(pricingStructure, 'mail.brand.discount'),
-            MAIL_BRAND_DISPENSING_FEE: getNestedValue(pricingStructure, 'mail.brand.dispensing_fee'),
-            MAIL_GENERIC_DISCOUNT: getNestedValue(pricingStructure, 'mail.generic.discount'),
-            MAIL_GENERIC_DISPENSING_FEE: getNestedValue(pricingStructure, 'mail.generic.dispensing_fee'),
-
-            // Specialty Mail
-            SPECIALTY_MAIL_BRAND_REBATE: getNestedValue(pricingStructure, 'specialty_mail.brand.rebate'),
-            SPECIALTY_MAIL_BRAND_DISCOUNT: getNestedValue(pricingStructure, 'specialty_mail.brand.discount'),
-            SPECIALTY_MAIL_BRAND_DISPENSING_FEE: getNestedValue(pricingStructure, 'specialty_mail.brand.dispensing_fee'),
-            SPECIALTY_MAIL_GENERIC_DISCOUNT: getNestedValue(pricingStructure, 'specialty_mail.generic.discount'),
-            SPECIALTY_MAIL_GENERIC_DISPENSING_FEE: getNestedValue(pricingStructure, 'specialty_mail.generic.dispensing_fee'),
-
-            // Blended Specialty
-            LDD_BLENDED_SPECIALTY_REBATE: getNestedValue(pricingStructure, 'ldd_blended_specialty.rebate'),
-            LDD_BLENDED_SPECIALTY_DISCOUNT: getNestedValue(pricingStructure, 'ldd_blended_specialty.discount'),
-            LDD_BLENDED_SPECIALTY_DISPENSING_FEE: getNestedValue(pricingStructure, 'ldd_blended_specialty.dispensing_fee'),
-            NON_LDD_BLENDED_SPECIALTY_REBATE: getNestedValue(pricingStructure, 'non_ldd_blended_specialty.rebate'),
-            NON_LDD_BLENDED_SPECIALTY_DISCOUNT: getNestedValue(pricingStructure, 'non_ldd_blended_specialty.discount'),
-            NON_LDD_BLENDED_SPECIALTY_DISPENSING_FEE: getNestedValue(pricingStructure, 'non_ldd_blended_specialty.dispensing_fee')
+            PRICING_STRUCTURE_FIELDS: pricingFormHTML
         };
 
         return renderTemplate(editTemplate, editData);
@@ -461,40 +672,11 @@ async function createPriceBook(client, formData) {
 
         console.log('Creating new price book with data:', formData);
 
-        // Build pricing structure from flat form fields (same approach as price modeling)
-        const pricingStructure = {};
+        // Get dynamic pricing structure definition from system config
+        const pricingStructureDefinition = await getPricingStructure(dbClient);
 
-        // Overall fees & credits (always include all fields, even if null)
-        pricingStructure.overall = {
-            pepm_rebate_credit: formData.overall_pepm_rebate_credit ? parseFloat(formData.overall_pepm_rebate_credit) : null,
-            pricing_fee: formData.overall_pricing_fee ? parseFloat(formData.overall_pricing_fee) : null,
-            inhouse_pharmacy_fee: formData.overall_inhouse_pharmacy_fee ? parseFloat(formData.overall_inhouse_pharmacy_fee) : null
-        };
-
-        // Build category structures (retail, retail_90, mail, specialty_mail) - always include all fields
-        const categories = ['retail', 'retail_90', 'mail', 'specialty_mail'];
-        categories.forEach(category => {
-            pricingStructure[category] = {
-                brand: {
-                    rebate: formData[`${category}_brand_rebate`] ? parseFloat(formData[`${category}_brand_rebate`]) : null,
-                    discount: formData[`${category}_brand_discount`] ? parseFloat(formData[`${category}_brand_discount`]) : null,
-                    dispensing_fee: formData[`${category}_brand_dispensing_fee`] ? parseFloat(formData[`${category}_brand_dispensing_fee`]) : null
-                },
-                generic: {
-                    discount: formData[`${category}_generic_discount`] ? parseFloat(formData[`${category}_generic_discount`]) : null,
-                    dispensing_fee: formData[`${category}_generic_dispensing_fee`] ? parseFloat(formData[`${category}_generic_dispensing_fee`]) : null
-                }
-            };
-        });
-
-        // Blended specialty categories - always include all fields
-        ['ldd_blended_specialty', 'non_ldd_blended_specialty'].forEach(category => {
-            pricingStructure[category] = {
-                rebate: formData[`${category}_rebate`] ? parseFloat(formData[`${category}_rebate`]) : null,
-                discount: formData[`${category}_discount`] ? parseFloat(formData[`${category}_discount`]) : null,
-                dispensing_fee: formData[`${category}_dispensing_fee`] ? parseFloat(formData[`${category}_dispensing_fee`]) : null
-            };
-        });
+        // Build pricing structure dynamically from form data
+        const pricingStructure = buildPricingStructureFromForm(formData, pricingStructureDefinition);
 
         console.log('Built pricing_structure:', JSON.stringify(pricingStructure, null, 2));
 
@@ -623,40 +805,11 @@ async function updatePriceBook(client, configId, formData) {
 
         const currentConfig = currentConfigResult.rows[0];
 
-        // Build pricing structure from flat form fields (same approach as create - always include all fields)
-        const pricingStructure = {};
+        // Get dynamic pricing structure definition from system config
+        const pricingStructureDefinition = await getPricingStructure(dbClient);
 
-        // Overall fees & credits (always include all fields, even if null)
-        pricingStructure.overall = {
-            pepm_rebate_credit: formData.overall_pepm_rebate_credit ? parseFloat(formData.overall_pepm_rebate_credit) : null,
-            pricing_fee: formData.overall_pricing_fee ? parseFloat(formData.overall_pricing_fee) : null,
-            inhouse_pharmacy_fee: formData.overall_inhouse_pharmacy_fee ? parseFloat(formData.overall_inhouse_pharmacy_fee) : null
-        };
-
-        // Build category structures (retail, retail_90, mail, specialty_mail) - always include all fields
-        const categories = ['retail', 'retail_90', 'mail', 'specialty_mail'];
-        categories.forEach(category => {
-            pricingStructure[category] = {
-                brand: {
-                    rebate: formData[`${category}_brand_rebate`] ? parseFloat(formData[`${category}_brand_rebate`]) : null,
-                    discount: formData[`${category}_brand_discount`] ? parseFloat(formData[`${category}_brand_discount`]) : null,
-                    dispensing_fee: formData[`${category}_brand_dispensing_fee`] ? parseFloat(formData[`${category}_brand_dispensing_fee`]) : null
-                },
-                generic: {
-                    discount: formData[`${category}_generic_discount`] ? parseFloat(formData[`${category}_generic_discount`]) : null,
-                    dispensing_fee: formData[`${category}_generic_dispensing_fee`] ? parseFloat(formData[`${category}_generic_dispensing_fee`]) : null
-                }
-            };
-        });
-
-        // Blended specialty categories - always include all fields
-        ['ldd_blended_specialty', 'non_ldd_blended_specialty'].forEach(category => {
-            pricingStructure[category] = {
-                rebate: formData[`${category}_rebate`] ? parseFloat(formData[`${category}_rebate`]) : null,
-                discount: formData[`${category}_discount`] ? parseFloat(formData[`${category}_discount`]) : null,
-                dispensing_fee: formData[`${category}_dispensing_fee`] ? parseFloat(formData[`${category}_dispensing_fee`]) : null
-            };
-        });
+        // Build pricing structure dynamically from form data
+        const pricingStructure = buildPricingStructureFromForm(formData, pricingStructureDefinition);
 
         // Build additional parameters from param_* fields (include all, even empty)
         const additionalParameters = {};
@@ -803,7 +956,6 @@ const handler = async (event) => {
     try {
         await client.connect();
 
-        const path = event.path || '';
         const method = event.httpMethod;
 
         // Handle filters request
@@ -836,10 +988,17 @@ const handler = async (event) => {
                 .map(row => `<option value="${row.config_code}">${row.display_name}</option>`)
                 .join('');
 
+            // Get dynamic pricing structure from system config
+            const pricingStructureDefinition = await getPricingStructure(client);
+
+            // Generate pricing form HTML with empty values
+            const pricingFormHTML = generatePricingFormHTML(pricingStructureDefinition, {});
+
             await client.end();
 
             const modalHTML = renderTemplate(addModalTemplate, {
-                PBM_OPTIONS: pbmOptions
+                PBM_OPTIONS: pbmOptions,
+                PRICING_STRUCTURE_FIELDS: pricingFormHTML
             });
 
             return {
