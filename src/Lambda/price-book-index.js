@@ -270,27 +270,27 @@ async function generateProductName(client, formData) {
         // Get parameter labels for display
         const { valueLabels } = await getParameterLabels(client);
 
-        // 1. PBM (required)
+        // 1. PBM (required) - Use full code as-is
         if (formData.pbm_code) {
-            parts.push(abbreviateValue(formData.pbm_code));
+            parts.push(formData.pbm_code);
         }
 
-        // 2. Formulary
+        // 2. Formulary - Use full label from database
         if (formData.formulary) {
             const label = valueLabels[formData.formulary] || formData.formulary;
-            parts.push(abbreviateValue(label));
+            parts.push(label);
         }
 
-        // 3. Client Size
+        // 3. Client Size - Use full label from database
         if (formData.client_size) {
             const label = valueLabels[formData.client_size] || formData.client_size;
-            parts.push(abbreviateValue(label));
+            parts.push(label);
         }
 
-        // 4. Contract Duration
+        // 4. Contract Duration - Use full label from database
         if (formData.contract_duration) {
             const label = valueLabels[formData.contract_duration] || formData.contract_duration;
-            parts.push(abbreviateValue(label));
+            parts.push(label);
         }
 
         // 5. Additional parameters (from additional_parameters object or param_* fields)
@@ -315,12 +315,12 @@ async function generateProductName(client, formData) {
             });
         }
 
-        // Add non-empty additional parameters
+        // Add non-empty additional parameters - Use full labels
         Object.keys(additionalParams).forEach(key => {
             const value = additionalParams[key];
             if (value && String(value).trim() !== '') {
                 const label = valueLabels[value] || value;
-                parts.push(abbreviateValue(label));
+                parts.push(label);
             }
         });
 
@@ -334,7 +334,18 @@ async function generateProductName(client, formData) {
 
         // Enforce max length (255 chars)
         if (name.length > 255) {
-            name = name.substring(0, 252) + '...';
+            // If too long, truncate intelligently by removing middle parts
+            const yearSuffix = ` - ${year}`;
+            const maxBaseLength = 255 - yearSuffix.length - 4; // -4 for " ..."
+
+            if (parts.length > 4) {
+                // Keep first 2 and last 2 parts, truncate middle
+                const keepParts = [parts[0], parts[1], '...', parts[parts.length - 2], parts[parts.length - 1]];
+                name = keepParts.join(' | ') + yearSuffix;
+            } else {
+                // Just truncate the end
+                name = name.substring(0, 252) + '...';
+            }
         }
 
         return name;
