@@ -3617,36 +3617,56 @@ function initPriceBookEventListeners() {
 // GLOBAL HTMX TRIGGER HANDLER (MUST BE OUTSIDE ANY FUNCTION!)
 //======================================================================
 
-// Listen for HTMX response events to parse and fire custom trigger events
-document.body.addEventListener('htmx:afterSwap', function(event) {
-    if (event.detail.xhr) {
-        const triggerHeader = event.detail.xhr.getResponseHeader('HX-Trigger');
-        if (triggerHeader) {
-            console.log('🎯 HTMX trigger header received:', triggerHeader);
-            console.log('🎯 Response headers:', event.detail.xhr.getAllResponseHeaders());
+// Wait for DOM to be ready before registering event listeners
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initGlobalHTMXHandlers);
+} else {
+    initGlobalHTMXHandlers();
+}
 
-            // Manually parse and fire custom events from HX-Trigger when HX-Reswap: none
-            try {
-                const triggers = JSON.parse(triggerHeader);
-                console.log('🎯 Parsed triggers:', triggers);
+function initGlobalHTMXHandlers() {
+    console.log('🚀 Initializing global HTMX handlers...');
 
-                // Fire each custom event
-                Object.keys(triggers).forEach(eventName => {
-                    console.log(`🚀 Manually firing event: ${eventName}`);
-                    const customEvent = new CustomEvent(eventName, {
-                        detail: { value: triggers[eventName] },
-                        bubbles: true
+    // Listen for HTMX response events to parse and fire custom trigger events
+    document.body.addEventListener('htmx:afterSwap', function(event) {
+        if (event.detail.xhr) {
+            const triggerHeader = event.detail.xhr.getResponseHeader('HX-Trigger');
+            if (triggerHeader) {
+                console.log('🎯 HTMX trigger header received:', triggerHeader);
+                console.log('🎯 Response headers:', event.detail.xhr.getAllResponseHeaders());
+
+                // Manually parse and fire custom events from HX-Trigger when HX-Reswap: none
+                try {
+                    const triggers = JSON.parse(triggerHeader);
+                    console.log('🎯 Parsed triggers:', triggers);
+
+                    // Fire each custom event
+                    Object.keys(triggers).forEach(eventName => {
+                        console.log(`🚀 Manually firing event: ${eventName}`);
+                        const customEvent = new CustomEvent(eventName, {
+                            detail: { value: triggers[eventName] },
+                            bubbles: true
+                        });
+                        document.body.dispatchEvent(customEvent);
                     });
-                    document.body.dispatchEvent(customEvent);
-                });
-            } catch (e) {
-                console.warn('Could not parse HX-Trigger header:', e);
+                } catch (e) {
+                    console.warn('Could not parse HX-Trigger header:', e);
+                }
             }
         }
-    }
-});
+    });
 
-console.log('✅ Global HTMX trigger handler initialized');
+    console.log('✅ Global HTMX trigger handler initialized');
+
+    // IMMEDIATE TEST: Fire a test event right away
+    console.log('🧪 IMMEDIATE TEST: Firing test event...');
+    const immediateTestEvent = new CustomEvent('showErrorNotification', {
+        detail: { value: { title: 'Immediate Test', message: 'If you see this notification, the listener works!' } },
+        bubbles: true
+    });
+    document.body.dispatchEvent(immediateTestEvent);
+    console.log('🧪 Test event dispatched');
+}
 
 //======================================================================
 // PRICE BOOK FILTER HELPER FUNCTIONS
