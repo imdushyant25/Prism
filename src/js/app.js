@@ -3735,3 +3735,20 @@ document.body.addEventListener('showErrorNotification', function(event) {
 });
 
 console.log('✅ HTMX error notification handler initialized');
+
+//======================================================================
+// DEBUG: INSPECT HTMX RESPONSES FOR HX-TRIGGER HEADER
+//======================================================================
+document.body.addEventListener('htmx:afterRequest', function(event) {
+    console.log('🔍 HTMX afterRequest - inspecting response');
+    console.log('   Status:', event.detail.xhr.status);
+    console.log('   All headers:', event.detail.xhr.getAllResponseHeaders());
+
+    // Try to get HX-Trigger header
+    const hxTrigger = event.detail.xhr.getResponseHeader('HX-Trigger');
+    console.log('   HX-Trigger header:', hxTrigger);
+
+    if (hxTrigger) {
+        console.log('   HX-Trigger parsed:', JSON.parse(hxTrigger));
+    }
+});
