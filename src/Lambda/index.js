@@ -1282,10 +1282,11 @@ const handler = async (event) => {
                     body: '<div class="text-green-600">Rule created successfully! Refreshing...</div>'
                 };
             } else {
-                // Return 400 with detailed error message in HX-Trigger header as JSON event
+                // Return 200 with error details in HX-Trigger header
+                // IMPORTANT: HTMX only processes HX-Trigger on 2xx responses
                 const errorMessage = result.error || 'An error occurred while creating the rule. Please try again.';
                 return {
-                    statusCode: 400,
+                    statusCode: 200,
                     headers: {
                         ...headers,
                         'HX-Trigger': JSON.stringify({
@@ -1295,7 +1296,7 @@ const handler = async (event) => {
                             }
                         })
                     },
-                    body: '' // Empty body since error is in header
+                    body: '' // Empty body - error shown via event
                 };
             }
         }
@@ -1347,10 +1348,11 @@ const handler = async (event) => {
                 if (conflictCheck.rows.length > 0) {
                     const conflictingRule = conflictCheck.rows[0];
                     await client.end();
-                    // Return 400 with detailed error message in HX-Trigger header as JSON event
+                    // Return 200 with error details in HX-Trigger header
+                    // IMPORTANT: HTMX only processes HX-Trigger on 2xx responses
                     const errorMessage = `Rule "${ruleToActivate.name}" cannot be activated because flag name "${ruleToActivate.flag_name}" is already in use by active rule "${conflictingRule.name}" (ID: ${conflictingRule.rule_id}). Please deactivate the conflicting rule first.`;
                     return {
-                        statusCode: 400,
+                        statusCode: 200,
                         headers: {
                             ...headers,
                             'HX-Trigger': JSON.stringify({
@@ -1360,7 +1362,7 @@ const handler = async (event) => {
                                 }
                             })
                         },
-                        body: '' // Empty body since error is in header
+                        body: '' // Empty body - error shown via event
                     };
                 }
 

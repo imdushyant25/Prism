@@ -1608,15 +1608,18 @@ window.makeActiveRule = function(ruleId) {
         'Reactivate Rule',
         'Are you sure you want to make this rule active? This will restore the rule.',
         function() {
+            // Set up one-time event listener for successful activation
+            const successHandler = function() {
+                ClaimsApp.utils.showNotification('Rule activated successfully! 🎉', 'success');
+                document.body.removeEventListener('ruleActivated', successHandler);
+            };
+            document.body.addEventListener('ruleActivated', successHandler);
+
             // Make the rule active via HTMX
+            // Don't use .then() because status 200 is returned for both success and error
             htmx.ajax('POST', `https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules?action=makeactive&id=${ruleId}`, {
                 target: '#rules-container',
                 swap: 'innerHTML'
-            }).then(() => {
-                ClaimsApp.utils.showNotification('Rule activated successfully! 🎉', 'success');
-            }).catch(error => {
-                console.error('Make active rule failed:', error);
-                ClaimsApp.utils.showNotification('Failed to activate rule. Please try again.', 'error');
             });
         },
         function() {
@@ -1694,17 +1697,32 @@ window.closeAddRuleModal = function() {
 window.handleAddRuleResponse = function(event) {
     console.log('Add rule response:', event.detail);
 
-    if (event.detail.successful) {
-        // Close modal and show success message
-        closeAddRuleModal();
-        showNotification('Enrichment rule created successfully!', 'success');
+    // Check if this is a successful response by looking for the ruleCreated trigger
+    // Note: Both success and error return 200 status, so we can't rely on event.detail.successful
+    const xhr = event.detail.xhr;
+    const triggerHeader = xhr ? xhr.getResponseHeader('HX-Trigger') : null;
 
-        // Refresh the rules table
-        htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules', {
-            target: '#rules-container'
-        });
+    console.log('🎯 Trigger header:', triggerHeader);
+
+    // If there's a trigger header, check what it contains
+    if (triggerHeader) {
+        // Simple string trigger means success (e.g., "ruleCreated")
+        if (triggerHeader === 'ruleCreated') {
+            // Close modal and show success message
+            closeAddRuleModal();
+            showNotification('Enrichment rule created successfully!', 'success');
+
+            // Refresh the rules table
+            htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rules', {
+                target: '#rules-container'
+            });
+        } else if (triggerHeader.includes('showErrorNotification')) {
+            // Error notification will be handled by the global event listener
+            // Keep modal open so user can fix the error
+            console.log('🔴 Error occurred, keeping modal open');
+        }
     } else {
-        // Show error message
+        // No trigger header at all - treat as error
         showNotification('Failed to create rule. Please try again.', 'error');
     }
 };
