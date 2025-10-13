@@ -1011,6 +1011,24 @@ async function createRule(client, formData) {
             };
         }
 
+        // Check if flag_name already exists for ANY active rule
+        const flagCheckQuery = `
+            SELECT rule_id, name
+            FROM application.prism_enrichment_rules
+            WHERE flag_name = $1 AND is_active = true
+            LIMIT 1
+        `;
+        const flagCheckResult = await dbClient.query(flagCheckQuery, [formData.flag_name.trim()]);
+
+        if (flagCheckResult.rows.length > 0) {
+            const existingRule = flagCheckResult.rows[0];
+            await dbClient.query('ROLLBACK');
+            return {
+                success: false,
+                error: `Flag name "${formData.flag_name}" is already in use by active rule "${existingRule.name}" (ID: ${existingRule.rule_id}). Each active rule must have a unique flag name.`
+            };
+        }
+
         // Prepare rule data
         const ruleData = {
             rule_id: newRuleId,
@@ -1263,10 +1281,20 @@ const handler = async (event) => {
                     body: '<div class="text-green-600">Rule created successfully! Refreshing...</div>'
                 };
             } else {
+                // Return 400 with detailed error message in HX-Trigger header as JSON event
+                const errorMessage = result.error || 'An error occurred while creating the rule. Please try again.';
                 return {
                     statusCode: 400,
-                    headers,
-                    body: `<div class="text-red-600">Failed to create rule: ${result.error}</div>`
+                    headers: {
+                        ...headers,
+                        'HX-Trigger': JSON.stringify({
+                            'showErrorNotification': {
+                                title: 'Failed to Create Rule',
+                                message: errorMessage
+                            }
+                        })
+                    },
+                    body: '' // Empty body since error is in header
                 };
             }
         }
@@ -1291,6 +1319,49 @@ const handler = async (event) => {
                 }
 
                 console.log('🔄 Attempting to activate rule:', ruleId);
+
+                // First, get the flag_name of the rule being activated
+                const ruleQuery = await client.query(
+                    'SELECT flag_name, name FROM application.prism_enrichment_rules WHERE rule_id = $1 LIMIT 1',
+                    [ruleId]
+                );
+
+                if (ruleQuery.rows.length === 0) {
+                    await client.end();
+                    return {
+                        statusCode: 400,
+                        headers,
+                        body: '<div class="text-red-600">Rule not found</div>'
+                    };
+                }
+
+                const ruleToActivate = ruleQuery.rows[0];
+
+                // Check if another rule (different rule_id) with same flag_name is already active
+                const conflictCheck = await client.query(
+                    'SELECT rule_id, name FROM application.prism_enrichment_rules WHERE flag_name = $1 AND rule_id != $2 AND is_active = true LIMIT 1',
+                    [ruleToActivate.flag_name, ruleId]
+                );
+
+                if (conflictCheck.rows.length > 0) {
+                    const conflictingRule = conflictCheck.rows[0];
+                    await client.end();
+                    // Return 400 with detailed error message in HX-Trigger header as JSON event
+                    const errorMessage = `Rule "${ruleToActivate.name}" cannot be activated because flag name "${ruleToActivate.flag_name}" is already in use by active rule "${conflictingRule.name}" (ID: ${conflictingRule.rule_id}). Please deactivate the conflicting rule first.`;
+                    return {
+                        statusCode: 400,
+                        headers: {
+                            ...headers,
+                            'HX-Trigger': JSON.stringify({
+                                'showErrorNotification': {
+                                    title: 'Cannot Activate Rule',
+                                    message: errorMessage
+                                }
+                            })
+                        },
+                        body: '' // Empty body since error is in header
+                    };
+                }
 
                 // Update rule to set is_active = true
                 const updateResult = await client.query(
