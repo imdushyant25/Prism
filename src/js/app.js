@@ -3627,6 +3627,80 @@ if (document.readyState === 'loading') {
 function initGlobalHTMXHandlers() {
     console.log('🚀 Initializing global HTMX handlers...');
 
+    // DEBUG: Listen for ALL HTMX events to see what's being triggered
+    document.body.addEventListener('htmx:trigger', function(event) {
+        console.log('🎯 HTMX trigger event fired:', event.type, event.detail);
+    });
+
+    // DEBUG: Listen for afterSwap to see if HX-Reswap: none is working
+    document.body.addEventListener('htmx:afterSwap', function(event) {
+        console.log('🔄 HTMX afterSwap:', event.detail);
+        console.log('🔄 Target element:', event.detail.target);
+        console.log('🔄 XHR status:', event.detail.xhr?.status);
+    });
+
+    // DEBUG: Listen for beforeSwap to see swap behavior
+    document.body.addEventListener('htmx:beforeSwap', function(event) {
+        console.log('⚡ HTMX beforeSwap:', event.detail);
+        console.log('⚡ Server response:', event.detail.serverResponse);
+        console.log('⚡ Should swap:', event.detail.shouldSwap);
+        console.log('⚡ XHR headers:', event.detail.xhr?.getAllResponseHeaders());
+    });
+
+    // Listen for custom error notification events from HTMX responses
+    document.body.addEventListener('showErrorNotification', function(event) {
+        console.log('🔴 Error notification received:', event);
+        console.log('🔴 Event detail:', event.detail);
+        console.log('🔴 Event detail.value:', event.detail?.value);
+
+        const detail = event.detail.value || event.detail;
+        console.log('🔴 Resolved detail:', detail);
+
+        const title = detail.title || 'Error';
+        const message = detail.message || 'An error occurred';
+
+        console.log('🔴 Title:', title);
+        console.log('🔴 Message:', message);
+
+        // Get notification container
+        const notification = document.getElementById('notification');
+        if (!notification) {
+            console.error('Notification container not found');
+            return;
+        }
+
+        // Create error notification HTML
+        notification.innerHTML = `
+            <div id="error-notification" class="bg-red-100 border border-red-400 text-red-700 px-6 py-4 rounded shadow-lg max-w-md" role="alert">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <h3 class="text-sm font-medium text-red-800">${title}</h3>
+                        <div class="mt-2 text-sm text-red-700">${message}</div>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-3 flex-shrink-0 text-red-400 hover:text-red-600">
+                        <span class="sr-only">Close</span>
+                        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // Auto-dismiss after 10 seconds
+        setTimeout(() => {
+            const el = document.getElementById('error-notification');
+            if (el) el.remove();
+        }, 10000);
+
+        console.log('✅ Error notification displayed');
+    });
+
     // Listen for HTMX response events to parse and fire custom trigger events
     document.body.addEventListener('htmx:afterSwap', function(event) {
         if (event.detail.xhr) {
@@ -3742,104 +3816,7 @@ window.removePriceBookFilter = function(filterName) {
 
 console.log('🚀 ClaimsApp utilities loaded');
 
-//======================================================================
-// GLOBAL HTMX ERROR NOTIFICATION HANDLER
-//======================================================================
-
-/**
- * DEBUG: Listen for ALL HTMX events to see what's being triggered
- */
-document.body.addEventListener('htmx:trigger', function(event) {
-    console.log('🎯 HTMX trigger event fired:', event.type, event.detail);
-});
-
-/**
- * DEBUG: Listen for afterSwap to see if HX-Reswap: none is working
- */
-document.body.addEventListener('htmx:afterSwap', function(event) {
-    console.log('🔄 HTMX afterSwap:', event.detail);
-    console.log('🔄 Target element:', event.detail.target);
-    console.log('🔄 XHR status:', event.detail.xhr?.status);
-});
-
-/**
- * DEBUG: Listen for beforeSwap to see swap behavior
- */
-document.body.addEventListener('htmx:beforeSwap', function(event) {
-    console.log('⚡ HTMX beforeSwap:', event.detail);
-    console.log('⚡ Server response:', event.detail.serverResponse);
-    console.log('⚡ Should swap:', event.detail.shouldSwap);
-    console.log('⚡ XHR headers:', event.detail.xhr?.getAllResponseHeaders());
-});
-
-/**
- * Listen for custom error notification events from HTMX responses
- * Backend sends errors via HX-Trigger header with showErrorNotification event
- */
-document.body.addEventListener('showErrorNotification', function(event) {
-    console.log('🔴 Error notification received:', event);
-    console.log('🔴 Event detail:', event.detail);
-    console.log('🔴 Event detail.value:', event.detail?.value);
-
-    const detail = event.detail.value || event.detail;
-    console.log('🔴 Resolved detail:', detail);
-
-    const title = detail.title || 'Error';
-    const message = detail.message || 'An error occurred';
-
-    console.log('🔴 Title:', title);
-    console.log('🔴 Message:', message);
-
-    // Get notification container
-    const notification = document.getElementById('notification');
-    if (!notification) {
-        console.error('Notification container not found');
-        return;
-    }
-
-    // Create error notification HTML
-    notification.innerHTML = `
-        <div id="error-notification" class="bg-red-100 border border-red-400 text-red-700 px-6 py-4 rounded shadow-lg max-w-md" role="alert">
-            <div class="flex items-start">
-                <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-                    </svg>
-                </div>
-                <div class="ml-3 flex-1">
-                    <h3 class="text-sm font-medium text-red-800">${title}</h3>
-                    <div class="mt-2 text-sm text-red-700">${message}</div>
-                </div>
-                <button onclick="this.parentElement.parentElement.remove()" class="ml-3 flex-shrink-0 text-red-400 hover:text-red-600">
-                    <span class="sr-only">Close</span>
-                    <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
-                    </svg>
-                </button>
-            </div>
-        </div>
-    `;
-
-    // Auto-dismiss after 10 seconds
-    setTimeout(() => {
-        const el = document.getElementById('error-notification');
-        if (el) el.remove();
-    }, 10000);
-
-    console.log('✅ Error notification displayed');
-});
-
-console.log('✅ HTMX error notification handler initialized');
-
-// DEBUG: Test if the listener works
-setTimeout(() => {
-    console.log('🧪 Testing showErrorNotification listener...');
-    const testEvent = new CustomEvent('showErrorNotification', {
-        detail: { value: { title: 'Test', message: 'This is a test' } },
-        bubbles: true
-    });
-    document.body.dispatchEvent(testEvent);
-}, 2000);
+// NOTE: Global HTMX error notification handlers are now initialized in initGlobalHTMXHandlers() function above
 
 //======================================================================
 // DEBUG: INSPECT HTMX RESPONSES FOR HX-TRIGGER HEADER
