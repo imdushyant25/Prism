@@ -1264,6 +1264,115 @@ async function updatePriceBook(client, configId, formData) {
     }
 }
 
+// Clone price book configuration (create multiple copies)
+async function clonePriceBook(client, configId, cloneCount, cloneConfigType) {
+    const dbClient = client;
+
+    try {
+        await dbClient.query('BEGIN');
+
+        console.log(`Cloning price book ${configId}, count: ${cloneCount}, type: ${cloneConfigType}`);
+
+        // Get current configuration
+        const currentConfigQuery = `
+            SELECT * FROM application.prism_price_configuration
+            WHERE config_id = $1 AND is_active = true
+            ORDER BY version DESC
+            LIMIT 1
+        `;
+        const currentConfigResult = await dbClient.query(currentConfigQuery, [configId]);
+
+        if (currentConfigResult.rows.length === 0) {
+            throw new Error('Configuration not found');
+        }
+
+        const currentConfig = currentConfigResult.rows[0];
+        const createdConfigs = [];
+
+        // Create the specified number of clones
+        for (let i = 1; i <= cloneCount; i++) {
+            const newConfigId = uuidv4();
+
+            // Prepare clone name with prefix
+            let cloneName = `Clone ${i} - ${currentConfig.name}`;
+
+            // Truncate if name exceeds 255 characters
+            if (cloneName.length > 255) {
+                const prefix = `Clone ${i} - `;
+                const maxBaseLength = 255 - prefix.length;
+                const baseName = currentConfig.name.substring(0, maxBaseLength);
+                cloneName = prefix + baseName;
+            }
+
+            // Get current date for effective_from
+            const today = new Date();
+            const effectiveFrom = today.toISOString().split('T')[0];
+
+            // Insert clone with new config_id
+            const insertQuery = `
+                INSERT INTO application.prism_price_configuration (
+                    config_id, version, name, description, config_type, pbm_code,
+                    formulary, client_size, contract_duration,
+                    pricing_structure, additional_parameters, effective_from, effective_to,
+                    is_active, draft, favorite, created_by
+                ) VALUES (
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+                )
+                RETURNING id, config_id, version, name
+            `;
+
+            const insertValues = [
+                newConfigId,
+                1, // version starts at 1
+                cloneName,
+                currentConfig.description,
+                cloneConfigType, // use the selected type
+                currentConfig.pbm_code,
+                currentConfig.formulary,
+                currentConfig.client_size,
+                currentConfig.contract_duration,
+                currentConfig.pricing_structure, // copy pricing structure as-is
+                currentConfig.additional_parameters, // copy additional parameters as-is
+                effectiveFrom, // today's date
+                '9999-12-31', // end date
+                true, // is_active = true
+                true, // draft = true
+                false, // favorite = false
+                'system'
+            ];
+
+            const insertResult = await dbClient.query(insertQuery, insertValues);
+            createdConfigs.push({
+                id: insertResult.rows[0].id,
+                config_id: insertResult.rows[0].config_id,
+                version: insertResult.rows[0].version,
+                name: insertResult.rows[0].name
+            });
+
+            console.log(`Clone ${i} created:`, insertResult.rows[0]);
+        }
+
+        await dbClient.query('COMMIT');
+
+        console.log(`Successfully created ${cloneCount} clone(s)`);
+
+        return {
+            success: true,
+            message: `${cloneCount} clone(s) created successfully`,
+            cloneCount: cloneCount,
+            configs: createdConfigs
+        };
+
+    } catch (error) {
+        await dbClient.query('ROLLBACK');
+        console.error('Error cloning price book:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+}
+
 // Delete price book (set is_active to false and favorite to false)
 async function deletePriceBook(client, configId) {
     try {
@@ -1414,6 +1523,69 @@ const handler = async (event) => {
                     statusCode: 400,
                     headers,
                     body: `<div class="text-red-600">Error loading edit form: ${error.message}</div>`
+                };
+            }
+        }
+
+        // Handle clone modal request
+        if (method === 'GET' && event.queryStringParameters?.component === 'clone') {
+            console.log('📋 Clone modal request');
+            const configId = event.queryStringParameters.id;
+
+            if (!configId) {
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: '<div class="text-red-600">Config ID required for cloning</div>'
+                };
+            }
+
+            try {
+                const cloneTemplate = await getTemplate('price-book-clone-modal.html');
+
+                // Get the configuration data
+                const configQuery = `
+                    SELECT config_id, name, pbm_code, config_type
+                    FROM application.prism_price_configuration
+                    WHERE config_id = $1 AND is_active = true
+                    ORDER BY version DESC
+                    LIMIT 1
+                `;
+                const configResult = await client.query(configQuery, [configId]);
+
+                if (configResult.rows.length === 0) {
+                    await client.end();
+                    return {
+                        statusCode: 400,
+                        headers,
+                        body: '<div class="text-red-600">Price book configuration not found</div>'
+                    };
+                }
+
+                const config = configResult.rows[0];
+                await client.end();
+
+                const cloneData = {
+                    CONFIG_ID: config.config_id,
+                    PRODUCT_NAME: config.name,
+                    PBM_CODE: config.pbm_code,
+                    CONFIG_TYPE: config.config_type
+                };
+
+                const cloneHTML = renderTemplate(cloneTemplate, cloneData);
+
+                return {
+                    statusCode: 200,
+                    headers,
+                    body: cloneHTML
+                };
+            } catch (error) {
+                console.error('❌ Clone modal error:', error);
+                await client.end();
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: `<div class="text-red-600">Error loading clone form: ${error.message}</div>`
                 };
             }
         }
@@ -1671,6 +1843,82 @@ const handler = async (event) => {
                     statusCode: 400,
                     headers,
                     body: `<div class="text-red-600">Error activating price book: ${error.message}</div>`
+                };
+            }
+        }
+
+        // Handle clone request
+        if (method === 'POST' && event.queryStringParameters?.action === 'clone') {
+            console.log('📋 Clone price book request');
+            const configId = event.queryStringParameters?.id;
+
+            if (!configId) {
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: '<div class="text-red-600">Config ID required for cloning</div>'
+                };
+            }
+
+            let formData = {};
+            if (event.body) {
+                if (event.headers['Content-Type']?.includes('application/json')) {
+                    formData = JSON.parse(event.body);
+                } else {
+                    const params = new URLSearchParams(event.body);
+                    for (const [key, value] of params) {
+                        formData[key] = value;
+                    }
+                }
+            }
+
+            // Validate required fields
+            const cloneCount = parseInt(formData.clone_count);
+            const cloneConfigType = formData.clone_config_type;
+
+            if (!cloneCount || cloneCount < 1 || cloneCount > 10) {
+                await client.end();
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: '<div class="text-red-600">Clone count must be between 1 and 10</div>'
+                };
+            }
+
+            if (!cloneConfigType || !['PRODUCTION', 'MODELING'].includes(cloneConfigType)) {
+                await client.end();
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: '<div class="text-red-600">Valid configuration type required (PRODUCTION or MODELING)</div>'
+                };
+            }
+
+            try {
+                const result = await clonePriceBook(client, configId, cloneCount, cloneConfigType);
+                await client.end();
+
+                if (result.success) {
+                    console.log(`✅ Cloned price book ${cloneCount} time(s):`, configId);
+                    return {
+                        statusCode: 200,
+                        headers: { ...headers, 'HX-Trigger': 'priceBookCloned' },
+                        body: `<div class="text-green-600">${result.message}</div>`
+                    };
+                } else {
+                    return {
+                        statusCode: 400,
+                        headers,
+                        body: `<div class="text-red-600">Failed to clone price book: ${result.error}</div>`
+                    };
+                }
+            } catch (error) {
+                console.error('❌ Clone error:', error);
+                await client.end();
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: `<div class="text-red-600">Error cloning price book: ${error.message}</div>`
                 };
             }
         }

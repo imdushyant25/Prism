@@ -2916,6 +2916,97 @@ ClaimsApp.priceBook = {
     },
 
     /**
+     * Clone price book configuration
+     */
+    cloneConfig(configId) {
+        console.log('📋 Opening clone modal for price book:', configId);
+        const modal = document.getElementById('rule-modal');
+        const modalContent = document.getElementById('modal-content');
+
+        if (!modal || !modalContent) {
+            console.error('Modal elements not found');
+            return;
+        }
+
+        // Load the clone modal template
+        fetch(`https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-book?component=clone&id=${configId}`)
+            .then(response => response.text())
+            .then(html => {
+                modalContent.innerHTML = html;
+
+                // Show modal
+                modal.classList.add('show');
+                document.body.classList.add('modal-open');
+
+                // Set up form submit handler
+                const cloneForm = document.getElementById('clone-price-book-form');
+                if (cloneForm) {
+                    cloneForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        this.submitClone(configId);
+                    });
+                }
+
+                console.log('✅ Price book clone modal loaded');
+            })
+            .catch(error => {
+                console.error('Failed to load clone modal:', error);
+                ClaimsApp.utils.showNotification('Failed to load clone form', 'error');
+            });
+    },
+
+    /**
+     * Submit clone request
+     */
+    submitClone(configId) {
+        console.log('📋 Submitting clone request for:', configId);
+
+        const cloneCount = document.getElementById('clone_count').value;
+        const cloneConfigType = document.getElementById('clone_config_type').value;
+
+        // Validate inputs
+        if (!cloneCount || !cloneConfigType) {
+            ClaimsApp.utils.showNotification('Please fill in all required fields', 'error');
+            return;
+        }
+
+        // Close modal
+        closeModal();
+
+        // Show loading notification
+        ClaimsApp.utils.showNotification('Creating clones...', 'info');
+
+        // Prepare form data
+        const formData = new URLSearchParams();
+        formData.append('clone_count', cloneCount);
+        formData.append('clone_config_type', cloneConfigType);
+
+        // Submit clone request
+        fetch(`https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/price-book?action=clone&id=${configId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: formData.toString()
+        })
+        .then(response => response.text())
+        .then(() => {
+            // Extract count from response for notification
+            const count = parseInt(cloneCount);
+            ClaimsApp.utils.showNotification(`${count} clone(s) created successfully!`, 'success');
+
+            // Refresh the list
+            setTimeout(() => {
+                this.refreshList();
+            }, 1000);
+        })
+        .catch(error => {
+            console.error('Failed to clone price book:', error);
+            ClaimsApp.utils.showNotification('Failed to clone price book', 'error');
+        });
+    },
+
+    /**
      * Initialize price book filters
      */
     initializeFilters() {
