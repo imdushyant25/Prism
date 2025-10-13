@@ -3617,6 +3617,24 @@ function initPriceBookEventListeners() {
             if (triggerHeader) {
                 console.log('🎯 HTMX trigger header received:', triggerHeader);
                 console.log('🎯 Response headers:', event.detail.xhr.getAllResponseHeaders());
+
+                // Manually parse and fire custom events from HX-Trigger when HX-Reswap: none
+                try {
+                    const triggers = JSON.parse(triggerHeader);
+                    console.log('🎯 Parsed triggers:', triggers);
+
+                    // Fire each custom event
+                    Object.keys(triggers).forEach(eventName => {
+                        console.log(`🚀 Manually firing event: ${eventName}`);
+                        const customEvent = new CustomEvent(eventName, {
+                            detail: { value: triggers[eventName] },
+                            bubbles: true
+                        });
+                        document.body.dispatchEvent(customEvent);
+                    });
+                } catch (e) {
+                    console.warn('Could not parse HX-Trigger header:', e);
+                }
             }
         }
     });
