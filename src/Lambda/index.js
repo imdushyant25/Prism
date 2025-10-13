@@ -81,21 +81,26 @@ async function generateFiltersHTML(client) {
         };
 
         // Build HTML options for each dropdown
-        const pbmOptions = (data.pbm_codes || [])
-            .map((pbm, index) => `<option value="${pbm.code}" ${index === 0 ? 'selected' : ''}>${pbm.name}</option>`)
-            .join('');
+        // Add placeholder and don't auto-select any PBM
+        const pbmOptions = '<option value="">Select PBM</option>' +
+            (data.pbm_codes || [])
+                .map(pbm => `<option value="${pbm.code}">${pbm.name}</option>`)
+                .join('');
             
-        const ruleTypeOptions = (data.rule_types || [])
-            .map(type => `<option value="${type.code}">${type.name}</option>`)
-            .join('');
+        const ruleTypeOptions = '<option value="">All Types</option>' +
+            (data.rule_types || [])
+                .map(type => `<option value="${type.code}">${type.name}</option>`)
+                .join('');
 
-        const categoryOptions = (data.rule_categories || [])
-            .map(cat => `<option value="${cat.code}">${cat.name}</option>`)
-            .join('');
+        const categoryOptions = '<option value="">All Categories</option>' +
+            (data.rule_categories || [])
+                .map(cat => `<option value="${cat.code}">${cat.name}</option>`)
+                .join('');
 
-        const dataSourceOptions = (data.data_sources || [])
-            .map(source => `<option value="${source.code}">${source.name}</option>`)
-            .join('');
+        const dataSourceOptions = '<option value="">All Sources</option>' +
+            (data.data_sources || [])
+                .map(source => `<option value="${source.code}">${source.name}</option>`)
+                .join('');
         
         // Status options are still hardcoded since they're UI concepts, not data
         // Default to "Active" selected to match backend behavior
@@ -163,8 +168,7 @@ function buildFilterQuery(filters) {
     
     return {
         whereClause: conditions.join(' AND '),
-        params,
-        pbmCode: hasValue(filters.pbm_filter) ? filters.pbm_filter : 'CVS'
+        params
     };
 }
 
@@ -1577,13 +1581,13 @@ const handler = async (event) => {
         
         // Get paginated rules
         const rulesQuery = `
-            SELECT id, rule_id, version, name, pbm_code, rule_type, data_source, 
+            SELECT id, rule_id, version, name, pbm_code, rule_type, data_source,
                    conditions, flag_name, priority, is_active, created_by,
                    TO_CHAR(updated_at, 'MM/DD/YYYY') as updated_at_formatted,
                    TO_CHAR(effective_from, 'MM/DD/YYYY') as effective_from_formatted
-            FROM application.prism_enrichment_rules 
+            FROM application.prism_enrichment_rules
             WHERE ${filterQuery.whereClause}
-            ORDER BY priority, updated_at DESC 
+            ORDER BY updated_at DESC
             LIMIT $${filterQuery.params.length + 1} OFFSET $${filterQuery.params.length + 2}
         `;
         
