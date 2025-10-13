@@ -98,8 +98,9 @@ async function generateFiltersHTML(client) {
             .join('');
         
         // Status options are still hardcoded since they're UI concepts, not data
+        // Default to "Active" selected to match backend behavior
         const statusOptions = [
-            '<option value="active">Active</option>',
+            '<option value="active" selected>Active</option>',
             '<option value="inactive">Inactive</option>'
         ].join('');
         
@@ -134,10 +135,18 @@ function buildFilterQuery(filters) {
         conditions.push(condition.replace('?', `$${params.length}`));
     }
     
-    // Always add these base conditions
-    addCondition('pbm_code = ?', hasValue(filters.pbm_filter) ? filters.pbm_filter : 'CVS');
+    // Always add base condition for active status
     addCondition('is_active = ?', filters.status_filter === 'inactive' ? false : true);
-    addCondition('rule_category = ?', hasValue(filters.category_filter) ? filters.category_filter : 'PRODUCTION');
+
+    // Optional filter: PBM (only if user selects one)
+    if (hasValue(filters.pbm_filter)) {
+        addCondition('pbm_code = ?', filters.pbm_filter);
+    }
+
+    // Optional filter: Rule Category (only if user selects one)
+    if (hasValue(filters.category_filter)) {
+        addCondition('rule_category = ?', filters.category_filter);
+    }
     
     // Optional filters
     if (hasValue(filters.rule_type_filter)) {
