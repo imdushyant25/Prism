@@ -1284,11 +1284,13 @@ const handler = async (event) => {
             } else {
                 // Return 200 with error details in HX-Trigger header
                 // IMPORTANT: HTMX only processes HX-Trigger on 2xx responses
+                // Use HX-Reswap: none to prevent any DOM changes
                 const errorMessage = result.error || 'An error occurred while creating the rule. Please try again.';
                 return {
                     statusCode: 200,
                     headers: {
                         ...headers,
+                        'HX-Reswap': 'none',  // Prevent DOM swap - keep modal and table intact
                         'HX-Trigger': JSON.stringify({
                             'showErrorNotification': {
                                 title: 'Failed to Create Rule',
@@ -1350,11 +1352,13 @@ const handler = async (event) => {
                     await client.end();
                     // Return 200 with error details in HX-Trigger header
                     // IMPORTANT: HTMX only processes HX-Trigger on 2xx responses
+                    // Use HX-Reswap: none to prevent table from being cleared
                     const errorMessage = `Rule "${ruleToActivate.name}" cannot be activated because flag name "${ruleToActivate.flag_name}" is already in use by active rule "${conflictingRule.name}" (ID: ${conflictingRule.rule_id}). Please deactivate the conflicting rule first.`;
                     return {
                         statusCode: 200,
                         headers: {
                             ...headers,
+                            'HX-Reswap': 'none',  // Prevent DOM swap - keep table visible
                             'HX-Trigger': JSON.stringify({
                                 'showErrorNotification': {
                                     title: 'Cannot Activate Rule',

@@ -3703,6 +3703,13 @@ console.log('🚀 ClaimsApp utilities loaded');
 //======================================================================
 
 /**
+ * DEBUG: Listen for ALL HTMX events to see what's being triggered
+ */
+document.body.addEventListener('htmx:trigger', function(event) {
+    console.log('🎯 HTMX trigger event fired:', event.type, event.detail);
+});
+
+/**
  * Listen for custom error notification events from HTMX responses
  * Backend sends errors via HX-Trigger header with showErrorNotification event
  */
