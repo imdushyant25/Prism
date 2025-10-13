@@ -3751,11 +3751,18 @@ document.body.addEventListener('htmx:beforeSwap', function(event) {
  * Backend sends errors via HX-Trigger header with showErrorNotification event
  */
 document.body.addEventListener('showErrorNotification', function(event) {
-    console.log('🔴 Error notification received:', event.detail);
+    console.log('🔴 Error notification received:', event);
+    console.log('🔴 Event detail:', event.detail);
+    console.log('🔴 Event detail.value:', event.detail?.value);
 
     const detail = event.detail.value || event.detail;
+    console.log('🔴 Resolved detail:', detail);
+
     const title = detail.title || 'Error';
     const message = detail.message || 'An error occurred';
+
+    console.log('🔴 Title:', title);
+    console.log('🔴 Message:', message);
 
     // Get notification container
     const notification = document.getElementById('notification');
@@ -3797,6 +3804,16 @@ document.body.addEventListener('showErrorNotification', function(event) {
 });
 
 console.log('✅ HTMX error notification handler initialized');
+
+// DEBUG: Test if the listener works
+setTimeout(() => {
+    console.log('🧪 Testing showErrorNotification listener...');
+    const testEvent = new CustomEvent('showErrorNotification', {
+        detail: { value: { title: 'Test', message: 'This is a test' } },
+        bubbles: true
+    });
+    document.body.dispatchEvent(testEvent);
+}, 2000);
 
 //======================================================================
 // DEBUG: INSPECT HTMX RESPONSES FOR HX-TRIGGER HEADER
