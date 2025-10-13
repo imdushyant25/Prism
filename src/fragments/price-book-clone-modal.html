@@ -1,109 +1,106 @@
 <!-- Price Book Clone Modal -->
-<div class="h-full w-full flex flex-col">
-    <!-- Modal Container -->
-    <div class="relative bg-white w-full h-full flex flex-col max-w-lg mx-auto mt-20">
+<div class="p-6">
+    <!-- Modal Header -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">Clone Price Book Product</h2>
+            <p class="text-sm text-gray-600 mt-1">Create multiple copies of this product</p>
+        </div>
+        <button onclick="ClaimsApp.modal.close()" class="text-gray-400 hover:text-gray-600">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+        </button>
+    </div>
 
-        <!-- Header -->
-        <div class="px-6 py-4 border-b bg-gray-50 rounded-t-lg flex-shrink-0">
-            <div class="flex justify-between items-center">
+    <!-- Form -->
+    <form id="clone-price-book-form" class="space-y-6">
+
+        <!-- Product Info -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h3 class="text-sm font-semibold text-blue-900 mb-2">Original Product</h3>
+            <div class="text-sm text-blue-800 font-medium">{{PRODUCT_NAME}}</div>
+            <div class="text-xs text-blue-600 mt-1">{{PBM_CODE}} • {{CONFIG_TYPE}}</div>
+        </div>
+
+        <!-- Clone Settings -->
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Clone Settings</h3>
+            <div class="space-y-4">
+                <!-- Number of Clones -->
                 <div>
-                    <h2 class="text-xl font-semibold text-gray-900">Clone Price Book Product</h2>
-                    <p class="text-sm text-gray-600 mt-1">Create multiple copies of this product</p>
+                    <label for="clone_count" class="block text-sm font-medium text-gray-700 mb-2">
+                        Number of Clones <span class="text-red-500">*</span>
+                    </label>
+                    <select name="clone_count" id="clone_count" required
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Select number of clones</option>
+                        <option value="1">1 Clone</option>
+                        <option value="2">2 Clones</option>
+                        <option value="3">3 Clones</option>
+                        <option value="4">4 Clones</option>
+                        <option value="5">5 Clones</option>
+                        <option value="6">6 Clones</option>
+                        <option value="7">7 Clones</option>
+                        <option value="8">8 Clones</option>
+                        <option value="9">9 Clones</option>
+                        <option value="10">10 Clones</option>
+                    </select>
                 </div>
-                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-3xl leading-none">&times;</button>
+
+                <!-- Configuration Type -->
+                <div>
+                    <label for="clone_config_type" class="block text-sm font-medium text-gray-700 mb-2">
+                        Configuration Type <span class="text-red-500">*</span>
+                    </label>
+                    <select name="clone_config_type" id="clone_config_type" required
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Select type</option>
+                        <option value="PRODUCTION">Production</option>
+                        <option value="MODELING">Modeling</option>
+                    </select>
+                </div>
             </div>
         </div>
 
-        <form id="clone-price-book-form" class="flex flex-col flex-1">
-
-            <!-- Content -->
-            <div class="px-6 py-6 flex-1 overflow-y-auto">
-                <div class="space-y-6">
-
-                    <!-- Product Info -->
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <h3 class="text-sm font-medium text-blue-900 mb-2">Original Product</h3>
-                        <div class="text-sm text-blue-800 font-medium">{{PRODUCT_NAME}}</div>
-                        <div class="text-xs text-blue-600 mt-1">{{PBM_CODE}} • {{CONFIG_TYPE}}</div>
-                    </div>
-
-                    <!-- Clone Settings -->
-                    <div class="space-y-4">
-                        <!-- Number of Clones -->
-                        <div>
-                            <label for="clone_count" class="block text-sm font-medium text-gray-700 mb-2">
-                                Number of Clones <span class="text-red-500">*</span>
-                            </label>
-                            <select name="clone_count" id="clone_count" required
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                <option value="">Select number of clones</option>
-                                <option value="1">1 Clone</option>
-                                <option value="2">2 Clones</option>
-                                <option value="3">3 Clones</option>
-                                <option value="4">4 Clones</option>
-                                <option value="5">5 Clones</option>
-                                <option value="6">6 Clones</option>
-                                <option value="7">7 Clones</option>
-                                <option value="8">8 Clones</option>
-                                <option value="9">9 Clones</option>
-                                <option value="10">10 Clones</option>
-                            </select>
-                        </div>
-
-                        <!-- Configuration Type -->
-                        <div>
-                            <label for="clone_config_type" class="block text-sm font-medium text-gray-700 mb-2">
-                                Configuration Type <span class="text-red-500">*</span>
-                            </label>
-                            <select name="clone_config_type" id="clone_config_type" required
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                <option value="">Select type</option>
-                                <option value="PRODUCTION">Production</option>
-                                <option value="MODELING">Modeling</option>
-                            </select>
-                        </div>
-
-                        <!-- Clone Behavior Info -->
-                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                            <div class="flex">
-                                <div class="flex-shrink-0">
-                                    <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-                                    </svg>
-                                </div>
-                                <div class="ml-3">
-                                    <h3 class="text-sm font-medium text-yellow-800">
-                                        Clone Behavior
-                                    </h3>
-                                    <div class="mt-2 text-sm text-yellow-700">
-                                        <ul class="list-disc pl-5 space-y-1">
-                                            <li>Names prefixed with "Clone 1", "Clone 2", etc.</li>
-                                            <li>New config IDs generated, version starts at 1</li>
-                                            <li>Effective date set to today</li>
-                                            <li>End date set to 9999-12-31</li>
-                                            <li>Status: Active, Draft: True</li>
-                                            <li>All pricing and parameters copied</li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+        <!-- Clone Behavior Info -->
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-yellow-400 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-yellow-800 mb-2">
+                        What happens when you clone?
+                    </h3>
+                    <ul class="text-sm text-yellow-700 space-y-1">
+                        <li>• Names prefixed with "Clone 1", "Clone 2", etc.</li>
+                        <li>• New config IDs generated, version starts at 1</li>
+                        <li>• Effective date set to today</li>
+                        <li>• End date set to 9999-12-31</li>
+                        <li>• Status: Active, Draft: True, Favorite: False</li>
+                        <li>• All pricing structure and parameters copied</li>
+                    </ul>
                 </div>
             </div>
+        </div>
 
-            <!-- Hidden field for config ID -->
-            <input type="hidden" name="config_id" id="clone-config-id" value="{{CONFIG_ID}}">
+        <!-- Hidden field for config ID -->
+        <input type="hidden" name="config_id" id="clone-config-id" value="{{CONFIG_ID}}">
 
-            <!-- Footer -->
-            <div class="px-6 py-4 border-t bg-gray-50 flex justify-end gap-3 flex-shrink-0">
-                <button type="button" onclick="closeModal()" class="px-4 py-2 border rounded text-gray-700 hover:bg-gray-100">
-                    Cancel
-                </button>
-                <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                    Create Clone(s)
-                </button>
-            </div>
-        </form>
-    </div>
+        <!-- Form Actions -->
+        <div class="flex justify-end gap-3 border-t pt-6">
+            <button type="button"
+                    onclick="ClaimsApp.modal.close()"
+                    class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                Cancel
+            </button>
+            <button type="submit"
+                    class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                Create Clone(s)
+            </button>
+        </div>
+    </form>
 </div>
