@@ -3627,40 +3627,11 @@ if (document.readyState === 'loading') {
 function initGlobalHTMXHandlers() {
     console.log('🚀 Initializing global HTMX handlers...');
 
-    // DEBUG: Listen for ALL HTMX events to see what's being triggered
-    document.body.addEventListener('htmx:trigger', function(event) {
-        console.log('🎯 HTMX trigger event fired:', event.type, event.detail);
-    });
-
-    // DEBUG: Listen for afterSwap to see if HX-Reswap: none is working
-    document.body.addEventListener('htmx:afterSwap', function(event) {
-        console.log('🔄 HTMX afterSwap:', event.detail);
-        console.log('🔄 Target element:', event.detail.target);
-        console.log('🔄 XHR status:', event.detail.xhr?.status);
-    });
-
-    // DEBUG: Listen for beforeSwap to see swap behavior
-    document.body.addEventListener('htmx:beforeSwap', function(event) {
-        console.log('⚡ HTMX beforeSwap:', event.detail);
-        console.log('⚡ Server response:', event.detail.serverResponse);
-        console.log('⚡ Should swap:', event.detail.shouldSwap);
-        console.log('⚡ XHR headers:', event.detail.xhr?.getAllResponseHeaders());
-    });
-
     // Listen for custom error notification events from HTMX responses
     document.body.addEventListener('showErrorNotification', function(event) {
-        console.log('🔴 Error notification received:', event);
-        console.log('🔴 Event detail:', event.detail);
-        console.log('🔴 Event detail.value:', event.detail?.value);
-
         const detail = event.detail.value || event.detail;
-        console.log('🔴 Resolved detail:', detail);
-
         const title = detail.title || 'Error';
         const message = detail.message || 'An error occurred';
-
-        console.log('🔴 Title:', title);
-        console.log('🔴 Message:', message);
 
         // Get notification container
         const notification = document.getElementById('notification');
@@ -3697,8 +3668,6 @@ function initGlobalHTMXHandlers() {
             const el = document.getElementById('error-notification');
             if (el) el.remove();
         }, 10000);
-
-        console.log('✅ Error notification displayed');
     });
 
     // Listen for HTMX response events to parse and fire custom trigger events
@@ -3706,17 +3675,12 @@ function initGlobalHTMXHandlers() {
         if (event.detail.xhr) {
             const triggerHeader = event.detail.xhr.getResponseHeader('HX-Trigger');
             if (triggerHeader) {
-                console.log('🎯 HTMX trigger header received:', triggerHeader);
-                console.log('🎯 Response headers:', event.detail.xhr.getAllResponseHeaders());
-
                 // Manually parse and fire custom events from HX-Trigger when HX-Reswap: none
                 try {
                     const triggers = JSON.parse(triggerHeader);
-                    console.log('🎯 Parsed triggers:', triggers);
 
                     // Fire each custom event
                     Object.keys(triggers).forEach(eventName => {
-                        console.log(`🚀 Manually firing event: ${eventName}`);
                         const customEvent = new CustomEvent(eventName, {
                             detail: { value: triggers[eventName] },
                             bubbles: true
@@ -3724,22 +3688,13 @@ function initGlobalHTMXHandlers() {
                         document.body.dispatchEvent(customEvent);
                     });
                 } catch (e) {
-                    console.warn('Could not parse HX-Trigger header:', e);
+                    // Silent fail for non-JSON triggers (simple string triggers like "ruleCreated")
                 }
             }
         }
     });
 
     console.log('✅ Global HTMX trigger handler initialized');
-
-    // IMMEDIATE TEST: Fire a test event right away
-    console.log('🧪 IMMEDIATE TEST: Firing test event...');
-    const immediateTestEvent = new CustomEvent('showErrorNotification', {
-        detail: { value: { title: 'Immediate Test', message: 'If you see this notification, the listener works!' } },
-        bubbles: true
-    });
-    document.body.dispatchEvent(immediateTestEvent);
-    console.log('🧪 Test event dispatched');
 }
 
 //======================================================================
