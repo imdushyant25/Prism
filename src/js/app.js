@@ -3710,6 +3710,25 @@ document.body.addEventListener('htmx:trigger', function(event) {
 });
 
 /**
+ * DEBUG: Listen for afterSwap to see if HX-Reswap: none is working
+ */
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    console.log('🔄 HTMX afterSwap:', event.detail);
+    console.log('🔄 Target element:', event.detail.target);
+    console.log('🔄 XHR status:', event.detail.xhr?.status);
+});
+
+/**
+ * DEBUG: Listen for beforeSwap to see swap behavior
+ */
+document.body.addEventListener('htmx:beforeSwap', function(event) {
+    console.log('⚡ HTMX beforeSwap:', event.detail);
+    console.log('⚡ Server response:', event.detail.serverResponse);
+    console.log('⚡ Should swap:', event.detail.shouldSwap);
+    console.log('⚡ XHR headers:', event.detail.xhr?.getAllResponseHeaders());
+});
+
+/**
  * Listen for custom error notification events from HTMX responses
  * Backend sends errors via HX-Trigger header with showErrorNotification event
  */
