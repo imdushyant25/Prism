@@ -1717,9 +1717,21 @@ window.handleAddRuleResponse = function(event) {
                 target: '#rules-container'
             });
         } else if (triggerHeader.includes('showErrorNotification')) {
-            // Error notification will be handled by the global event listener
-            // Keep modal open so user can fix the error
-            console.log('🔴 Error occurred, keeping modal open');
+            // Parse and manually fire the error notification event
+            try {
+                const triggers = JSON.parse(triggerHeader);
+                if (triggers.showErrorNotification) {
+                    const errorEvent = new CustomEvent('showErrorNotification', {
+                        detail: { value: triggers.showErrorNotification },
+                        bubbles: true
+                    });
+                    document.body.dispatchEvent(errorEvent);
+                    console.log('🔴 Error notification event fired, modal staying open');
+                }
+            } catch (e) {
+                console.error('Failed to parse error trigger:', e);
+                showNotification('Failed to create rule. Please try again.', 'error');
+            }
         }
     } else {
         // No trigger header at all - treat as error
