@@ -97,6 +97,11 @@ body.modal-open {
 .tab-pane.active {
     display: block;
 }
+
+/* Notification must be above modal */
+#notification {
+    z-index: 9999 !important;
+}
     </style>
 </head>
 <body class="bg-gray-50">
@@ -269,7 +274,7 @@ body.modal-open {
     </div>
 
     <!-- Notification Area -->
-    <div id="notification" class="fixed top-4 right-4 z-[9999]">
+    <div id="notification" class="fixed top-4 right-4">
         <!-- Success/error messages will appear here -->
     </div>
 
