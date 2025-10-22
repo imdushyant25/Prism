@@ -101,7 +101,8 @@
                     </tr>
                 </thead>
                 <tbody id="rfp-reports-tbody" class="bg-white divide-y divide-gray-200">
-                    <!-- Empty state -->
+                    {{^REPORTS_HTML}}
+                    <!-- Empty state - only shown when no reports exist -->
                     <tr>
                         <td colspan="7" class="px-6 py-12 text-center">
                             <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -120,6 +121,7 @@
                             </div>
                         </td>
                     </tr>
+                    {{/REPORTS_HTML}}
                     {{REPORTS_HTML}}
                 </tbody>
             </table>
@@ -191,6 +193,64 @@ function toggleAllReportCheckboxes(masterCheckbox) {
         checkbox.checked = masterCheckbox.checked;
     });
     updateCompareButton();
+}
+
+// Toggle report action menu
+function toggleReportMenu(reportId) {
+    const menu = document.getElementById(`report-menu-${reportId}`);
+
+    // Close all other open menus first
+    document.querySelectorAll('[id^="report-menu-"]').forEach(m => {
+        if (m.id !== `report-menu-${reportId}`) {
+            m.classList.add('hidden');
+        }
+    });
+
+    // Toggle this menu
+    menu.classList.toggle('hidden');
+}
+
+// Close menus when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('[id^="report-menu-"]') && !event.target.closest('button[onclick^="toggleReportMenu"]')) {
+        document.querySelectorAll('[id^="report-menu-"]').forEach(menu => {
+            menu.classList.add('hidden');
+        });
+    }
+});
+
+// Edit report
+function editReport(reportId) {
+    console.log('📝 Editing report:', reportId);
+    // TODO: Implement edit functionality
+    alert(`Edit Report ${reportId} - Feature coming soon!`);
+    toggleReportMenu(reportId);
+}
+
+// Run report
+function runReport(reportId) {
+    console.log('▶️ Running report:', reportId);
+    // TODO: Implement run functionality
+    if (confirm(`Do you want to run this report now?`)) {
+        alert(`Running Report ${reportId} - Feature coming soon!`);
+    }
+    toggleReportMenu(reportId);
+}
+
+// Delete report
+function deleteReport(reportId, reportName) {
+    console.log('🗑️ Deleting report:', reportId);
+
+    if (confirm(`Are you sure you want to delete "${reportName}"?\n\nThis action cannot be undone.`)) {
+        // TODO: Implement delete API call
+        alert(`Delete Report ${reportId} - Feature coming soon!`);
+        // After successful delete, refresh the table
+        // htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rfp-reports', {
+        //     target: '#reports-container',
+        //     swap: 'innerHTML'
+        // });
+    }
+    toggleReportMenu(reportId);
 }
 
 // Filter reports (placeholder for now)
