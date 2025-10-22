@@ -56,23 +56,48 @@ function renderTemplate(template, data) {
 }
 
 // Get system configuration from database
-async function getSystemConfig(client) {
+async function getSystemConfig(client, configType = null) {
     try {
-        const query = `
-            SELECT config_code, display_name, config_type
-            FROM application.prism_system_config
-            WHERE config_level = 1
-              AND config_type = 'pbm'
-              AND is_active = true
-            ORDER BY display_order, config_code
-        `;
+        let query;
+        let params = [];
 
-        const result = await client.query(query);
+        if (configType) {
+            // Get specific config type
+            query = `
+                SELECT config_code, display_name, config_type, display_order
+                FROM application.prism_system_config
+                WHERE config_level = 1
+                  AND config_type = $1
+                  AND is_active = true
+                ORDER BY display_order, config_code
+            `;
+            params = [configType];
+        } else {
+            // Get all config types
+            query = `
+                SELECT config_code, display_name, config_type, display_order
+                FROM application.prism_system_config
+                WHERE config_level = 1
+                  AND config_type IN ('pbm', 'report_type')
+                  AND is_active = true
+                ORDER BY config_type, display_order, config_code
+            `;
+        }
 
-        // Transform rows into config object
-        const config = {
-            pbm: result.rows.map(row => row.config_code)
-        };
+        const result = await client.query(query, params);
+
+        // Transform rows into config object grouped by type
+        const config = {};
+        result.rows.forEach(row => {
+            if (!config[row.config_type]) {
+                config[row.config_type] = [];
+            }
+            config[row.config_type].push({
+                code: row.config_code,
+                name: row.display_name,
+                order: row.display_order
+            });
+        });
 
         return config;
     } catch (error) {
@@ -81,17 +106,35 @@ async function getSystemConfig(client) {
     }
 }
 
-// Get active price models
-async function getActivePriceModels(client) {
+// Get active price models from prism_price_configuration
+async function getActivePriceModels(client, pbmCode = null) {
     try {
-        const query = `
-            SELECT id, name, description, created_at
-            FROM application.prism_price_modeling
-            WHERE is_active = true
-            ORDER BY name ASC
-        `;
+        let query;
+        let params = [];
 
-        const result = await client.query(query);
+        if (pbmCode) {
+            // Get models for specific PBM
+            query = `
+                SELECT id, name
+                FROM application.prism_price_configuration
+                WHERE is_active = true
+                  AND config_type = 'MODELING'
+                  AND pbm_code = $1
+                ORDER BY name ASC
+            `;
+            params = [pbmCode];
+        } else {
+            // Get all active modeling configurations (for initial load, though we'll load dynamically)
+            query = `
+                SELECT id, name, pbm_code
+                FROM application.prism_price_configuration
+                WHERE is_active = true
+                  AND config_type = 'MODELING'
+                ORDER BY pbm_code, name ASC
+            `;
+        }
+
+        const result = await client.query(query, params);
         return result.rows;
     } catch (error) {
         console.error('Error fetching active price models:', error);
@@ -99,17 +142,34 @@ async function getActivePriceModels(client) {
     }
 }
 
-// Get active clinical models
-async function getActiveClinicalModels(client) {
+// Get active clinical models filtered by PBM
+async function getActiveClinicalModels(client, pbmCode = null) {
     try {
-        const query = `
-            SELECT model_id, model_name, description, created_at
-            FROM application.prism_clinical_models
-            WHERE is_active = true
-            ORDER BY model_name ASC
-        `;
+        let query;
+        let params = [];
 
-        const result = await client.query(query);
+        if (pbmCode) {
+            // Get models for specific PBM using the join with prism_model_criteria
+            query = `
+                SELECT DISTINCT pcm.model_id, pcm.model_name
+                FROM application.prism_clinical_models pcm
+                INNER JOIN application.prism_model_criteria pmc ON pcm.model_id = pmc.model_id
+                WHERE pcm.is_active = true
+                  AND pmc.pbm = $1
+                ORDER BY pcm.model_name ASC
+            `;
+            params = [pbmCode];
+        } else {
+            // Get all active clinical models (for initial load, though we'll load dynamically)
+            query = `
+                SELECT DISTINCT pcm.model_id, pcm.model_name
+                FROM application.prism_clinical_models pcm
+                WHERE pcm.is_active = true
+                ORDER BY pcm.model_name ASC
+            `;
+        }
+
+        const result = await client.query(query, params);
         return result.rows;
     } catch (error) {
         console.error('Error fetching active clinical models:', error);
@@ -117,15 +177,15 @@ async function getActiveClinicalModels(client) {
     }
 }
 
-// Generate PBM options HTML
-function generatePBMOptions(pbmList) {
-    if (!pbmList || pbmList.length === 0) {
-        return '<option value="">No PBMs available</option>';
+// Generate dropdown options HTML from system config
+function generateDropdownOptions(configList, placeholder = 'Select...', allowEmpty = true) {
+    if (!configList || configList.length === 0) {
+        return `<option value="">No options available</option>`;
     }
 
-    let options = '<option value="">Select PBM...</option>';
-    pbmList.forEach(pbm => {
-        options += `<option value="${pbm}">${pbm}</option>`;
+    let options = allowEmpty ? `<option value="">${placeholder}</option>` : '';
+    configList.forEach(item => {
+        options += `<option value="${item.code}">${item.name}</option>`;
     });
 
     return options;
@@ -167,23 +227,28 @@ async function generateCreateReportModalHTML(client) {
         // Load template
         const modalTemplate = await getTemplate('rfp-report-create-modal.html');
 
-        // Get system config for PBMs
+        // Get system config for PBMs and Report Types
         const systemConfig = await getSystemConfig(client);
-        const pbmOptions = generatePBMOptions(systemConfig.pbm || []);
+        const pbmOptions = generateDropdownOptions(systemConfig.pbm || [], 'Select PBM...');
+        const reportTypeOptions = generateDropdownOptions(systemConfig.report_type || [], 'Select Report Type...');
+        console.log(`✅ Loaded ${systemConfig.pbm?.length || 0} PBMs and ${systemConfig.report_type?.length || 0} report types`);
 
-        // Get active price models
-        const priceModels = await getActivePriceModels(client);
-        const priceModelOptions = generatePriceModelOptions(priceModels);
-        console.log(`✅ Loaded ${priceModels.length} active price models`);
+        // Price models will be loaded dynamically based on PBM selection
+        const priceModelOptions = '<option value="">Select PBM first...</option>';
+        console.log('✅ Price models will be loaded dynamically based on PBM selection');
 
-        // Get active clinical models
-        const clinicalModels = await getActiveClinicalModels(client);
-        const clinicalModelOptions = generateClinicalModelOptions(clinicalModels);
-        console.log(`✅ Loaded ${clinicalModels.length} active clinical models`);
+        // Clinical models will be loaded dynamically based on PBM selection
+        const clinicalModelOptions = '<option value="">Select PBM first...</option>';
+        console.log('✅ Clinical models will be loaded dynamically based on PBM selection');
+
+        // Organization options (keeping null for now as per requirement)
+        const organizationOptions = '<option value="">Select Organization...</option><option value="">None</option>';
 
         // Prepare template data
         const templateData = {
             PBM_OPTIONS: pbmOptions,
+            REPORT_TYPE_OPTIONS: reportTypeOptions,
+            ORGANIZATION_OPTIONS: organizationOptions,
             PRICE_MODEL_OPTIONS: priceModelOptions,
             CLINICAL_MODEL_OPTIONS: clinicalModelOptions
         };
@@ -237,6 +302,62 @@ const handler = async (event) => {
         // Handle GET requests
         if (method === 'GET') {
 
+            // Handle price models request by PBM
+            if (queryParams.component === 'price-models' && queryParams.pbm) {
+                console.log(`📋 Fetching price models for PBM: ${queryParams.pbm}`);
+                try {
+                    const priceModels = await getActivePriceModels(client, queryParams.pbm);
+                    const priceModelOptions = generatePriceModelOptions(priceModels);
+
+                    return {
+                        statusCode: 200,
+                        headers: {
+                            'Content-Type': 'text/html',
+                            ...corsHeaders
+                        },
+                        body: priceModelOptions
+                    };
+                } catch (error) {
+                    console.error('💥 Error fetching price models:', error);
+                    return {
+                        statusCode: 500,
+                        headers: {
+                            'Content-Type': 'text/html',
+                            ...corsHeaders
+                        },
+                        body: '<option value="">Error loading price models</option>'
+                    };
+                }
+            }
+
+            // Handle clinical models request by PBM
+            if (queryParams.component === 'clinical-models' && queryParams.pbm) {
+                console.log(`📋 Fetching clinical models for PBM: ${queryParams.pbm}`);
+                try {
+                    const clinicalModels = await getActiveClinicalModels(client, queryParams.pbm);
+                    const clinicalModelOptions = generateClinicalModelOptions(clinicalModels);
+
+                    return {
+                        statusCode: 200,
+                        headers: {
+                            'Content-Type': 'text/html',
+                            ...corsHeaders
+                        },
+                        body: clinicalModelOptions
+                    };
+                } catch (error) {
+                    console.error('💥 Error fetching clinical models:', error);
+                    return {
+                        statusCode: 500,
+                        headers: {
+                            'Content-Type': 'text/html',
+                            ...corsHeaders
+                        },
+                        body: '<option value="">Error loading clinical models</option>'
+                    };
+                }
+            }
+
             // Handle create report modal request
             if (queryParams.component === 'create-report') {
                 console.log('📋 Loading create report modal...');
@@ -270,11 +391,11 @@ const handler = async (event) => {
 
                 // Get system config for PBM filter options
                 const systemConfig = await getSystemConfig(client);
-                const pbmFilterOptions = generatePBMOptions(systemConfig.pbm || []);
+                const pbmFilterOptions = generateDropdownOptions(systemConfig.pbm || [], 'All PBMs');
 
                 const templateData = {
                     PBM_FILTER_OPTIONS: pbmFilterOptions,
-                    REPORTS_HTML: '' // Empty for now - no database table yet
+                    REPORTS_HTML: '' // Empty for now - will be populated when we query the database
                 };
 
                 const renderedHTML = renderTemplate(tableTemplate, templateData);
