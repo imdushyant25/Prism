@@ -1,5 +1,5 @@
 <!-- RFP Reports Table -->
-<div class="space-y-4">
+<div id="rfp-reports-content" class="space-y-4">
     <!-- Header with Actions -->
     <div class="flex items-center justify-between mb-6">
         <div>
@@ -432,10 +432,10 @@ function filterRFPReports() {
 
     url += params.join('&');
 
-    // Reload the reports table with filters
+    // Reload the reports table with filters - target the correct container
     htmx.ajax('GET', url, {
-        target: '#reports-container',
-        swap: 'innerHTML'
+        target: '#rfp-reports-content',
+        swap: 'outerHTML'
     });
 }
 

@@ -713,15 +713,15 @@ const handler = async (event) => {
                     },
                     body: `
                         <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
-                            <strong>Success!</strong> Report "${newReport.report_name}" has been created successfully.
+                            <strong>Success!</strong> Report "${escapeHtml(newReport.report_name)}" has been created successfully.
                         </div>
                         <script>
                             setTimeout(() => {
                                 closeModal();
-                                // Refresh the reports table
+                                // Refresh the reports table - target the correct container
                                 htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rfp-reports', {
-                                    target: '#reports-container',
-                                    swap: 'innerHTML'
+                                    target: '#rfp-reports-content',
+                                    swap: 'outerHTML'
                                 });
                             }, 1500);
                         </script>
