@@ -219,6 +219,210 @@ function generateClinicalModelOptions(clinicalModels) {
     return options;
 }
 
+// Insert new report into database
+async function createReport(client, reportData) {
+    try {
+        const query = `
+            INSERT INTO application.prism_rfp_reports (
+                report_name, report_type, pbm, organization,
+                effective_from, effective_to,
+                price_model_id, clinical_model_id,
+                status, created_by
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+            ) RETURNING report_id, report_name, status
+        `;
+
+        const values = [
+            reportData.report_name,
+            reportData.report_type,
+            reportData.pbm,
+            reportData.organization || null,
+            reportData.effective_from,
+            reportData.effective_to,
+            reportData.price_model_id,
+            reportData.clinical_model_id,
+            'pending', // Default status
+            reportData.created_by || 'system'
+        ];
+
+        const result = await client.query(query, values);
+        console.log(`✅ Report created with ID: ${result.rows[0].report_id}`);
+        return result.rows[0];
+    } catch (error) {
+        console.error('Error creating report:', error);
+        throw error;
+    }
+}
+
+// Get reports list from database
+async function getReportsList(client, filters = {}) {
+    try {
+        let whereClauses = [];
+        let params = [];
+        let paramCounter = 1;
+
+        // Add filters if provided
+        if (filters.pbm) {
+            whereClauses.push(`r.pbm = $${paramCounter}`);
+            params.push(filters.pbm);
+            paramCounter++;
+        }
+
+        if (filters.status) {
+            whereClauses.push(`r.status = $${paramCounter}`);
+            params.push(filters.status);
+            paramCounter++;
+        }
+
+        const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+        const query = `
+            SELECT
+                r.report_id,
+                r.report_name,
+                r.report_type,
+                r.pbm,
+                r.organization,
+                r.effective_from,
+                r.effective_to,
+                r.status,
+                r.date_run,
+                r.created_at,
+                pm.name as price_model_name,
+                cm.model_name as clinical_model_name
+            FROM application.prism_rfp_reports r
+            LEFT JOIN application.prism_price_configuration pm ON r.price_model_id = pm.id
+            LEFT JOIN application.prism_clinical_models cm ON r.clinical_model_id = cm.model_id
+            ${whereClause}
+            ORDER BY r.created_at DESC
+            LIMIT 100
+        `;
+
+        const result = await client.query(query, params);
+        console.log(`✅ Fetched ${result.rows.length} reports`);
+        return result.rows;
+    } catch (error) {
+        console.error('Error fetching reports list:', error);
+        throw error;
+    }
+}
+
+// Generate report rows HTML
+function generateReportRowsHTML(reports) {
+    if (!reports || reports.length === 0) {
+        return ''; // Return empty, let the empty state in the template show
+    }
+
+    let html = '';
+    reports.forEach(report => {
+        // Format dates
+        const dateRange = `${formatDate(report.effective_from)} - ${formatDate(report.effective_to)}`;
+        const dateRun = report.date_run ? formatDateTime(report.date_run) : formatDateTime(report.created_at);
+
+        // Status badge
+        const statusBadge = getStatusBadge(report.status);
+
+        html += `
+            <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4">
+                    <input type="checkbox"
+                           class="report-checkbox rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                           value="${report.report_id}"
+                           onchange="updateCompareButton()">
+                </td>
+                <td class="px-6 py-4">
+                    <div class="text-sm font-medium text-gray-900">${escapeHtml(report.report_name)}</div>
+                    <div class="text-xs text-gray-500 mt-1">${escapeHtml(report.report_type || 'standard')}</div>
+                </td>
+                <td class="px-6 py-4">
+                    <div class="text-sm text-gray-900">${escapeHtml(report.pbm)}</div>
+                    ${report.organization ? `<div class="text-xs text-gray-500">${escapeHtml(report.organization)}</div>` : ''}
+                </td>
+                <td class="px-6 py-4">
+                    <div class="text-sm text-gray-900">${dateRange}</div>
+                </td>
+                <td class="px-6 py-4">
+                    <div class="text-sm text-gray-500">${dateRun}</div>
+                </td>
+                <td class="px-6 py-4">
+                    ${statusBadge}
+                </td>
+                <td class="px-6 py-4 text-center">
+                    <div class="flex items-center justify-center space-x-2">
+                        <button onclick="viewReport(${report.report_id})"
+                                class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                title="View Report">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
+                        </button>
+                        <button onclick="downloadReport(${report.report_id})"
+                                class="text-green-600 hover:text-green-800 text-sm font-medium"
+                                title="Download Report">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </button>
+                        <button onclick="deleteReport(${report.report_id})"
+                                class="text-red-600 hover:text-red-800 text-sm font-medium"
+                                title="Delete Report">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    return html;
+}
+
+// Helper: Format date (YYYY-MM-DD)
+function formatDate(dateStr) {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+// Helper: Format date time
+function formatDateTime(dateStr) {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+// Helper: Get status badge HTML
+function getStatusBadge(status) {
+    const badges = {
+        'pending': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">Pending</span>',
+        'running': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">Running</span>',
+        'completed': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Completed</span>',
+        'failed': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Failed</span>'
+    };
+    return badges[status] || badges['pending'];
+}
+
+// Helper: Escape HTML to prevent XSS
+function escapeHtml(text) {
+    if (!text) return '';
+    return text.toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 // Generate Create Report Modal HTML
 async function generateCreateReportModalHTML(client) {
     try {
@@ -393,9 +597,18 @@ const handler = async (event) => {
                 const systemConfig = await getSystemConfig(client);
                 const pbmFilterOptions = generateDropdownOptions(systemConfig.pbm || [], 'All PBMs');
 
+                // Build filters from query params
+                const filters = {};
+                if (queryParams.pbm) filters.pbm = queryParams.pbm;
+                if (queryParams.status) filters.status = queryParams.status;
+
+                // Fetch reports list from database
+                const reports = await getReportsList(client, filters);
+                const reportsHTML = generateReportRowsHTML(reports);
+
                 const templateData = {
                     PBM_FILTER_OPTIONS: pbmFilterOptions,
-                    REPORTS_HTML: '' // Empty for now - will be populated when we query the database
+                    REPORTS_HTML: reportsHTML
                 };
 
                 const renderedHTML = renderTemplate(tableTemplate, templateData);
@@ -423,26 +636,84 @@ const handler = async (event) => {
 
         // Handle POST requests
         if (method === 'POST' && queryParams.action === 'run-report') {
-            console.log('🚀 Run report requested (placeholder)');
+            console.log('💾 Saving new report...');
 
-            // For now, just return "Coming Soon" message
-            return {
-                statusCode: 200,
-                headers: {
-                    'Content-Type': 'text/html',
-                    ...corsHeaders
-                },
-                body: `
-                    <div class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded">
-                        <strong>Coming Soon!</strong> Report generation will be available in a future update.
-                    </div>
-                    <script>
-                        setTimeout(() => {
-                            closeModal();
-                        }, 2000);
-                    </script>
-                `
-            };
+            try {
+                // Parse form data from body
+                const body = event.body || '';
+                const formData = {};
+
+                // Parse URL-encoded form data
+                if (event.headers['content-type']?.includes('application/x-www-form-urlencoded')) {
+                    body.split('&').forEach(pair => {
+                        const [key, value] = pair.split('=');
+                        formData[decodeURIComponent(key)] = decodeURIComponent(value || '');
+                    });
+                }
+
+                console.log('📝 Form data:', formData);
+
+                // Validate required fields
+                const requiredFields = ['report_name', 'report_type', 'pbm', 'effective_from', 'effective_to', 'price_model_id', 'clinical_model_id'];
+                const missingFields = requiredFields.filter(field => !formData[field]);
+
+                if (missingFields.length > 0) {
+                    return {
+                        statusCode: 400,
+                        headers: {
+                            'Content-Type': 'text/html',
+                            ...corsHeaders
+                        },
+                        body: `
+                            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                                <strong>Error!</strong> Missing required fields: ${missingFields.join(', ')}
+                            </div>
+                        `
+                    };
+                }
+
+                // Create report in database
+                const newReport = await createReport(client, formData);
+
+                // Return success message and refresh the reports table
+                return {
+                    statusCode: 200,
+                    headers: {
+                        'Content-Type': 'text/html',
+                        ...corsHeaders
+                    },
+                    body: `
+                        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+                            <strong>Success!</strong> Report "${newReport.report_name}" has been created successfully.
+                        </div>
+                        <script>
+                            setTimeout(() => {
+                                closeModal();
+                                // Refresh the reports table
+                                htmx.ajax('GET', 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rfp-reports', {
+                                    target: '#reports-container',
+                                    swap: 'innerHTML'
+                                });
+                            }, 1500);
+                        </script>
+                    `
+                };
+
+            } catch (error) {
+                console.error('💥 Error creating report:', error);
+                return {
+                    statusCode: 500,
+                    headers: {
+                        'Content-Type': 'text/html',
+                        ...corsHeaders
+                    },
+                    body: `
+                        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                            <strong>Error!</strong> Failed to create report: ${error.message}
+                        </div>
+                    `
+                };
+            }
         }
 
         // Default response
