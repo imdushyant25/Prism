@@ -27,43 +27,101 @@
     </div>
 
     <!-- Filters -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <!-- PBM Filter -->
-            <div>
-                <label for="rfp-pbm-filter" class="block text-sm font-medium text-gray-700 mb-1">
-                    PBM
-                </label>
-                <select id="rfp-pbm-filter"
-                        name="pbm"
-                        onchange="filterRFPReports()"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    {{PBM_FILTER_OPTIONS}}
-                </select>
-            </div>
+    <div class="bg-white rounded-lg border mb-6 shadow-sm">
+        <!-- Filter Header -->
+        <div class="p-4 border-b bg-gray-50 rounded-t-lg">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <h3 class="text-lg font-semibold text-gray-900">Report Filters</h3>
+                    <span id="rfp-filter-count" class="bg-blue-100 text-blue-800 text-sm px-2 py-1 rounded-full">
+                        0 active
+                    </span>
+                </div>
 
-            <!-- Status Filter -->
-            <div>
-                <label for="rfp-status-filter" class="block text-sm font-medium text-gray-700 mb-1">
-                    Status
-                </label>
-                <select id="rfp-status-filter"
-                        name="status"
-                        onchange="filterRFPReports()"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">All Statuses</option>
-                    <option value="completed">Completed</option>
-                    <option value="running">Running</option>
-                    <option value="failed">Failed</option>
-                </select>
+                <div class="flex items-center gap-3">
+                    <button type="button"
+                            onclick="clearRFPFilters()"
+                            class="text-red-500 hover:text-red-700 text-sm font-medium">
+                        Clear All
+                    </button>
+                    <button type="button"
+                            onclick="toggleRFPFilters()"
+                            class="text-gray-500 hover:text-gray-700 p-1 rounded">
+                        <svg id="rfp-filter-chevron" class="w-5 h-5 transform transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
+        </div>
 
-            <!-- Clear Filters -->
-            <div class="flex items-end">
-                <button onclick="clearRFPFilters()"
-                        class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50">
-                    Clear Filters
-                </button>
+        <!-- Collapsible Filter Body -->
+        <div id="rfp-filter-body" class="expand">
+            <div class="p-4">
+                <!-- Filters Row -->
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
+
+                    <!-- PBM Filter -->
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-gray-700">PBM</label>
+                        <select id="rfp-pbm-filter"
+                                name="pbm"
+                                onchange="filterRFPReports()"
+                                class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            {{PBM_FILTER_OPTIONS}}
+                        </select>
+                    </div>
+
+                    <!-- Report Type Filter -->
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-gray-700">Report Type</label>
+                        <select id="rfp-report-type-filter"
+                                name="report_type"
+                                onchange="filterRFPReports()"
+                                class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            {{REPORT_TYPE_FILTER_OPTIONS}}
+                        </select>
+                    </div>
+
+                    <!-- Status Filter -->
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-gray-700">Status</label>
+                        <select id="rfp-status-filter"
+                                name="status"
+                                onchange="filterRFPReports()"
+                                class="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            {{STATUS_FILTER_OPTIONS}}
+                        </select>
+                    </div>
+
+                    <!-- Search -->
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-gray-700">Search Name</label>
+                        <div class="relative">
+                            <input type="text"
+                                   id="rfp-search-name"
+                                   name="name_search"
+                                   onkeyup="filterRFPReports()"
+                                   placeholder="Search by name..."
+                                   class="w-full border border-gray-300 rounded-md pl-10 pr-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Filters Display -->
+        <div id="rfp-active-filters" class="border-t bg-gray-50 px-4 py-3 hidden">
+            <div class="flex items-center gap-2">
+                <span class="text-sm font-medium text-gray-700">Active Filters:</span>
+                <div id="rfp-filter-badges" class="flex flex-wrap gap-2">
+                    <!-- Filter badges will be added here dynamically -->
+                </div>
             </div>
         </div>
     </div>
@@ -253,16 +311,145 @@ function deleteReport(reportId, reportName) {
     toggleReportMenu(reportId);
 }
 
-// Filter reports (placeholder for now)
-function filterRFPReports() {
-    console.log('🔍 Filtering RFP reports...');
-    // Will be implemented when we have actual data
+// Toggle filter panel collapse
+function toggleRFPFilters() {
+    const filterBody = document.getElementById('rfp-filter-body');
+    const chevron = document.getElementById('rfp-filter-chevron');
+
+    if (filterBody.classList.contains('expand')) {
+        filterBody.classList.remove('expand');
+        filterBody.classList.add('collapse');
+        chevron.classList.remove('rotate-180');
+    } else {
+        filterBody.classList.remove('collapse');
+        filterBody.classList.add('expand');
+        chevron.classList.add('rotate-180');
+    }
 }
 
-// Clear filters
-function clearRFPFilters() {
-    document.getElementById('rfp-pbm-filter').value = '';
-    document.getElementById('rfp-status-filter').value = '';
+// Update filter count badge
+function updateRFPFilterCount() {
+    const pbm = document.getElementById('rfp-pbm-filter')?.value || '';
+    const reportType = document.getElementById('rfp-report-type-filter')?.value || '';
+    const status = document.getElementById('rfp-status-filter')?.value || '';
+    const search = document.getElementById('rfp-search-name')?.value || '';
+
+    let count = 0;
+    if (pbm) count++;
+    if (reportType) count++;
+    if (status) count++;
+    if (search) count++;
+
+    const badge = document.getElementById('rfp-filter-count');
+    if (badge) {
+        badge.textContent = `${count} active`;
+    }
+
+    // Show/hide active filters section
+    const activeFiltersDiv = document.getElementById('rfp-active-filters');
+    const badgesDiv = document.getElementById('rfp-filter-badges');
+
+    if (count > 0) {
+        activeFiltersDiv?.classList.remove('hidden');
+
+        // Generate filter badges
+        let badgesHTML = '';
+        if (pbm) {
+            const pbmText = document.querySelector(`#rfp-pbm-filter option[value="${pbm}"]`)?.text || pbm;
+            badgesHTML += `<span class="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                PBM: ${pbmText}
+                <button onclick="clearSingleRFPFilter('pbm')" class="hover:text-blue-900">×</button>
+            </span>`;
+        }
+        if (reportType) {
+            const typeText = document.querySelector(`#rfp-report-type-filter option[value="${reportType}"]`)?.text || reportType;
+            badgesHTML += `<span class="inline-flex items-center gap-1 bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full">
+                Type: ${typeText}
+                <button onclick="clearSingleRFPFilter('report_type')" class="hover:text-purple-900">×</button>
+            </span>`;
+        }
+        if (status) {
+            const statusText = document.querySelector(`#rfp-status-filter option[value="${status}"]`)?.text || status;
+            badgesHTML += `<span class="inline-flex items-center gap-1 bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                Status: ${statusText}
+                <button onclick="clearSingleRFPFilter('status')" class="hover:text-green-900">×</button>
+            </span>`;
+        }
+        if (search) {
+            badgesHTML += `<span class="inline-flex items-center gap-1 bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded-full">
+                Search: "${search}"
+                <button onclick="clearSingleRFPFilter('search')" class="hover:text-gray-900">×</button>
+            </span>`;
+        }
+
+        if (badgesDiv) {
+            badgesDiv.innerHTML = badgesHTML;
+        }
+    } else {
+        activeFiltersDiv?.classList.add('hidden');
+    }
+}
+
+// Clear a single filter
+function clearSingleRFPFilter(filterType) {
+    switch(filterType) {
+        case 'pbm':
+            document.getElementById('rfp-pbm-filter').value = '';
+            break;
+        case 'report_type':
+            document.getElementById('rfp-report-type-filter').value = '';
+            break;
+        case 'status':
+            document.getElementById('rfp-status-filter').value = '';
+            break;
+        case 'search':
+            document.getElementById('rfp-search-name').value = '';
+            break;
+    }
     filterRFPReports();
 }
+
+// Filter reports
+function filterRFPReports() {
+    console.log('🔍 Filtering RFP reports...');
+
+    // Update filter count
+    updateRFPFilterCount();
+
+    // Build query params
+    const pbm = document.getElementById('rfp-pbm-filter')?.value || '';
+    const reportType = document.getElementById('rfp-report-type-filter')?.value || '';
+    const status = document.getElementById('rfp-status-filter')?.value || '';
+    const search = document.getElementById('rfp-search-name')?.value || '';
+
+    let url = 'https://bef4xsajbb.execute-api.us-east-1.amazonaws.com/dev/rfp-reports?';
+    const params = [];
+
+    if (pbm) params.push(`pbm=${encodeURIComponent(pbm)}`);
+    if (reportType) params.push(`report_type=${encodeURIComponent(reportType)}`);
+    if (status) params.push(`status=${encodeURIComponent(status)}`);
+    if (search) params.push(`search=${encodeURIComponent(search)}`);
+
+    url += params.join('&');
+
+    // Reload the reports table with filters
+    htmx.ajax('GET', url, {
+        target: '#reports-container',
+        swap: 'innerHTML'
+    });
+}
+
+// Clear all filters
+function clearRFPFilters() {
+    document.getElementById('rfp-pbm-filter').value = '';
+    document.getElementById('rfp-report-type-filter').value = '';
+    document.getElementById('rfp-status-filter').value = '';
+    document.getElementById('rfp-search-name').value = '';
+    filterRFPReports();
+}
+
+// Initialize filter count on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateRFPFilterCount();
+});
 </script>

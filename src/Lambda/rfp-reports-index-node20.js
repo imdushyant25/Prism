@@ -275,6 +275,12 @@ async function getReportsList(client, filters = {}) {
             paramCounter++;
         }
 
+        if (filters.report_type) {
+            whereClauses.push(`r.report_type = $${paramCounter}`);
+            params.push(filters.report_type);
+            paramCounter++;
+        }
+
         const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
         const query = `
@@ -608,14 +614,20 @@ const handler = async (event) => {
             try {
                 const tableTemplate = await getTemplate('rfp-reports-table.html');
 
-                // Get system config for PBM filter options
-                const systemConfig = await getSystemConfig(client);
-                const pbmFilterOptions = generateDropdownOptions(systemConfig.pbm || [], 'All PBMs');
+                // Get system config for filter options (PBM, Report Type, Status)
+                const pbmConfig = await getSystemConfig(client, 'pbm');
+                const reportTypeConfig = await getSystemConfig(client, 'report_type');
+                const statusConfig = await getSystemConfig(client, 'report_status');
+
+                const pbmFilterOptions = generateDropdownOptions(pbmConfig.pbm || [], 'All PBMs');
+                const reportTypeFilterOptions = generateDropdownOptions(reportTypeConfig.report_type || [], 'All Types');
+                const statusFilterOptions = generateDropdownOptions(statusConfig.report_status || [], 'All Statuses');
 
                 // Build filters from query params
                 const filters = {};
                 if (queryParams.pbm) filters.pbm = queryParams.pbm;
                 if (queryParams.status) filters.status = queryParams.status;
+                if (queryParams.report_type) filters.report_type = queryParams.report_type;
 
                 // Fetch reports list from database
                 const reports = await getReportsList(client, filters);
@@ -623,6 +635,8 @@ const handler = async (event) => {
 
                 const templateData = {
                     PBM_FILTER_OPTIONS: pbmFilterOptions,
+                    REPORT_TYPE_FILTER_OPTIONS: reportTypeFilterOptions,
+                    STATUS_FILTER_OPTIONS: statusFilterOptions,
                     REPORTS_HTML: reportsHTML
                 };
 
